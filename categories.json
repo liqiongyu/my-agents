@@ -1,0 +1,25 @@
+{
+  "$comment": "Allowed skill categories. Add new entries here before using them in skill.json.",
+  "categories": [
+    "general",
+    "coding",
+    "testing",
+    "debugging",
+    "devops",
+    "git",
+    "documentation",
+    "review",
+    "refactoring",
+    "security",
+    "database",
+    "api",
+    "frontend",
+    "backend",
+    "mobile",
+    "data",
+    "ai",
+    "productivity",
+    "workflow",
+    "design"
+  ]
+}

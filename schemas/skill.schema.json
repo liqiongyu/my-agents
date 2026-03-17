@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/liqiongyu/my-skills/main/schemas/skill.schema.json",
+  "title": "Skill Metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "name",
+    "displayName",
+    "description",
+    "version",
+    "maturity",
+    "categories",
+    "authors"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Skill 唯一标识（与目录名一致），建议 kebab-case。"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "对外展示名称（可含空格/大小写）。"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "一句话描述，用于索引与搜索。"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+      "description": "SemVer。"
+    },
+    "maturity": {
+      "type": "string",
+      "enum": ["experimental", "beta", "stable", "deprecated"]
+    },
+    "categories": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "description": "分类（建议小写 kebab-case）。"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "authors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/person"
+      }
+    },
+    "contributors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/person"
+      }
+    },
+    "maintainers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/person"
+      },
+      "description": "维护者（可不同于 authors）。"
+    },
+    "license": {
+      "type": "string",
+      "description": "可选：SPDX 标识或简短描述；为空表示继承仓库 License。"
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "homepage": { "type": "string", "format": "uri" },
+        "repository": { "type": "string", "format": "uri" },
+        "issues": { "type": "string", "format": "uri" },
+        "docs": { "type": "string", "format": "uri" }
+      }
+    },
+    "entrypoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skillDoc": { "type": "string", "default": "SKILL.md" },
+        "changelog": { "type": "string", "default": "CHANGELOG.md" }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "os": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["macos", "linux", "windows"]
+          }
+        },
+        "runtimes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "node": { "type": "string" },
+            "python": { "type": "string" }
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "network": {
+          "type": "string",
+          "enum": ["none", "optional", "required"]
+        }
+      }
+    },
+    "i18n": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "type": "string",
+          "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shell": { "type": "boolean" },
+        "network": { "type": "boolean" },
+        "filesystemRead": { "type": "boolean" },
+        "filesystemWrite": { "type": "boolean" }
+      },
+      "description": "用于快速判断该 skill 可能触达的资源范围（非强制）。"
+    },
+    "deprecated": {
+      "type": "boolean"
+    },
+    "replacedBy": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    }
+  },
+  "$defs": {
+    "person": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "format": "email" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@liqiongyu/my-skills",
+  "version": "0.1.0",
+  "description": "A monorepo for creating, managing, and publishing reusable Agent skills.",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build-catalog.js",
+    "new": "node scripts/new-skill.js",
+    "validate": "node scripts/validate.js",
+    "install-skill": "node scripts/install.js",
+    "test": "npm run validate"
+  },
+  "bin": {
+    "my-skills-install": "scripts/install.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/liqiongyu/my-skills.git"
+  },
+  "keywords": [
+    "agent-skills",
+    "claude-code",
+    "llm",
+    "prompt-engineering"
+  ],
+  "author": "Qiongyu Li",
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  }
+}

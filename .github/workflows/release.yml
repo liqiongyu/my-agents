@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Generate release notes from CHANGELOGs
+        id: notes
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          NOTES=""
+          for dir in skills/*/; do
+            [ -f "$dir/CHANGELOG.md" ] || continue
+            SKILL_NAME=$(basename "$dir")
+            # Extract the latest version section
+            SECTION=$(awk '/^## \[/{if(found) exit; found=1} found' "$dir/CHANGELOG.md")
+            if [ -n "$SECTION" ]; then
+              NOTES="${NOTES}### ${SKILL_NAME}\n${SECTION}\n\n"
+            fi
+          done
+
+          if [ -z "$NOTES" ]; then
+            NOTES="Release ${TAG}"
+          fi
+
+          # Write to file to avoid escaping issues
+          printf '%b' "$NOTES" > /tmp/release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.notes.outputs.tag }}" \
+            --title "${{ steps.notes.outputs.tag }}" \
+            --notes-file /tmp/release-notes.md
