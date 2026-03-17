@@ -1,0 +1,201 @@
+{
+  "version": "0.1.0",
+  "skill": "deep-research",
+  "description": "Evaluation test suite for the deep-research skill. Each case exercises a different combination of language, topic domain, and research framework to verify that the skill's claimed capabilities produce correct, well-structured, citation-backed reports.",
+  "assertions": [
+    "language_correct",
+    "inline_citations",
+    "executive_summary",
+    "credibility_tiers",
+    "consensus_debate",
+    "coverage_breadth",
+    "real_data",
+    "sources_minimum",
+    "no_hallucinated_urls"
+  ],
+  "assertion_definitions": {
+    "language_correct": "The report body (section headers, analysis, takeaways) is written in the same language as the user's request. Source titles and URLs may remain in their original language.",
+    "inline_citations": "Factual claims are followed by numbered inline citations in [N] format (e.g., [1], [2]). At least 10 distinct inline citation markers appear in the report.",
+    "executive_summary": "The report contains a clearly labeled executive summary section (e.g., '## Executive Summary' or '## 执行摘要') with 3-8 sentences summarizing key findings.",
+    "credibility_tiers": "The source list / bibliography annotates each entry with a credibility tier (Tier 1 through Tier 5) or equivalent credibility label.",
+    "consensus_debate": "The report includes both an 'Areas of Consensus' (or '共识领域') section AND an 'Areas of Debate' (or '争议领域') section, each with substantive content.",
+    "coverage_breadth": "The report covers at least 3 distinct angles, perspectives, or thematic dimensions of the topic rather than presenting a single viewpoint.",
+    "real_data": "The report contains at least 5 specific real-world data points: named companies, numeric statistics, dates of events, named studies, or concrete examples — not vague generalizations.",
+    "sources_minimum": "The bibliography / source list contains at least 8 unique, distinct sources with titles and URLs.",
+    "no_hallucinated_urls": "Every URL cited in the source list was actually fetched during the research phase. No URLs are fabricated or constructed from patterns. Verify by cross-referencing tool call logs against the bibliography."
+  },
+  "cases": [
+    {
+      "id": "eval-1",
+      "name": "Chinese comparison analysis — Rust vs Go",
+      "description": "Tests Chinese-language output, comparison/analysis trigger, Argument Mapping framework selection (technology evaluation with trade-offs), and balanced multi-perspective coverage.",
+      "prompt": "对比分析 Rust 和 Go 在后端开发中的优劣势，包括性能、开发效率、生态系统成熟度、以及大厂采用情况。请给出选型建议。",
+      "mode": "standard",
+      "expected_framework": "argument_mapping",
+      "expected_sub_questions": [
+        "Rust and Go performance benchmarks in backend scenarios",
+        "Developer productivity and learning curve comparison",
+        "Ecosystem maturity: libraries, frameworks, tooling",
+        "Industry adoption: which companies use which and why",
+        "Trade-offs and selection criteria by use case"
+      ],
+      "assertions": {
+        "language_correct": {
+          "expected_language": "zh",
+          "check": "Report body text, section headers, and analysis paragraphs are in Chinese. Source titles/URLs may be in English."
+        },
+        "inline_citations": {
+          "check": "At least 10 distinct [N] citation markers appear inline within factual claims about performance benchmarks, adoption data, ecosystem statistics."
+        },
+        "executive_summary": {
+          "check": "A clearly labeled executive summary section exists (执行摘要 or Executive Summary) with 3-5 sentences covering the comparison conclusion."
+        },
+        "credibility_tiers": {
+          "check": "Source list entries include tier annotations (e.g., 'Tier 3, 技术媒体' or 'Tier 2, Official benchmark')."
+        },
+        "consensus_debate": {
+          "check": "Report contains sections for areas of consensus (e.g., both languages agree on certain strengths) AND areas of debate (e.g., contested claims about performance in specific scenarios)."
+        },
+        "coverage_breadth": {
+          "min_perspectives": 4,
+          "check": "Covers at least: (1) raw performance / benchmarks, (2) developer experience / productivity, (3) ecosystem / library maturity, (4) industry adoption patterns. Should not be one-sided toward either language."
+        },
+        "real_data": {
+          "min_data_points": 5,
+          "check": "Contains specific data: named companies using each language, benchmark numbers, GitHub stars or package counts, Stack Overflow survey data, or similar concrete evidence."
+        },
+        "sources_minimum": {
+          "min_count": 8,
+          "check": "At least 8 unique sources in the bibliography with distinct URLs."
+        },
+        "no_hallucinated_urls": {
+          "check": "Cross-reference every URL in the source list against WebFetch/WebSearch tool call logs. Flag any URL not present in tool call history."
+        }
+      }
+    },
+    {
+      "id": "eval-2",
+      "name": "English current events — Nuclear fusion energy 2026",
+      "description": "Tests temporal awareness (must use 2026-appropriate search queries, not hardcoded past years), English output, 5W1H framework selection, and the worked example from SKILL.md to verify the agent follows its own documented pipeline.",
+      "prompt": "Research the current state of nuclear fusion energy in 2026. What are the latest breakthroughs, which companies are closest to commercialization, and what's the realistic timeline?",
+      "mode": "standard",
+      "expected_framework": "5w1h",
+      "expected_sub_questions": [
+        "Leading fusion approaches and latest milestones in 2025-2026",
+        "Companies and projects closest to commercial fusion",
+        "Remaining technical and engineering challenges",
+        "Investment landscape and funding trends",
+        "Realistic timeline for commercial fusion power"
+      ],
+      "assertions": {
+        "language_correct": {
+          "expected_language": "en",
+          "check": "Full report is in English."
+        },
+        "inline_citations": {
+          "check": "At least 10 distinct [N] citation markers appear inline. Citations should accompany milestone dates, funding amounts, company claims, and technical specifications."
+        },
+        "executive_summary": {
+          "check": "Contains a section labeled 'Executive Summary' or '## Executive Summary' with 3-5 sentences covering the overall state of fusion energy."
+        },
+        "credibility_tiers": {
+          "check": "Each source in the bibliography is annotated with a credibility tier. Expect a mix: DOE/IAEA reports (Tier 2), Nature/Science articles (Tier 1), news outlets (Tier 3), company press releases (Tier 4)."
+        },
+        "consensus_debate": {
+          "check": "Includes 'Areas of Consensus' (e.g., fusion is scientifically proven, engineering challenges remain) AND 'Areas of Debate' (e.g., timeline estimates, which approach will win, cost competitiveness)."
+        },
+        "coverage_breadth": {
+          "min_perspectives": 4,
+          "check": "Covers at least: (1) scientific/technical milestones, (2) key companies and projects, (3) engineering challenges, (4) investment/funding, (5) timeline projections. Not limited to one country or one approach."
+        },
+        "real_data": {
+          "min_data_points": 5,
+          "check": "Contains specific data: named fusion companies (e.g., Commonwealth Fusion Systems, TAE Technologies, Helion), specific milestone events with dates, funding amounts, temperature/energy figures from experiments, named facilities (NIF, ITER, SPARC)."
+        },
+        "sources_minimum": {
+          "min_count": 8,
+          "check": "At least 8 unique sources. Should include at least one government/institutional source and one scientific publication."
+        },
+        "no_hallucinated_urls": {
+          "check": "Cross-reference every URL in the source list against WebFetch/WebSearch tool call logs. Temporal queries in search logs should reference 2025 or 2026, not only older years."
+        }
+      },
+      "temporal_checks": {
+        "search_queries_must_include_current_year": true,
+        "report_should_reference_2025_2026_events": true,
+        "should_not_present_old_news_as_current": true
+      }
+    },
+    {
+      "id": "eval-3",
+      "name": "Chinese market analysis — NEV expansion into Southeast Asia",
+      "description": "Tests PESTEL framework activation for market/industry analysis, Chinese-language output, structured macro-environment coverage, and actionable strategic recommendations.",
+      "prompt": "调研中国新能源汽车出海东南亚的市场机会，分析政策环境、竞争格局、消费者偏好、以及主要挑战。请给出进入策略建议。",
+      "mode": "standard",
+      "expected_framework": "pestel",
+      "expected_sub_questions": [
+        "Southeast Asian government policies on EV adoption and imports",
+        "Competitive landscape: Chinese NEV brands vs local and global competitors",
+        "Consumer preferences and purchasing behavior in key SE Asian markets",
+        "Infrastructure readiness: charging networks, grid capacity",
+        "Economic factors: tariffs, pricing, local manufacturing requirements",
+        "Entry strategy options: export, JV, local assembly"
+      ],
+      "assertions": {
+        "language_correct": {
+          "expected_language": "zh",
+          "check": "Report body, section headers, and analysis are in Chinese. Source titles/URLs may be in English or original language."
+        },
+        "inline_citations": {
+          "check": "At least 10 distinct [N] citation markers. Citations should accompany market size figures, policy details, company market share data, and tariff rates."
+        },
+        "executive_summary": {
+          "check": "Contains a labeled executive summary (执行摘要 or equivalent) with 3-5 sentences covering the market opportunity assessment and key recommendation."
+        },
+        "credibility_tiers": {
+          "check": "Source list entries include credibility tier annotations. Expect government policy sources (Tier 2), industry reports from McKinsey/Bloomberg/Counterpoint (Tier 3), news outlets (Tier 3-4)."
+        },
+        "consensus_debate": {
+          "check": "Report identifies areas of consensus (e.g., SE Asia is a growth market for EVs) AND areas of debate (e.g., which markets to prioritize, whether local manufacturing is required, timeline for infrastructure readiness)."
+        },
+        "coverage_breadth": {
+          "min_perspectives": 4,
+          "check": "PESTEL coverage: should address at least 4 of the 6 PESTEL factors — Political (tariffs, EV policies), Economic (market size, pricing), Social (consumer preferences), Technological (charging infra), Environmental (emissions goals), Legal (import regulations). Must cover multiple SE Asian countries, not just one."
+        },
+        "real_data": {
+          "min_data_points": 5,
+          "check": "Contains specific data: named Chinese NEV companies (BYD, NIO, etc.), specific SE Asian country policies, market size figures, sales volume data, tariff rates, or named partnerships/JVs."
+        },
+        "sources_minimum": {
+          "min_count": 8,
+          "check": "At least 8 unique sources with distinct URLs covering a mix of Chinese and international sources."
+        },
+        "no_hallucinated_urls": {
+          "check": "Cross-reference every URL in the source list against WebFetch/WebSearch tool call logs. Flag any URL not present in tool call history."
+        }
+      },
+      "pestel_coverage": {
+        "required_factors": ["political", "economic", "social", "technological"],
+        "optional_factors": ["environmental", "legal"],
+        "min_factors_covered": 4
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "per_case_max": 9,
+    "total_max": 27,
+    "pass_threshold": 0.75,
+    "notes": "A case passes if it scores >= 75% of possible assertion points. The suite passes if all 3 cases pass individually."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the deep-research skill is installed and available tools include WebSearch and WebFetch (or equivalent MCP search tools).",
+    "execution": "Run each case by providing the prompt to an agent with the deep-research skill loaded. Capture the full output including tool call logs.",
+    "evaluation": "For each assertion, a human evaluator or automated checker reviews the output against the assertion definition. The no_hallucinated_urls assertion requires access to tool call logs to verify URLs were actually fetched.",
+    "environment": "Cases should be run with network access enabled. Current date context should be set to the actual run date (or 2026-03-17 for reproducibility)."
+  }
+}
