@@ -20,6 +20,13 @@ This is a monorepo for creating, managing, and publishing reusable Agent skills 
 - `npm test` — validate schemas, file structure, CHANGELOG versions, index freshness, and SKILL.md quality
 - `npm run install-skill -- <skill-name>` — install a skill to `~/.claude/commands/`
 
+## GitHub
+
+- Repo: https://github.com/liqiongyu/my-skills
+- Use `gh` CLI for GitHub operations (auth is configured).
+- Tagging `v*` triggers the release workflow (`.github/workflows/release.yml`), which aggregates CHANGELOGs into GitHub Release notes.
+- CI runs `npm test` on every push and PR (`.github/workflows/validate.yml`).
+
 ## Workflow
 
 After creating or modifying any skill, always run:
@@ -27,6 +34,12 @@ After creating or modifying any skill, always run:
 ```bash
 npm run build && npm test
 ```
+
+## Gotchas
+
+- `catalog.json` contains a volatile `generatedAt` timestamp — validation compares only `schemaVersion` + `skills`, not the timestamp.
+- To add a new category, update `categories.json` FIRST, then use it in `skill.json`. Validation will reject unknown categories.
+- `schemas/*.schema.json` `$id` fields point to GitHub raw URLs — update them if the repo is renamed or transferred.
 
 ## Skill Quality
 
