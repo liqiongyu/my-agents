@@ -7,5 +7,5 @@ node_modules/
 .claude/
 
 # Skill eval workspaces (temporary, can be regenerated)
-*-workspace/
+workspaces/
 
