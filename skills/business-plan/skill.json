@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "name": "business-plan",
+  "displayName": "Business Plan",
+  "description": "Comprehensive business planning, financial analysis, market analysis, pitch deck creation, strategic review, and valuation. Adapts to business stage (idea through mature) and scale (solopreneur through enterprise).",
+  "version": "1.0.0",
+  "maturity": "beta",
+  "categories": [
+    "business",
+    "productivity",
+    "workflow"
+  ],
+  "tags": [
+    "business-plan",
+    "financial-analysis",
+    "market-analysis",
+    "pitch-deck",
+    "valuation",
+    "strategy",
+    "SWOT",
+    "business-model",
+    "unit-economics",
+    "competitive-analysis",
+    "fundraising"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "capabilities": {
+    "shell": false,
+    "network": true,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

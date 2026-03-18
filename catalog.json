@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-18T05:01:25.439Z",
+  "generatedAt": "2026-03-18T13:45:56.253Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -21,6 +21,32 @@
         "decision-making",
         "requirements",
         "architecture"
+      ]
+    },
+    {
+      "name": "business-plan",
+      "path": "skills/business-plan",
+      "displayName": "Business Plan",
+      "description": "Comprehensive business planning, financial analysis, market analysis, pitch deck creation, strategic review, and valuation. Adapts to business stage (idea through mature) and scale (solopreneur through enterprise).",
+      "version": "1.0.0",
+      "maturity": "beta",
+      "categories": [
+        "business",
+        "productivity",
+        "workflow"
+      ],
+      "tags": [
+        "business-plan",
+        "financial-analysis",
+        "market-analysis",
+        "pitch-deck",
+        "valuation",
+        "strategy",
+        "SWOT",
+        "business-model",
+        "unit-economics",
+        "competitive-analysis",
+        "fundraising"
       ]
     },
     {

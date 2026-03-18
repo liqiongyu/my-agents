@@ -8,4 +8,5 @@ node_modules/
 
 # Skill eval workspaces (temporary, can be regenerated)
 workspaces/
+*-workspace/
 

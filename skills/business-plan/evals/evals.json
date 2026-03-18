@@ -1,0 +1,51 @@
+{
+  "skill_name": "business-plan",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm building an AI agent platform that helps e-commerce companies automate customer service — handling returns, order tracking, product recommendations, and complaint resolution. We're based in Shenzhen, targeting both Chinese and US markets. We have a working prototype with 3 pilot customers (2 Chinese TMall stores, 1 US Shopify merchant), about $5K MRR. Our inference costs are roughly 30% of revenue right now. The team is me (ex-Alibaba AI engineer, 8 years) and my cofounder (ex-JD product manager). We want to raise a Series A from both RMB and USD funds. Write me a comprehensive business plan.",
+      "expected_output": "A comprehensive business plan covering executive summary, problem/solution, market analysis with TAM/SAM/SOM, competitive landscape, business model with unit economics, go-to-market strategy, operations plan, team section, financial projections, and risk assessment. Should include China-specific fundraising guidance (VIE structure, dual-fund strategy, 赛道叙事) and AI-specific considerations (inference cost economics, platform risk, AI moat analysis).",
+      "files": [],
+      "expectations": [
+        "Output contains a market analysis section with TAM/SAM/SOM numbers for AI customer service in e-commerce",
+        "Output addresses the dual-market (China + US) fundraising strategy including corporate structure considerations",
+        "Output includes financial projections with inference cost modeling as a key COGS component",
+        "Output identifies AI-specific competitive risks including platform dependency on foundation models",
+        "Output provides a competitive landscape analysis mentioning real or plausible competitors",
+        "Output includes unit economics analysis (CAC, LTV, or cost per task)",
+        "Output addresses China-specific regulatory requirements for AI services",
+        "Output recommends a corporate structure suitable for dual RMB/USD fundraising"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I run an AI-powered code review tool as a SaaS product. Here are my numbers: 200 paying customers, $49/mo per seat, average 3 seats per customer (~$147/mo per customer). Our inference costs are about $8 per customer per month (using Claude API). We spend $15K/mo on marketing (content marketing + Google Ads), acquiring about 25 new customers per month. Monthly churn is 4%. Team is 5 people, total payroll $80K/mo. Other costs: $3K/mo infra, $2K/mo tools. Help me do a thorough financial analysis and tell me where my business stands and what to fix.",
+      "expected_output": "A detailed financial analysis covering revenue metrics, unit economics (CAC, LTV, LTV:CAC ratio, payback period), gross margin analysis with AI-specific cost breakdown, profitability assessment, cash flow analysis, and prioritized recommendations for improvement.",
+      "files": [],
+      "expectations": [
+        "Output correctly calculates MRR as approximately $29,400 (200 × $147)",
+        "Output calculates CAC as approximately $600 ($15K / 25 new customers)",
+        "Output calculates or estimates LTV using the churn rate and ARPU",
+        "Output identifies gross margin and correctly accounts for inference costs in COGS",
+        "Output flags the 4% monthly churn rate as a significant concern",
+        "Output provides specific, prioritized recommendations (not generic advice)",
+        "Output includes a profitability or break-even assessment"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I need a pitch deck outline for YC Demo Day. My startup builds AI agents that automate accounting workflows for SMBs — receipt scanning via phone camera, automatic expense categorization using ML, bank reconciliation that catches errors human bookkeepers miss. We integrate with QuickBooks and Xero. 50 paying customers, $15K MRR, growing 20% month-over-month for the last 4 months. Average customer saves 10 hours/month on bookkeeping. We're raising a $2M seed round. My cofounder and I both previously worked at Intuit on the QuickBooks AI team. Create the pitch deck outline with specific content for each slide.",
+      "expected_output": "A 12-15 slide pitch deck outline with specific content recommendations for each slide, including problem framing, solution demo points, market sizing, business model, traction metrics, competitive positioning, team highlights, and the $2M ask with use of funds.",
+      "files": [],
+      "expectations": [
+        "Output follows a logical pitch deck structure with 10-15 slides",
+        "Output includes a problem slide that quantifies the pain point for SMB accounting",
+        "Output includes specific traction metrics ($15K MRR, 50 customers, 20% MoM growth, 10 hrs/mo saved)",
+        "Output includes a market sizing section with numbers for SMB accounting/bookkeeping market",
+        "Output addresses competition and differentiates from existing solutions (QuickBooks, Xero, other AI tools)",
+        "Output includes a clear $2M ask with proposed use of funds breakdown",
+        "Output leverages the Intuit/QuickBooks team background as a credibility signal"
+      ]
+    }
+  ]
+}
