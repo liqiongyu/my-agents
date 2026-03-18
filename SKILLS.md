@@ -4,4 +4,5 @@
 
 | Name | Version | Maturity | Categories | Description |
 | --- | --- | --- | --- | --- |
+| [brainstorming](skills/brainstorming/SKILL.md) | 0.2.0 | experimental | design, workflow, productivity | Transform ideas into validated decisions through structured, scope-adaptive collaborative dialogue across all domains: software, product, business strategy, market analysis, and open-ended exploration. Features domain-adaptive thinking frameworks, five universal thinking moves, and proportional output formats. |
 | [deep-research](skills/deep-research/SKILL.md) | 0.3.0 | experimental | research, productivity | Conduct comprehensive, citation-backed web research with multi-phase pipeline, parallel execution, anti-hallucination protocols, and structured report generation. |

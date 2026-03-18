@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "name": "brainstorming",
+  "displayName": "Brainstorming",
+  "description": "Transform ideas into validated decisions through structured, scope-adaptive collaborative dialogue across all domains: software, product, business strategy, market analysis, and open-ended exploration. Features domain-adaptive thinking frameworks, five universal thinking moves, and proportional output formats.",
+  "version": "0.2.0",
+  "maturity": "experimental",
+  "categories": [
+    "design",
+    "workflow",
+    "productivity"
+  ],
+  "tags": [
+    "brainstorming",
+    "design",
+    "ideation",
+    "decision-making",
+    "requirements",
+    "architecture"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "capabilities": {
+    "shell": false,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}
