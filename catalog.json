@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-18T13:45:56.253Z",
+  "generatedAt": "2026-03-18T16:08:22.712Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -66,6 +66,29 @@
         "web-search",
         "citations",
         "report"
+      ]
+    },
+    {
+      "name": "editorial-review",
+      "path": "skills/editorial-review",
+      "displayName": "Editorial Review",
+      "description": "Comprehensive editorial review for Chinese content before publication, covering typos, grammar, punctuation, fact-checking, political compliance, and advertising law.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "review",
+        "productivity",
+        "workflow"
+      ],
+      "tags": [
+        "editorial",
+        "proofreading",
+        "chinese",
+        "review",
+        "compliance",
+        "fact-check",
+        "grammar",
+        "publishing"
       ]
     }
   ]

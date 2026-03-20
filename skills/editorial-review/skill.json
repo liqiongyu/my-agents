@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "name": "editorial-review",
+  "displayName": "Editorial Review",
+  "description": "Comprehensive editorial review for Chinese content before publication, covering typos, grammar, punctuation, fact-checking, political compliance, and advertising law.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": [
+    "review",
+    "productivity",
+    "workflow"
+  ],
+  "tags": [
+    "editorial",
+    "proofreading",
+    "chinese",
+    "review",
+    "compliance",
+    "fact-check",
+    "grammar",
+    "publishing"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "i18n": {
+    "language": "zh-CN"
+  },
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "requirements": {
+    "network": "optional"
+  },
+  "capabilities": {
+    "shell": false,
+    "network": true,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}
