@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "name": "clarify",
+  "displayName": "Clarify",
+  "description": "Structured framework for detecting ambiguity and asking hypothesis-driven clarifying questions before acting. Must consult when requests lack specifics needed to act correctly.",
+  "version": "1.0.0",
+  "maturity": "experimental",
+  "categories": [
+    "workflow",
+    "productivity"
+  ],
+  "tags": [
+    "clarification",
+    "requirements",
+    "ambiguity",
+    "specification",
+    "questioning",
+    "autonomous"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "capabilities": {
+    "shell": true,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

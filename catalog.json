@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-25T13:03:20.135Z",
+  "generatedAt": "2026-03-25T13:52:46.770Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -47,6 +47,26 @@
         "unit-economics",
         "competitive-analysis",
         "fundraising"
+      ]
+    },
+    {
+      "name": "clarify",
+      "path": "skills/clarify",
+      "displayName": "Clarify",
+      "description": "Structured framework for detecting ambiguity and asking hypothesis-driven clarifying questions before acting. Must consult when requests lack specifics needed to act correctly.",
+      "version": "1.0.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "productivity"
+      ],
+      "tags": [
+        "clarification",
+        "requirements",
+        "ambiguity",
+        "specification",
+        "questioning",
+        "autonomous"
       ]
     },
     {
