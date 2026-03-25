@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-18T16:08:22.712Z",
+  "generatedAt": "2026-03-25T05:28:09.490Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -89,6 +89,27 @@
         "fact-check",
         "grammar",
         "publishing"
+      ]
+    },
+    {
+      "name": "readme-craftsman",
+      "path": "skills/readme-craftsman",
+      "displayName": "README Craftsman",
+      "description": "Generate, update, or review README.md files with deep codebase analysis, project-type-aware templates, and quality validation. Covers OSS libraries, web services, CLI tools, personal projects, internal tools, monorepos, and config directories.",
+      "version": "1.1.0",
+      "maturity": "beta",
+      "categories": [
+        "documentation",
+        "workflow",
+        "productivity"
+      ],
+      "tags": [
+        "readme",
+        "documentation",
+        "markdown",
+        "github",
+        "project-docs",
+        "open-source"
       ]
     }
   ]
