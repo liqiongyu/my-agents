@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-25T05:28:09.490Z",
+  "generatedAt": "2026-03-25T10:31:41.292Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -92,6 +92,30 @@
       ]
     },
     {
+      "name": "prompt-engineering",
+      "path": "skills/prompt-engineering",
+      "displayName": "Prompt Engineering",
+      "description": "Master prompt engineering and context engineering for LLMs: drafting, testing, optimizing, securing, and scaling prompts across Claude, GPT, Gemini, and open-source models in production.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "ai",
+        "productivity"
+      ],
+      "tags": [
+        "prompt-engineering",
+        "context-engineering",
+        "llm",
+        "few-shot",
+        "chain-of-thought",
+        "system-prompt",
+        "prompt-optimization",
+        "prompt-security",
+        "structured-output",
+        "agent-prompting"
+      ]
+    },
+    {
       "name": "readme-craftsman",
       "path": "skills/readme-craftsman",
       "displayName": "README Craftsman",
@@ -110,6 +134,28 @@
         "github",
         "project-docs",
         "open-source"
+      ]
+    },
+    {
+      "name": "review",
+      "path": "skills/review",
+      "displayName": "Review",
+      "description": "Perform thorough, structured reviews on PRs, diffs, code, documentation, architecture designs, PRDs, API specs, and configuration changes with severity-graded findings and actionable suggestions.",
+      "version": "0.2.0",
+      "maturity": "experimental",
+      "categories": [
+        "review",
+        "coding",
+        "security"
+      ],
+      "tags": [
+        "code-review",
+        "pull-request",
+        "diff",
+        "documentation",
+        "architecture",
+        "security",
+        "quality"
       ]
     }
   ]

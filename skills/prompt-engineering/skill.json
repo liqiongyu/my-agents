@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "name": "prompt-engineering",
+  "displayName": "Prompt Engineering",
+  "description": "Master prompt engineering and context engineering for LLMs: drafting, testing, optimizing, securing, and scaling prompts across Claude, GPT, Gemini, and open-source models in production.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": [
+    "ai",
+    "productivity"
+  ],
+  "tags": [
+    "prompt-engineering",
+    "context-engineering",
+    "llm",
+    "few-shot",
+    "chain-of-thought",
+    "system-prompt",
+    "prompt-optimization",
+    "prompt-security",
+    "structured-output",
+    "agent-prompting"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "requirements": {
+    "network": "none"
+  },
+  "capabilities": {
+    "shell": false,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}
