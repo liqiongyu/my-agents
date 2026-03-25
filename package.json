@@ -1,28 +1,32 @@
 {
-  "name": "@liqiongyu/my-skills",
+  "name": "@liqiongyu/my-agents",
   "version": "0.1.0",
-  "description": "A monorepo for creating, managing, and publishing reusable Agent skills.",
+  "description": "A monorepo for creating, managing, and publishing reusable Agent skills and sub-agent definitions.",
   "type": "commonjs",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
     "build": "node scripts/build-catalog.js",
-    "new": "node scripts/new-skill.js",
+    "new": "node scripts/new.js",
     "validate": "node scripts/validate.js",
-    "install-skill": "node scripts/install.js",
+    "install-skill": "node scripts/install.js --skill",
+    "install-agent": "node scripts/install.js --agent",
     "test": "npm run validate"
   },
   "bin": {
-    "my-skills-install": "scripts/install.js"
+    "my-agents-install": "scripts/install.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/liqiongyu/my-skills.git"
+    "url": "https://github.com/liqiongyu/my-agents.git"
   },
   "keywords": [
     "agent-skills",
+    "agents",
+    "sub-agents",
     "claude-code",
+    "codex",
     "llm",
     "prompt-engineering"
   ],
