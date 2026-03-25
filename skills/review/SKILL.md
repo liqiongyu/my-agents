@@ -9,7 +9,7 @@ description: >
   my changes", "look over this", "audit", "CR", or when someone pastes code/text and
   asks for feedback. The skill auto-detects content types and applies the right review
   dimensions for each.
-version: 0.4.0
+version: 0.4.1
 ---
 
 # Review
@@ -32,6 +32,8 @@ Unified review skill. Auto-detects content types in a change set and applies the
 | **Standard** | 4–15 files (default) | Full analysis. Structured output with severity grading. |
 | **Deep** | >15 files, "thorough", or high-risk | Full analysis + impact analysis + cross-file tracing. |
 
+**Risk-based override**: File count is the default heuristic, but content risk takes precedence. Even with ≤3 files, upgrade to Standard if the change touches auth/authz, payment/billing, database schemas, or public API contracts. Conversely, user intent always wins — "quick look" means Quick, "thorough" means Deep, regardless of file count.
+
 ---
 
 ## Phase 1 — Scope
@@ -48,8 +50,9 @@ If diff >2000 lines, chunk by directory/feature and inform the user.
 
 ### 1b. Read project conventions
 
-Before analyzing, check for project-specific context that shapes what "good" looks like:
-- `CLAUDE.md`, `.cursorrules`, `AGENTS.md`, or similar instruction files
+Before analyzing, check for project-specific context that shapes what "good" looks like. Many agents auto-load project instruction files into context — check what's already available before reading files redundantly.
+
+- Project instruction files (`CLAUDE.md`, `.cursorrules`, `AGENTS.md`, `copilot-instructions.md`, or similar) — may already be in context
 - Linter/formatter configs (`.eslintrc`, `.prettierrc`, `pyproject.toml`) — if these exist, don't flag style issues they cover
 - PR template or contributing guide — check if the PR follows the project's expected format
 - Recent commit messages — understand the project's conventions
@@ -62,7 +65,7 @@ Summarize the change in one sentence before diving in. If intent is unclear from
 
 ### 1d. Classify content types
 
-Each changed file maps to one or more content types, which determine which review dimensions apply. When a file matches multiple types, use the **most specific** match.
+Each changed file maps to one or more content types. The Dimensions column below shows key dimensions for each type; the reference file contains the full checklist — apply all dimensions listed there, not just the ones summarized here. When a file matches multiple types, use the **most specific** match.
 
 | Priority | Content type | Detected by | Dimensions | Reference |
 |---|---|---|---|---|
@@ -151,8 +154,7 @@ For changes to exported functions, public APIs, schemas, or shared interfaces:
 |---|---|---|---|
 | **P0** | 🔴 Critical | Block | Security vuln, data loss, crash, factual error in docs causing harm |
 | **P1** | 🟠 High | Should fix | Correctness bug, breaking API change, missing rollback, misleading docs |
-| **P2** | 🟡 Medium | Recommended | Design issue, missing tests, incomplete docs, unclear PRD |
-| **P2** | 🟡 Medium | Recommended | DRY violations with >2 copies, inconsistent conventions that will confuse consumers |
+| **P2** | 🟡 Medium | Recommended | Design issue, missing tests, incomplete docs, unclear PRD; DRY violations with >2 copies, inconsistent conventions that will confuse consumers |
 | **P3** | 🟢 Nit | Optional | Style preference, minor wording that doesn't cause confusion |
 | — | 💡 Suggestion | — | Alternative approach, learning opportunity |
 | — | 🎉 Praise | — | Good pattern, clean code, thorough docs |
@@ -166,6 +168,7 @@ For changes to exported functions, public APIs, schemas, or shared interfaces:
 
 - 🔴 **[title]** (`file:line`): [issue + fix]
 - 🟠 **[title]** (`file:line`): [issue + fix]
+- ❓ [question, if any — omit if none]
 ```
 
 **Standard mode** — structured:
@@ -223,12 +226,22 @@ If findings >15, show top 10 and offer to expand.
 
 ## Phase 4 — Act
 
-After presenting the review:
+After presenting the review, offer next steps based on content type:
 
-> **How would you like to proceed?**
+**Code / Tests / Frontend / Infrastructure / Configuration:**
 > 1. 🔧 Fix all — 2. 🔴 Fix critical only — 3. 🎯 Fix specific — 4. ⏭️ Skip
 
-For code findings, apply code edits. For doc findings, rewrite the relevant sections. Explain behavioral impact before applying changes.
+Apply code edits directly. Explain behavioral impact before applying changes.
+
+**Documentation:**
+> 1. ✏️ Rewrite flagged sections — 2. 🎯 Rewrite specific — 3. ⏭️ Skip
+
+Rewrite the relevant sections inline.
+
+**PRD / Design Doc / API Spec:**
+> 1. 💡 Provide suggested rewrites — 2. ⏭️ Skip
+
+These content types reflect design decisions that belong to the author. Provide concrete rewrite suggestions and explain the reasoning, but don't apply changes directly — the author decides what to adopt.
 
 ---
 

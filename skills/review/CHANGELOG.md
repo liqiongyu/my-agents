@@ -5,6 +5,18 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-03-25
+
+### Fixed
+- **Severity table**: merged duplicate P2 rows into one to avoid ambiguity.
+- **Dimensions column**: clarified that listed dimensions are highlights — the reference file contains the full checklist to apply.
+- **Quick mode missing Open Questions**: added optional `❓` question line to Quick mode template.
+
+### Changed
+- **Review mode selection**: added risk-based override — high-risk content types (auth, payment, DB schema, public API) upgrade to Standard even with ≤3 files.
+- **Phase 4 Act**: differentiated action menus by content type — code gets direct fixes, docs get rewrites, design docs/PRDs get suggestions (author decides).
+- **Phase 1b project conventions**: made agent-agnostic — instructs to check what's already in context before reading files, lists convention files from multiple agents (`CLAUDE.md`, `.cursorrules`, `AGENTS.md`, `copilot-instructions.md`).
+
 ## [0.4.0] - 2026-03-25
 
 ### Added
