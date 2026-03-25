@@ -37,16 +37,35 @@ Version guidance:
 - `MINOR`: Backward-compatible new capabilities
 - `PATCH`: Backward-compatible bug fixes or doc improvements
 
-## Metadata (skill.json)
+## Adding a New Agent
 
-Field definitions are in `schemas/skill.schema.json` (enforced by CI).
+```bash
+npm run new -- --agent my-agent
+npm run build
+npm test
+```
 
-Minimum required fields:
+Conventions:
 
-- `name` / `displayName` / `description`
-- `version` / `maturity` / `categories`
-- `authors`
+- Directory name must match `agent.json` `name` field (kebab-case)
+- Required files: `agent.json`, at least one platform file (`claude-code.md` / `codex.toml`), `CHANGELOG.md`
+- `agent.json` requires an `archetype` field: `explorer`, `reviewer`, `implementer`, `planner`, `debugger`, or `custom`
+- `claude-code.md` must be substantive (>= 200 characters) and include:
+  - **YAML frontmatter** — name, description, tools
+  - **Identity** — role and expertise
+  - **Instructions** — core behavioral prompt
+  - **Workflow** — step-by-step process
+  - **Constraints** — boundaries and limitations
+- The `skills` array in `agent.json` references skills by name; validation checks they exist
+
+## Metadata
+
+Field definitions are in `schemas/skill.schema.json` and `schemas/agent.schema.json` (enforced by CI).
+
+Skill minimum required fields: `name`, `displayName`, `description`, `version`, `maturity`, `categories`, `authors`
+
+Agent minimum required fields: all of the above plus `archetype`
 
 ## Adding a New Category
 
-If your skill needs a category not in `categories.json`, add it there first, then use it in `skill.json`.
+If your skill or agent needs a category not in `categories.json`, add it there first, then use it in `skill.json` or `agent.json`.

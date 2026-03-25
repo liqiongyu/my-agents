@@ -1,8 +1,8 @@
-# My Skills
+# My Agents
 
-A monorepo for creating, managing, and publishing reusable **Agent skills** (Claude Code skills).
+A monorepo for creating, managing, and publishing reusable **Agent skills** and **sub-agent definitions** for Claude Code, Codex, and other AI coding agents.
 
-一个用来创建、管理和发布可复用 **Agent Skills**（Claude Code Skills）的 Monorepo。
+一个用来创建、管理和发布可复用 **Agent Skills** 和 **Sub-Agent 定义**的 Monorepo，支持 Claude Code、Codex 等 AI 编程工具。
 
 ## Quick Start
 
@@ -10,8 +10,11 @@ A monorepo for creating, managing, and publishing reusable **Agent skills** (Cla
 # Install dependencies
 npm install
 
-# Create a new skill
+# Create a new skill (default)
 npm run new -- <skill-name>
+
+# Create a new agent
+npm run new -- --agent <agent-name>
 
 # Rebuild indexes
 npm run build
@@ -22,26 +25,16 @@ npm test
 
 ## Using a Skill
 
-### Option 1: Install locally
-
 ```bash
-# From this repo
+# Install to ~/.claude/commands/
 npm run install-skill -- <skill-name>
-
-# This copies SKILL.md → ~/.claude/commands/<skill-name>.md
 ```
 
-### Option 2: Reference via GitHub raw URL
-
-```
-https://raw.githubusercontent.com/liqiongyu/my-skills/main/skills/<skill-name>/SKILL.md
-```
-
-### Option 3: Clone and browse
+## Using an Agent
 
 ```bash
-git clone https://github.com/liqiongyu/my-skills.git
-# Browse skills/ directory, copy what you need
+# Install to ~/.claude/agents/ and ~/.codex/agents/
+npm run install-agent -- <agent-name>
 ```
 
 ## Directory Structure
@@ -52,11 +45,18 @@ skills/<skill-name>/
   SKILL.md         # The skill prompt (trigger, instructions, examples, caveats)
   CHANGELOG.md     # Per-skill changelog (Keep a Changelog format)
 
-schemas/           # JSON Schemas for skill.json and catalog.json
+agents/<agent-name>/
+  agent.json       # Machine-readable metadata (validated by schema)
+  claude-code.md   # Claude Code agent definition (Markdown + YAML frontmatter)
+  codex.toml       # Codex agent role definition (TOML)
+  CHANGELOG.md     # Per-agent changelog (Keep a Changelog format)
+
+schemas/           # JSON Schemas for skill.json, agent.json, and catalog.json
 scripts/           # Build, validate, scaffold, and install tooling
 categories.json    # Allowed category whitelist
-catalog.json       # Auto-generated skill index (machine-readable)
+catalog.json       # Auto-generated index (machine-readable)
 SKILLS.md          # Auto-generated skill index (human-readable)
+AGENTS.md          # Auto-generated agent index (human-readable)
 ```
 
 ## Creating a Skill
@@ -65,24 +65,22 @@ SKILLS.md          # Auto-generated skill index (human-readable)
 npm run new -- my-skill
 ```
 
-This scaffolds `skills/my-skill/` with:
-- `skill.json` — fill in metadata (name, description, version, categories, authors)
-- `SKILL.md` — write the skill content (trigger conditions, instructions, examples, caveats)
-- `CHANGELOG.md` — document version history
+This scaffolds `skills/my-skill/` with `skill.json`, `SKILL.md`, and `CHANGELOG.md`.
+
+## Creating an Agent
+
+```bash
+npm run new -- --agent my-agent
+```
+
+This scaffolds `agents/my-agent/` with `agent.json`, `claude-code.md`, `codex.toml`, and `CHANGELOG.md`.
 
 Then:
 
 ```bash
-npm run build   # regenerate catalog.json and SKILLS.md
+npm run build   # regenerate catalog.json, SKILLS.md, and AGENTS.md
 npm test        # validate everything
 ```
-
-## Updating a Skill
-
-1. Edit the skill content in `skills/<name>/SKILL.md`
-2. Bump `version` in `skills/<name>/skill.json` (SemVer)
-3. Add a `## [x.y.z] - YYYY-MM-DD` section to `skills/<name>/CHANGELOG.md`
-4. Run `npm run build && npm test`
 
 ## Versioning
 
