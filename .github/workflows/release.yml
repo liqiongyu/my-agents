@@ -41,6 +41,15 @@ jobs:
             fi
           done
 
+          for dir in agents/*/; do
+            [ -f "$dir/CHANGELOG.md" ] || continue
+            AGENT_NAME=$(basename "$dir")
+            SECTION=$(awk '/^## \[/{if(found) exit; found=1} found' "$dir/CHANGELOG.md")
+            if [ -n "$SECTION" ]; then
+              NOTES="${NOTES}### ${AGENT_NAME} (agent)\n${SECTION}\n\n"
+            fi
+          done
+
           if [ -z "$NOTES" ]; then
             NOTES="Release ${TAG}"
           fi
