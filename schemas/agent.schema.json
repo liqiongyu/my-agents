@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/liqiongyu/my-agents/main/schemas/skill.schema.json",
-  "title": "Skill Metadata",
+  "$id": "https://raw.githubusercontent.com/liqiongyu/my-agents/main/schemas/agent.schema.json",
+  "title": "Agent Metadata",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,8 @@
     "version",
     "maturity",
     "categories",
-    "authors"
+    "authors",
+    "archetype"
   ],
   "properties": {
     "schemaVersion": {
@@ -22,7 +23,7 @@
     "name": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-      "description": "Skill 唯一标识（与目录名一致），建议 kebab-case。"
+      "description": "Agent 唯一标识（与目录名一致），kebab-case。"
     },
     "displayName": {
       "type": "string",
@@ -50,7 +51,7 @@
         "type": "string",
         "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
       },
-      "description": "分类（建议小写 kebab-case）。"
+      "description": "分类（小写 kebab-case），需在 categories.json 白名单中。"
     },
     "tags": {
       "type": "array",
@@ -78,6 +79,19 @@
       },
       "description": "维护者（可不同于 authors）。"
     },
+    "archetype": {
+      "type": "string",
+      "enum": ["explorer", "reviewer", "implementer", "planner", "debugger", "custom"],
+      "description": "Agent 原型，用于分类和索引。"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "description": "依赖的 skill 名称列表（引用 skills/<name>）。"
+    },
     "license": {
       "type": "string",
       "description": "可选：SPDX 标识或简短描述；为空表示继承仓库 License。"
@@ -96,7 +110,6 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "skillDoc": { "type": "string", "default": "SKILL.md" },
         "changelog": { "type": "string", "default": "CHANGELOG.md" }
       }
     },
@@ -129,16 +142,6 @@
         }
       }
     },
-    "i18n": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "language": {
-          "type": "string",
-          "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
-        }
-      }
-    },
     "capabilities": {
       "type": "object",
       "additionalProperties": false,
@@ -148,7 +151,7 @@
         "filesystemRead": { "type": "boolean" },
         "filesystemWrite": { "type": "boolean" }
       },
-      "description": "用于快速判断该 skill 可能触达的资源范围（非强制）。"
+      "description": "Agent 可能触达的资源范围（非强制）。"
     },
     "deprecated": {
       "type": "boolean"

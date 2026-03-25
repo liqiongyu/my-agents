@@ -4,7 +4,7 @@ const path = require("node:path");
 const Ajv = require("ajv/dist/2020");
 const addFormats = require("ajv-formats");
 
-const MIN_SKILL_DOC_LENGTH = 200;
+const MIN_DOC_LENGTH = 200;
 
 async function fileExists(filePath) {
   try {
@@ -20,10 +20,9 @@ async function readJson(jsonPath) {
   return JSON.parse(raw);
 }
 
-async function listSkillDirs(repoRoot) {
-  const skillsDir = path.join(repoRoot, "skills");
-  if (!(await fileExists(skillsDir))) return [];
-  const entries = await fs.readdir(skillsDir, { withFileTypes: true });
+async function listDirs(baseDir) {
+  if (!(await fileExists(baseDir))) return [];
+  const entries = await fs.readdir(baseDir, { withFileTypes: true });
   return entries
     .filter((e) => e.isDirectory())
     .map((e) => e.name)
@@ -50,14 +49,26 @@ async function loadAllowedCategories(repoRoot) {
   return new Set(data.categories);
 }
 
+async function detectPlatforms(agentDir) {
+  const platforms = [];
+  if (await fileExists(path.join(agentDir, "claude-code.md"))) {
+    platforms.push("claude-code");
+  }
+  if (await fileExists(path.join(agentDir, "codex.toml"))) {
+    platforms.push("codex");
+  }
+  return platforms.sort();
+}
+
 async function generateExpectedIndex(repoRoot) {
-  const dirs = await listSkillDirs(repoRoot);
-  const items = [];
-  for (const dirName of dirs) {
+  // Skills
+  const skillDirs = await listDirs(path.join(repoRoot, "skills"));
+  const skillItems = [];
+  for (const dirName of skillDirs) {
     const skillJsonPath = path.join(repoRoot, "skills", dirName, "skill.json");
     if (!(await fileExists(skillJsonPath))) continue;
     const skill = await readJson(skillJsonPath);
-    items.push({
+    skillItems.push({
       name: skill.name,
       path: `skills/${dirName}`,
       displayName: skill.displayName,
@@ -68,12 +79,37 @@ async function generateExpectedIndex(repoRoot) {
       tags: skill.tags ?? []
     });
   }
-  items.sort((a, b) => a.name.localeCompare(b.name));
+  skillItems.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Agents
+  const agentDirs = await listDirs(path.join(repoRoot, "agents"));
+  const agentItems = [];
+  for (const dirName of agentDirs) {
+    const agentJsonPath = path.join(repoRoot, "agents", dirName, "agent.json");
+    if (!(await fileExists(agentJsonPath))) continue;
+    const agent = await readJson(agentJsonPath);
+    const platforms = await detectPlatforms(path.join(repoRoot, "agents", dirName));
+    agentItems.push({
+      name: agent.name,
+      path: `agents/${dirName}`,
+      displayName: agent.displayName,
+      description: agent.description,
+      version: agent.version,
+      maturity: agent.maturity,
+      categories: agent.categories,
+      tags: agent.tags ?? [],
+      archetype: agent.archetype,
+      skills: agent.skills ?? [],
+      platforms
+    });
+  }
+  agentItems.sort((a, b) => a.name.localeCompare(b.name));
 
   // catalog.json comparison ignores generatedAt (volatile field)
-  const expectedCatalogObj = { schemaVersion: 1, skills: items };
+  const expectedCatalogObj = { schemaVersion: 1, skills: skillItems, agents: agentItems };
 
-  const header = [
+  // SKILLS.md
+  const skillHeader = [
     "# Skills Catalog",
     "",
     "> This file is generated. Run `npm run build`.",
@@ -81,37 +117,60 @@ async function generateExpectedIndex(repoRoot) {
     "| Name | Version | Maturity | Categories | Description |",
     "| --- | --- | --- | --- | --- |"
   ];
-  const rows = items.map((it) => {
+  const skillRows = skillItems.map((it) => {
     const link = `[${it.name}](${it.path}/SKILL.md)`;
     const categories = (it.categories ?? []).join(", ");
     const desc = (it.description ?? "").replace(/\r?\n/g, " ");
     return `| ${link} | ${it.version} | ${it.maturity} | ${categories} | ${desc} |`;
   });
-  const expectedSkillsMd = [...header, ...rows, ""].join("\n");
+  const expectedSkillsMd = [...skillHeader, ...skillRows, ""].join("\n");
 
-  return { expectedCatalogObj, expectedSkillsMd };
+  // AGENTS.md
+  const agentHeader = [
+    "# Agents Catalog",
+    "",
+    "> This file is generated. Run `npm run build`.",
+    "",
+    "| Name | Version | Maturity | Archetype | Platforms | Categories | Description |",
+    "| --- | --- | --- | --- | --- | --- | --- |"
+  ];
+  const agentRows = agentItems.map((it) => {
+    const link = `[${it.name}](${it.path}/claude-code.md)`;
+    const platforms = (it.platforms ?? []).join(", ");
+    const categories = (it.categories ?? []).join(", ");
+    const desc = (it.description ?? "").replace(/\r?\n/g, " ");
+    return `| ${link} | ${it.version} | ${it.maturity} | ${it.archetype} | ${platforms} | ${categories} | ${desc} |`;
+  });
+  const expectedAgentsMd = [...agentHeader, ...agentRows, ""].join("\n");
+
+  return { expectedCatalogObj, expectedSkillsMd, expectedAgentsMd };
 }
 
 async function main() {
   const repoRoot = path.resolve(__dirname, "..");
 
   const skillSchema = await readJson(path.join(repoRoot, "schemas", "skill.schema.json"));
+  const agentSchema = await readJson(path.join(repoRoot, "schemas", "agent.schema.json"));
   const catalogSchema = await readJson(path.join(repoRoot, "schemas", "catalog.schema.json"));
 
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
 
   const validateSkill = ajv.compile(skillSchema);
+  const validateAgent = ajv.compile(agentSchema);
   const validateCatalog = ajv.compile(catalogSchema);
 
   const allowedCategories = await loadAllowedCategories(repoRoot);
 
-  const dirs = await listSkillDirs(repoRoot);
-  const seenNames = new Set();
-
   const errors = [];
+  const warnings = [];
 
-  for (const dirName of dirs) {
+  // ── Validate skills ──────────────────────────────────────────────
+
+  const skillDirs = await listDirs(path.join(repoRoot, "skills"));
+  const seenSkillNames = new Set();
+
+  for (const dirName of skillDirs) {
     const baseDir = path.join(repoRoot, "skills", dirName);
     const skillJsonPath = path.join(baseDir, "skill.json");
 
@@ -143,10 +202,10 @@ async function main() {
       );
     }
 
-    if (seenNames.has(skill.name)) {
+    if (seenSkillNames.has(skill.name)) {
       errors.push(`Duplicate skill name: ${skill.name}`);
     }
-    seenNames.add(skill.name);
+    seenSkillNames.add(skill.name);
 
     // Validate categories against whitelist
     if (allowedCategories) {
@@ -167,9 +226,9 @@ async function main() {
       errors.push(`Missing skill doc: skills/${dirName}/${skillDoc}`);
     } else {
       const content = await fs.readFile(skillDocPath, "utf8");
-      if (content.trim().length < MIN_SKILL_DOC_LENGTH) {
+      if (content.trim().length < MIN_DOC_LENGTH) {
         errors.push(
-          `skills/${dirName}/${skillDoc}: too short (${content.trim().length} chars, minimum ${MIN_SKILL_DOC_LENGTH})`
+          `skills/${dirName}/${skillDoc}: too short (${content.trim().length} chars, minimum ${MIN_DOC_LENGTH})`
         );
       }
     }
@@ -187,7 +246,112 @@ async function main() {
     }
   }
 
-  // Validate catalog files and ensure they are in sync with skill.json files.
+  // ── Validate agents ──────────────────────────────────────────────
+
+  const agentDirs = await listDirs(path.join(repoRoot, "agents"));
+  const seenAgentNames = new Set();
+
+  for (const dirName of agentDirs) {
+    const baseDir = path.join(repoRoot, "agents", dirName);
+    const agentJsonPath = path.join(baseDir, "agent.json");
+
+    if (!(await fileExists(agentJsonPath))) {
+      continue;
+    }
+
+    let agent;
+    try {
+      agent = await readJson(agentJsonPath);
+    } catch (err) {
+      errors.push(`agents/${dirName}/agent.json: invalid JSON (${err.message})`);
+      continue;
+    }
+
+    const ok = validateAgent(agent);
+    if (!ok) {
+      errors.push(
+        `agents/${dirName}/agent.json: schema validation failed\n${formatAjvErrors(
+          validateAgent.errors
+        )}`
+      );
+      continue;
+    }
+
+    if (agent.name !== dirName) {
+      errors.push(
+        `agents/${dirName}/agent.json: name mismatch (agent.name=${agent.name}, dir=${dirName})`
+      );
+    }
+
+    if (seenAgentNames.has(agent.name)) {
+      errors.push(`Duplicate agent name: ${agent.name}`);
+    }
+    seenAgentNames.add(agent.name);
+
+    // Warn if name collides with a skill (different install targets, but can confuse)
+    if (seenSkillNames.has(agent.name)) {
+      warnings.push(
+        `agents/${dirName}: name "${agent.name}" also exists as a skill (they install to different locations, but may cause confusion)`
+      );
+    }
+
+    // Validate categories against whitelist
+    if (allowedCategories) {
+      for (const cat of agent.categories ?? []) {
+        if (!allowedCategories.has(cat)) {
+          errors.push(
+            `agents/${dirName}/agent.json: unknown category "${cat}" (add it to categories.json first)`
+          );
+        }
+      }
+    }
+
+    // At least one platform file must exist
+    const platforms = await detectPlatforms(baseDir);
+    if (platforms.length === 0) {
+      errors.push(
+        `agents/${dirName}: must have at least one platform file (claude-code.md or codex.toml)`
+      );
+    }
+
+    // Check platform file quality (>= 200 chars for .md files)
+    const claudeCodePath = path.join(baseDir, "claude-code.md");
+    if (await fileExists(claudeCodePath)) {
+      const content = await fs.readFile(claudeCodePath, "utf8");
+      if (content.trim().length < MIN_DOC_LENGTH) {
+        errors.push(
+          `agents/${dirName}/claude-code.md: too short (${content.trim().length} chars, minimum ${MIN_DOC_LENGTH})`
+        );
+      }
+    }
+
+    // Validate skill references
+    for (const skillRef of agent.skills ?? []) {
+      const skillRefPath = path.join(repoRoot, "skills", skillRef, "skill.json");
+      if (!(await fileExists(skillRefPath))) {
+        errors.push(
+          `agents/${dirName}/agent.json: references unknown skill "${skillRef}"`
+        );
+      }
+    }
+
+    // Validate changelog
+    const changelog = agent.entrypoints?.changelog ?? "CHANGELOG.md";
+    const changelogPath = path.join(baseDir, changelog);
+    if (!(await fileExists(changelogPath))) {
+      errors.push(`Missing changelog: agents/${dirName}/${changelog}`);
+    } else {
+      const hasVersion = await checkChangelogHasVersion(changelogPath, agent.version);
+      if (!hasVersion) {
+        errors.push(
+          `agents/${dirName}/${changelog}: must contain a '## [${agent.version}]' section`
+        );
+      }
+    }
+  }
+
+  // ── Validate catalog files ───────────────────────────────────────
+
   const catalogPath = path.join(repoRoot, "catalog.json");
   if (!(await fileExists(catalogPath))) {
     errors.push("Missing catalog.json (run `npm run build`)");
@@ -210,12 +374,17 @@ async function main() {
     errors.push("Missing SKILLS.md (run `npm run build`)");
   }
 
-  const { expectedCatalogObj, expectedSkillsMd } = await generateExpectedIndex(repoRoot);
+  const agentsMdPath = path.join(repoRoot, "AGENTS.md");
+  if (!(await fileExists(agentsMdPath))) {
+    errors.push("Missing AGENTS.md (run `npm run build`)");
+  }
+
+  const { expectedCatalogObj, expectedSkillsMd, expectedAgentsMd } = await generateExpectedIndex(repoRoot);
 
   // Compare catalog.json ignoring generatedAt (it changes every build)
   if (await fileExists(catalogPath)) {
     const actual = await readJson(catalogPath);
-    const actualComparable = { schemaVersion: actual.schemaVersion, skills: actual.skills };
+    const actualComparable = { schemaVersion: actual.schemaVersion, skills: actual.skills, agents: actual.agents };
     if (JSON.stringify(actualComparable) !== JSON.stringify(expectedCatalogObj)) {
       errors.push("catalog.json is out of date (run `npm run build`)");
     }
@@ -223,6 +392,16 @@ async function main() {
 
   if ((await fileExists(skillsMdPath)) && (await fs.readFile(skillsMdPath, "utf8")) !== expectedSkillsMd) {
     errors.push("SKILLS.md is out of date (run `npm run build`)");
+  }
+
+  if ((await fileExists(agentsMdPath)) && (await fs.readFile(agentsMdPath, "utf8")) !== expectedAgentsMd) {
+    errors.push("AGENTS.md is out of date (run `npm run build`)");
+  }
+
+  // Print warnings
+  if (warnings.length > 0) {
+    console.warn("Warnings:");
+    console.warn(warnings.map((w) => `  ⚠ ${w}`).join("\n"));
   }
 
   if (errors.length > 0) {

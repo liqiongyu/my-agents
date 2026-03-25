@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/liqiongyu/my-skills/main/schemas/catalog.schema.json",
-  "title": "Skills Catalog",
+  "$id": "https://raw.githubusercontent.com/liqiongyu/my-agents/main/schemas/catalog.schema.json",
+  "title": "Skills & Agents Catalog",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "generatedAt", "skills"],
+  "required": ["schemaVersion", "generatedAt", "skills", "agents"],
   "properties": {
     "schemaVersion": {
       "type": "integer",
@@ -63,6 +63,80 @@
             }
           },
           "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "path",
+          "displayName",
+          "description",
+          "version",
+          "maturity",
+          "categories",
+          "archetype"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^agents\\/[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+          },
+          "maturity": {
+            "type": "string",
+            "enum": ["experimental", "beta", "stable", "deprecated"]
+          },
+          "categories": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "archetype": {
+            "type": "string",
+            "enum": ["explorer", "reviewer", "implementer", "planner", "debugger", "custom"]
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          "platforms": {
             "type": "array",
             "items": {
               "type": "string"
