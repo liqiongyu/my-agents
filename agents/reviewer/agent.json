@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "name": "reviewer",
+  "displayName": "Reviewer",
+  "description": "Code review agent that performs structured, severity-graded reviews on PRs, diffs, and code changes.",
+  "version": "1.0.0",
+  "maturity": "experimental",
+  "categories": ["review", "coding"],
+  "tags": ["code-review", "pr", "security"],
+  "authors": [{ "name": "Qiongyu Li" }],
+  "archetype": "reviewer",
+  "skills": ["review", "clarify"],
+  "agents": ["explorer"],
+  "capabilities": {
+    "shell": true,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": false
+  }
+}

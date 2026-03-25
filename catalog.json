@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-25T15:27:03.699Z",
+  "generatedAt": "2026-03-25T15:46:58.444Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -179,5 +179,119 @@
       ]
     }
   ],
-  "agents": []
+  "agents": [
+    {
+      "name": "explorer",
+      "path": "agents/explorer",
+      "displayName": "Explorer",
+      "description": "Read-only codebase exploration agent for fast search, structure analysis, and evidence gathering.",
+      "version": "1.0.0",
+      "maturity": "experimental",
+      "categories": [
+        "coding",
+        "productivity"
+      ],
+      "tags": [
+        "exploration",
+        "search",
+        "read-only"
+      ],
+      "archetype": "explorer",
+      "skills": [
+        "clarify"
+      ],
+      "agents": [],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
+      "name": "planner",
+      "path": "agents/planner",
+      "displayName": "Planner",
+      "description": "Architecture and implementation planning agent that designs step-by-step plans with trade-off analysis.",
+      "version": "1.0.0",
+      "maturity": "experimental",
+      "categories": [
+        "design",
+        "coding",
+        "productivity"
+      ],
+      "tags": [
+        "architecture",
+        "planning",
+        "design"
+      ],
+      "archetype": "planner",
+      "skills": [
+        "brainstorming",
+        "clarify"
+      ],
+      "agents": [
+        "explorer",
+        "researcher"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
+      "name": "researcher",
+      "path": "agents/researcher",
+      "displayName": "Researcher",
+      "description": "Web research agent for deep investigation, multi-source verification, and structured report generation.",
+      "version": "1.0.0",
+      "maturity": "experimental",
+      "categories": [
+        "research",
+        "productivity"
+      ],
+      "tags": [
+        "research",
+        "web",
+        "citations"
+      ],
+      "archetype": "explorer",
+      "skills": [
+        "deep-research",
+        "clarify"
+      ],
+      "agents": [],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
+      "name": "reviewer",
+      "path": "agents/reviewer",
+      "displayName": "Reviewer",
+      "description": "Code review agent that performs structured, severity-graded reviews on PRs, diffs, and code changes.",
+      "version": "1.0.0",
+      "maturity": "experimental",
+      "categories": [
+        "review",
+        "coding"
+      ],
+      "tags": [
+        "code-review",
+        "pr",
+        "security"
+      ],
+      "archetype": "reviewer",
+      "skills": [
+        "review",
+        "clarify"
+      ],
+      "agents": [
+        "explorer"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    }
+  ]
 }

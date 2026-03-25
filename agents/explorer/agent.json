@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "name": "explorer",
+  "displayName": "Explorer",
+  "description": "Read-only codebase exploration agent for fast search, structure analysis, and evidence gathering.",
+  "version": "1.0.0",
+  "maturity": "experimental",
+  "categories": ["coding", "productivity"],
+  "tags": ["exploration", "search", "read-only"],
+  "authors": [{ "name": "Qiongyu Li" }],
+  "archetype": "explorer",
+  "skills": ["clarify"],
+  "capabilities": {
+    "shell": false,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": false
+  }
+}

@@ -92,6 +92,14 @@
       },
       "description": "依赖的 skill 名称列表（引用 skills/<name>）。"
     },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "description": "可 spawn 的 agent 名称列表（引用 agents/<name>）。被引用的 agent 不应再引用其他 agent（Claude Code 仅支持一层）。"
+    },
     "license": {
       "type": "string",
       "description": "可选：SPDX 标识或简短描述；为空表示继承仓库 License。"

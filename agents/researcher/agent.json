@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "name": "researcher",
+  "displayName": "Researcher",
+  "description": "Web research agent for deep investigation, multi-source verification, and structured report generation.",
+  "version": "1.0.0",
+  "maturity": "experimental",
+  "categories": ["research", "productivity"],
+  "tags": ["research", "web", "citations"],
+  "authors": [{ "name": "Qiongyu Li" }],
+  "archetype": "explorer",
+  "skills": ["deep-research", "clarify"],
+  "capabilities": {
+    "shell": false,
+    "network": true,
+    "filesystemRead": true,
+    "filesystemWrite": false
+  },
+  "requirements": {
+    "network": "required"
+  }
+}

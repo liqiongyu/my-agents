@@ -100,6 +100,7 @@ async function generateExpectedIndex(repoRoot) {
       tags: agent.tags ?? [],
       archetype: agent.archetype,
       skills: agent.skills ?? [],
+      agents: agent.agents ?? [],
       platforms
     });
   }
@@ -335,6 +336,22 @@ async function main() {
       }
     }
 
+    // Validate agent references
+    for (const agentRef of agent.agents ?? []) {
+      if (agentRef === agent.name) {
+        errors.push(
+          `agents/${dirName}/agent.json: self-reference in agents array`
+        );
+        continue;
+      }
+      const agentRefPath = path.join(repoRoot, "agents", agentRef, "agent.json");
+      if (!(await fileExists(agentRefPath))) {
+        errors.push(
+          `agents/${dirName}/agent.json: references unknown agent "${agentRef}"`
+        );
+      }
+    }
+
     // Validate changelog
     const changelog = agent.entrypoints?.changelog ?? "CHANGELOG.md";
     const changelogPath = path.join(baseDir, changelog);
@@ -345,6 +362,57 @@ async function main() {
       if (!hasVersion) {
         errors.push(
           `agents/${dirName}/${changelog}: must contain a '## [${agent.version}]' section`
+        );
+      }
+    }
+  }
+
+  // ── Validate agent-to-agent references (cycles & depth) ─────────
+
+  // Build adjacency map: agent name → list of referenced agent names
+  const agentGraph = new Map();
+  for (const dirName of agentDirs) {
+    const agentJsonPath = path.join(repoRoot, "agents", dirName, "agent.json");
+    if (!(await fileExists(agentJsonPath))) continue;
+    const agent = await readJson(agentJsonPath);
+    agentGraph.set(agent.name, agent.agents ?? []);
+  }
+
+  // Detect cycles via DFS
+  function detectCycle(start) {
+    const visited = new Set();
+    const stack = [start];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (visited.has(current)) {
+        return current;
+      }
+      visited.add(current);
+      for (const ref of agentGraph.get(current) ?? []) {
+        if (ref === start) return start;
+        stack.push(ref);
+      }
+    }
+    return null;
+  }
+
+  const reportedCycles = new Set();
+  for (const [name, refs] of agentGraph) {
+    if (refs.length === 0) continue;
+    const cycleNode = detectCycle(name);
+    if (cycleNode && !reportedCycles.has(name)) {
+      errors.push(
+        `agents/${name}/agent.json: circular agent reference detected (involves "${cycleNode}")`
+      );
+      reportedCycles.add(name);
+    }
+
+    // Depth check: referenced agents should not themselves reference other agents
+    for (const ref of refs) {
+      const refRefs = agentGraph.get(ref) ?? [];
+      if (refRefs.length > 0) {
+        warnings.push(
+          `agents/${name}/agent.json: references agent "${ref}" which itself references other agents — Claude Code only supports one level of subagent nesting`
         );
       }
     }

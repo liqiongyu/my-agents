@@ -60,6 +60,7 @@ function toAgentCatalogItem(agent, dirName, platforms) {
     tags: agent.tags ?? [],
     archetype: agent.archetype,
     skills: agent.skills ?? [],
+    agents: agent.agents ?? [],
     platforms
   };
 }
