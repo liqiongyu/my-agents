@@ -3,7 +3,7 @@
   "name": "planner",
   "displayName": "Planner",
   "description": "Architecture and implementation planning agent that designs step-by-step plans with trade-off analysis.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "maturity": "experimental",
   "categories": ["design", "coding", "productivity"],
   "tags": ["architecture", "planning", "design"],

@@ -12,6 +12,8 @@
     "validate": "node scripts/validate.js",
     "install-skill": "node scripts/install.js --skill",
     "install-agent": "node scripts/install.js --agent",
+    "uninstall-skill": "node scripts/install.js --skill --uninstall",
+    "uninstall-agent": "node scripts/install.js --agent --uninstall",
     "test": "npm run validate"
   },
   "bin": {

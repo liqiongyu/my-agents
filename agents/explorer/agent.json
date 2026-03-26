@@ -3,7 +3,7 @@
   "name": "explorer",
   "displayName": "Explorer",
   "description": "Read-only codebase exploration agent for fast search, structure analysis, and evidence gathering.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "maturity": "experimental",
   "categories": ["coding", "productivity"],
   "tags": ["exploration", "search", "read-only"],

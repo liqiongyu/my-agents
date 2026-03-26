@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "name": "implementer",
+  "displayName": "Implementer",
+  "description": "Code implementation agent that writes, modifies, and refactors code based on plans, specs, or direct instructions.",
+  "version": "1.0.0",
+  "maturity": "experimental",
+  "categories": ["coding", "refactoring"],
+  "tags": ["implementation", "coding", "refactoring", "write-code"],
+  "authors": [{ "name": "Qiongyu Li" }],
+  "archetype": "implementer",
+  "skills": ["clarify"],
+  "agents": ["explorer"],
+  "capabilities": {
+    "shell": true,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

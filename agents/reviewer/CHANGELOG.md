@@ -2,6 +2,19 @@
 
 All notable changes to the **reviewer** agent will be documented in this file.
 
+## [1.1.0] - 2026-03-26
+
+### Added
+
+- Review Checklists section (general, security-sensitive, performance-sensitive).
+- Using the Explorer Agent section with specific spawn guidance.
+- OWASP top 10 and N+1 query patterns in assessment dimensions.
+- Expanded Codex developer_instructions to match Claude Code depth.
+
+### Changed
+
+- Enhanced constraints with consolidation guidance for repeated findings.
+
 ## [1.0.0] - 2026-03-25
 
 ### Added

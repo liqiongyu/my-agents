@@ -3,8 +3,8 @@
   "name": "business-plan",
   "displayName": "Business Plan",
   "description": "Comprehensive business planning, financial analysis, market analysis, pitch deck creation, strategic review, and valuation. Adapts to business stage (idea through mature) and scale (solopreneur through enterprise).",
-  "version": "1.0.0",
-  "maturity": "beta",
+  "version": "1.0.1",
+  "maturity": "stable",
   "categories": [
     "business",
     "productivity",

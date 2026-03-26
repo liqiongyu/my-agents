@@ -13,22 +13,34 @@ async function fileExists(filePath) {
   }
 }
 
+async function listEntries(dir) {
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+}
+
 function parseArgs(argv) {
   const args = argv.slice(2);
   let type = null;
   let name = null;
+  let all = false;
 
   for (const arg of args) {
     if (arg === "--skill" || arg === "-s") {
       type = "skill";
     } else if (arg === "--agent" || arg === "-a") {
       type = "agent";
+    } else if (arg === "--all") {
+      all = true;
     } else if (!arg.startsWith("-")) {
       name = arg;
     }
   }
 
-  return { type, name };
+  return { type, name, all };
 }
 
 async function installSkill(repoRoot, name) {
@@ -104,25 +116,103 @@ async function installAgent(repoRoot, name) {
   }
 }
 
-async function main() {
-  const { type, name } = parseArgs(process.argv);
+async function uninstallSkill(name) {
+  const destPath = path.join(os.homedir(), ".claude", "commands", `${name}.md`);
+  if (await fileExists(destPath)) {
+    await fs.unlink(destPath);
+    console.log(`Uninstalled: ${destPath}`);
+  } else {
+    console.log(`Not installed: ${destPath}`);
+  }
+}
 
-  if (!type || !name) {
-    console.error("Usage: npm run install-skill -- <name>");
-    console.error("       npm run install-agent -- <name>");
-    console.error("");
-    console.error("  --skill, -s   Install a skill to ~/.claude/commands/");
-    console.error("  --agent, -a   Install an agent to ~/.claude/agents/ and ~/.codex/agents/");
+async function uninstallAgent(name) {
+  let removed = 0;
+
+  const claudePath = path.join(os.homedir(), ".claude", "agents", `${name}.md`);
+  if (await fileExists(claudePath)) {
+    await fs.unlink(claudePath);
+    console.log(`Uninstalled (Claude Code): ${claudePath}`);
+    removed++;
+  }
+
+  const codexPath = path.join(os.homedir(), ".codex", "agents", `${name}.toml`);
+  if (await fileExists(codexPath)) {
+    await fs.unlink(codexPath);
+    console.log(`Uninstalled (Codex): ${codexPath}`);
+    removed++;
+  }
+
+  if (removed === 0) {
+    console.log(`Not installed: ${name}`);
+  }
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const isUninstall = args.includes("--uninstall") || args.includes("-u");
+
+  const { type, name, all } = parseArgs(process.argv);
+
+  if (!type) {
+    console.error("Usage: npm run install-skill   -- <name>     Install a skill");
+    console.error("       npm run install-skill   -- --all      Install all skills");
+    console.error("       npm run install-agent   -- <name>     Install an agent");
+    console.error("       npm run install-agent   -- --all      Install all agents");
+    console.error("       npm run uninstall-skill -- <name>     Uninstall a skill");
+    console.error("       npm run uninstall-skill -- --all      Uninstall all skills");
+    console.error("       npm run uninstall-agent -- <name>     Uninstall an agent");
+    console.error("       npm run uninstall-agent -- --all      Uninstall all agents");
     process.exitCode = 2;
     return;
   }
 
   const repoRoot = path.resolve(__dirname, "..");
 
-  if (type === "agent") {
-    await installAgent(repoRoot, name);
+  if (isUninstall) {
+    if (all) {
+      const dir = type === "agent" ? "agents" : "skills";
+      const names = await listEntries(path.join(repoRoot, dir));
+      for (const n of names) {
+        if (type === "agent") {
+          await uninstallAgent(n);
+        } else {
+          await uninstallSkill(n);
+        }
+      }
+      console.log(`\nUninstalled all ${names.length} ${dir}.`);
+    } else if (name) {
+      if (type === "agent") {
+        await uninstallAgent(name);
+      } else {
+        await uninstallSkill(name);
+      }
+    } else {
+      console.error("Provide a name or use --all.");
+      process.exitCode = 2;
+    }
   } else {
-    await installSkill(repoRoot, name);
+    if (all) {
+      const dir = type === "agent" ? "agents" : "skills";
+      const names = await listEntries(path.join(repoRoot, dir));
+      for (const n of names) {
+        if (type === "agent") {
+          await installAgent(repoRoot, n);
+        } else {
+          await installSkill(repoRoot, n);
+        }
+      }
+      console.log(`\nInstalled all ${names.length} ${dir}.`);
+    } else if (name) {
+      if (type === "agent") {
+        await installAgent(repoRoot, name);
+      } else {
+        await installSkill(repoRoot, name);
+      }
+    } else {
+      console.error("Provide a name or use --all.");
+      process.exitCode = 2;
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-25T15:46:58.444Z",
+  "generatedAt": "2026-03-26T02:48:01.132Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -28,8 +28,8 @@
       "path": "skills/business-plan",
       "displayName": "Business Plan",
       "description": "Comprehensive business planning, financial analysis, market analysis, pitch deck creation, strategic review, and valuation. Adapts to business stage (idea through mature) and scale (solopreneur through enterprise).",
-      "version": "1.0.0",
-      "maturity": "beta",
+      "version": "1.0.1",
+      "maturity": "stable",
       "categories": [
         "business",
         "productivity",
@@ -140,8 +140,8 @@
       "path": "skills/readme-craftsman",
       "displayName": "README Craftsman",
       "description": "Generate, update, or review README.md files with deep codebase analysis, project-type-aware templates, and quality validation. Covers OSS libraries, web services, CLI tools, personal projects, internal tools, monorepos, and config directories.",
-      "version": "1.1.0",
-      "maturity": "beta",
+      "version": "1.1.1",
+      "maturity": "stable",
       "categories": [
         "documentation",
         "workflow",
@@ -181,11 +181,40 @@
   ],
   "agents": [
     {
+      "name": "debugger",
+      "path": "agents/debugger",
+      "displayName": "Debugger",
+      "description": "Systematic debugging agent that diagnoses bugs, test failures, and unexpected behavior through hypothesis-driven investigation.",
+      "version": "1.0.0",
+      "maturity": "experimental",
+      "categories": [
+        "debugging",
+        "coding"
+      ],
+      "tags": [
+        "debugging",
+        "troubleshooting",
+        "bug-fix",
+        "diagnostics"
+      ],
+      "archetype": "debugger",
+      "skills": [
+        "clarify"
+      ],
+      "agents": [
+        "explorer"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
       "name": "explorer",
       "path": "agents/explorer",
       "displayName": "Explorer",
       "description": "Read-only codebase exploration agent for fast search, structure analysis, and evidence gathering.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "maturity": "experimental",
       "categories": [
         "coding",
@@ -207,11 +236,40 @@
       ]
     },
     {
+      "name": "implementer",
+      "path": "agents/implementer",
+      "displayName": "Implementer",
+      "description": "Code implementation agent that writes, modifies, and refactors code based on plans, specs, or direct instructions.",
+      "version": "1.0.0",
+      "maturity": "experimental",
+      "categories": [
+        "coding",
+        "refactoring"
+      ],
+      "tags": [
+        "implementation",
+        "coding",
+        "refactoring",
+        "write-code"
+      ],
+      "archetype": "implementer",
+      "skills": [
+        "clarify"
+      ],
+      "agents": [
+        "explorer"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
       "name": "planner",
       "path": "agents/planner",
       "displayName": "Planner",
       "description": "Architecture and implementation planning agent that designs step-by-step plans with trade-off analysis.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "maturity": "experimental",
       "categories": [
         "design",
@@ -242,7 +300,7 @@
       "path": "agents/researcher",
       "displayName": "Researcher",
       "description": "Web research agent for deep investigation, multi-source verification, and structured report generation.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "maturity": "experimental",
       "categories": [
         "research",
@@ -269,7 +327,7 @@
       "path": "agents/reviewer",
       "displayName": "Reviewer",
       "description": "Code review agent that performs structured, severity-graded reviews on PRs, diffs, and code changes.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "maturity": "experimental",
       "categories": [
         "review",
