@@ -64,7 +64,7 @@ npm run build && npm test
 
 - `catalog.json` contains a volatile `generatedAt` timestamp — validation compares only `schemaVersion` + `skills` + `agents`, not the timestamp.
 - To add a new category, update `categories.json` FIRST, then use it in `skill.json` or `agent.json`. Validation will reject unknown categories.
-- `schemas/*.schema.json` `$id` fields point to GitHub raw URLs — update them if the repo is renamed or transferred.
+- Schema files under `schemas/` have `$id` fields pointing to GitHub raw URLs — update them if the repo is renamed or transferred.
 - `skill-creator` description optimization (`run_loop.py`) requires `ANTHROPIC_API_KEY` env var — it calls the Anthropic SDK directly, not via `claude -p`.
 - When a new skill overlaps with an already-installed skill (e.g., `prompt-engineering` vs `prompt-engineering-patterns`), both appear in the skill list; consider uninstalling the old one to avoid confusion.
 
