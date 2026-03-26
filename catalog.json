@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-26T03:20:07.847Z",
+  "generatedAt": "2026-03-26T13:36:31.229Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -204,6 +204,33 @@
       "agents": [
         "explorer"
       ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
+      "name": "docs-researcher",
+      "path": "agents/docs-researcher",
+      "displayName": "Docs Researcher",
+      "description": "Documentation-backed research agent for verifying APIs, SDKs, frameworks, and libraries against official sources.",
+      "version": "1.0.0",
+      "maturity": "experimental",
+      "categories": [
+        "documentation",
+        "research"
+      ],
+      "tags": [
+        "docs",
+        "api",
+        "verification",
+        "official-docs"
+      ],
+      "archetype": "explorer",
+      "skills": [
+        "clarify"
+      ],
+      "agents": [],
       "platforms": [
         "claude-code",
         "codex"

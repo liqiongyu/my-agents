@@ -86,6 +86,21 @@ function renderSkillsMarkdown(items) {
 }
 
 function renderAgentsMarkdown(items) {
+  const routingBlock = [
+    "<!-- rctl:block:start routing -->",
+    "## rctl routing",
+    "",
+    "- Treat `rctl/control-plane/control-plane.yaml` as the machine-readable entrypoint.",
+    "- Plans, status, evidence, and rollback notes live under `rctl/changes/`.",
+    "- Command/skill mappings live under `rctl/registry/`.",
+    "- Durable docs and policies live under `rctl/docs/` and `rctl/control-plane/`.",
+    "- Codex-native skills live under `.agents/skills/`.",
+    "- Claude Code uses `CLAUDE.md`, `.claude/skills/`, and `.claude/commands/`.",
+    "- Keep root guidance short; detailed operating truth belongs under `rctl/`.",
+    "",
+    "- For non-trivial work, create or update an active change under `rctl/changes/active/<change-id>/` before broad edits.",
+    "<!-- rctl:block:end routing -->"
+  ];
   const header = [
     "# Agents Catalog",
     "",
@@ -103,7 +118,7 @@ function renderAgentsMarkdown(items) {
     return `| ${link} | ${it.version} | ${it.maturity} | ${it.archetype} | ${platforms} | ${categories} | ${desc} |`;
   });
 
-  return [...header, ...rows, ""].join("\n");
+  return [...header, ...rows, "", ...routingBlock, ""].join("\n");
 }
 
 async function main() {

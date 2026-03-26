@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "name": "docs-researcher",
+  "displayName": "Docs Researcher",
+  "description": "Documentation-backed research agent for verifying APIs, SDKs, frameworks, and libraries against official sources.",
+  "version": "1.0.0",
+  "maturity": "experimental",
+  "categories": ["documentation", "research"],
+  "tags": ["docs", "api", "verification", "official-docs"],
+  "authors": [{ "name": "Qiongyu Li" }],
+  "archetype": "explorer",
+  "skills": ["clarify"],
+  "capabilities": {
+    "shell": false,
+    "network": true,
+    "filesystemRead": true,
+    "filesystemWrite": false
+  },
+  "requirements": {
+    "network": "required"
+  }
+}
