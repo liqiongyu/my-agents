@@ -2,6 +2,20 @@
 
 All notable changes to the **explorer** agent will be documented in this file.
 
+## [1.2.0] - 2026-03-26
+
+### Added
+
+- Change scoping guidance for blast-radius analysis and risky touch points.
+- Reporting guidance for separating observed facts from inference.
+- Preferred output shape with impact radius and next recommended check sections.
+
+### Changed
+
+- Updated the Codex configuration to use `gpt-5.3-codex-spark` with `high` reasoning effort.
+- Aligned the Claude Code definition with the newer Codex prompt wording and reporting structure.
+- Refined the one-line agent description to include impact analysis.
+
 ## [1.1.0] - 2026-03-26
 
 ### Added

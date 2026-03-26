@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-26T13:36:31.229Z",
+  "generatedAt": "2026-03-26T13:47:02.582Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -240,8 +240,8 @@
       "name": "explorer",
       "path": "agents/explorer",
       "displayName": "Explorer",
-      "description": "Read-only codebase exploration agent for fast search, structure analysis, and evidence gathering.",
-      "version": "1.1.0",
+      "description": "Use when a task needs fast read-only codebase mapping, evidence gathering, impact analysis, or file and symbol discovery before implementation or review.",
+      "version": "1.2.0",
       "maturity": "experimental",
       "categories": [
         "coding",
