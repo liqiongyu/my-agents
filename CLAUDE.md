@@ -57,7 +57,7 @@ npm run build && npm test
 
 ## Skill Evaluation
 
-- Eval workspaces go in `<skill-name>-workspace/` at repo root (sibling to `skills/`), not inside the skill directory.
+- Eval workspaces go in `workspaces/<skill-name>/` (sibling to `skills/`), not inside the skill directory.
 - Knowledge-domain skills (prompt-engineering, debugging methodology) have inherently low auto-trigger rates because Claude already has the knowledge; they work best via explicit `/skill-name` invocation.
 
 ## Gotchas
