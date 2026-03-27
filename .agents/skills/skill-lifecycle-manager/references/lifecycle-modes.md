@@ -26,7 +26,7 @@ This is not a lifecycle stage and not an execution depth. It is a design constra
 
 | Stage | Run it when | Primary output | Common stop condition |
 | --- | --- | --- | --- |
-| Discover | Need comparison, official references, upstream patterns | source inventory / fusion notes | enough signal to start writing |
+| Discover | Need comparison, official references, upstream patterns | source inventory / fusion notes / delegated research handoff | enough signal to start writing, or a delegated research checkpoint requires user input |
 | Create / Update | Need a new skill or a substantial revision | updated skill package | package exists and reflects current intent |
 | Validate | Need structural confidence before wider testing | pass/fail report | structure and metadata errors resolved |
 | Evaluate | Need behavioral confidence | iteration artifacts / review notes | the skill is good enough or failure mode is understood |
@@ -109,6 +109,8 @@ Use the smallest valid sequence:
 | Full rehabilitation of a weak skill | Discover -> Create/Update -> Validate -> Evaluate -> Optimize Trigger |
 | Cross-platform release | Create/Update -> Validate -> Project/Install/Publish |
 
+If `Discover` delegates to a specialist skill, do not move to `Create/Update` until that specialist skill's required checkpoints and handoff semantics have been satisfied.
+
 ## Discover And `skill-researcher`
 
 `Discover` is the lifecycle stage. `skill-researcher` is the specialist workflow for deep external comparison.
@@ -118,6 +120,13 @@ Use `skill-researcher` when:
 - you need ecosystem-wide comparison
 - you need to inspect official/community sources in depth
 - you need a fusion report before writing
+
+Once you invoke `skill-researcher`, treat it as a binding workflow, not background inspiration:
+
+- inherit its depth-mode gate when the user has not chosen Quick, Standard, or Deep yet
+- inherit its candidate-confirmation gate before any collect/analyze/synthesize work begins
+- do not resume `Create/Update` until the candidate set is confirmed and the research handoff is complete
+- treat the resulting Fusion Report as a separate input to later authoring, not as silent permission to start drafting immediately
 
 Do not invoke `skill-researcher` when:
 
@@ -175,5 +184,6 @@ Before ending a lifecycle pass, confirm these questions:
 
 - Did I run only the stages the user actually needed?
 - Is the current artifact valid enough for the next stage?
+- If Discover delegated to a specialist workflow, did I stop at its required checkpoint instead of jumping ahead?
 - Did I explicitly call out what is not yet proven?
 - If work remains, is the next lifecycle step obvious?

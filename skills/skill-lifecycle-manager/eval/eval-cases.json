@@ -1,7 +1,7 @@
 {
   "version": "0.1.0",
   "skill": "skill-lifecycle-manager",
-  "description": "Cross-platform evaluation suite for the skill-lifecycle-manager skill. The suite tests whether the skill can route lifecycle work correctly, preserve a shared canonical core, generate Codex and Claude Code projections, and keep validation and trigger-optimization concerns explicit.",
+  "description": "Cross-platform evaluation suite for the skill-lifecycle-manager skill. The suite tests whether the skill can route lifecycle work correctly, preserve a shared canonical core, generate Codex and Claude Code projections, keep validation and trigger-optimization concerns explicit, and respect delegated research checkpoints before authoring.",
   "assertions": [
     "stage_routing_correct",
     "canonical_core_created_or_preserved",
@@ -10,6 +10,9 @@
     "claude_projection_filtered",
     "validation_executed",
     "trigger_work_separated",
+    "delegated_research_protocol_respected",
+    "candidate_pause_respected",
+    "no_authoring_before_confirmation",
     "next_step_explicit"
   ],
   "assertion_definitions": {
@@ -20,6 +23,9 @@
     "claude_projection_filtered": "For tasks that require distribution, the result generates or validates a Claude Code projection under `.claude/skills/<name>/` and omits repo-only metadata such as `skill.json`, `CHANGELOG.md`, or unrelated build artifacts.",
     "validation_executed": "The response runs or names concrete validation commands appropriate to the task, such as `quick_validate.py`, `validate_projection.py`, or repo validation commands.",
     "trigger_work_separated": "When the task includes trigger optimization, the response treats description tuning as a distinct pass and does not unnecessarily rewrite the whole skill body.",
+    "delegated_research_protocol_respected": "When Discover delegates to `skill-researcher`, the response treats that skill as a binding workflow with required checkpoints and separate handoff semantics rather than as informal inspiration.",
+    "candidate_pause_respected": "The response stops after candidate inventory when user confirmation is still required and clearly asks for that confirmation before deeper research continues.",
+    "no_authoring_before_confirmation": "Before the candidate set is confirmed, the response does not start drafting `SKILL.md`, `skill.json`, `CHANGELOG.md`, or target-skill references as though authoring had already begun.",
     "next_step_explicit": "The response closes with a concrete next lifecycle step, especially when real-world evaluation or install/publish work remains."
   },
   "cases": [
@@ -180,6 +186,33 @@
         },
         "next_step_explicit": {
           "check": "Ends with a concrete next step such as rerunning realistic release-note prompts or shipping the tightened description."
+        }
+      }
+    },
+    {
+      "id": "eval-6",
+      "name": "Stop at delegated research checkpoint before authoring",
+      "description": "Tests the protocol fix for delegated Discover work. A deep-research request that delegates to `skill-researcher` should stop after candidate inventory, ask for confirmation, and avoid drafting the target skill package yet.",
+      "prompt": "Before we create a new `git worktree` workflow skill, do a deep ecosystem survey first. Use whatever official and community sources you need, but stop after you compile the candidate set so I can approve it before any collection, synthesis, or drafting begins.",
+      "mode": "deep",
+      "expected_stages": [
+        "Discover"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should stay in Discover for this first pass rather than jumping ahead to Create/Update."
+        },
+        "delegated_research_protocol_respected": {
+          "check": "Makes the delegated `skill-researcher` workflow explicit and preserves its required pause semantics."
+        },
+        "candidate_pause_respected": {
+          "check": "Produces a candidate inventory and clearly asks the user to confirm or adjust it before deeper analysis continues."
+        },
+        "no_authoring_before_confirmation": {
+          "check": "Does not begin drafting the target skill package or present authoring artifacts as though confirmation had already happened."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the concrete next step of user confirmation of the candidate set."
         }
       }
     }

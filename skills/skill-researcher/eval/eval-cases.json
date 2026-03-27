@@ -1,0 +1,129 @@
+{
+  "version": "0.1.0",
+  "skill": "skill-researcher",
+  "description": "Evaluation suite for the skill-researcher skill. The suite tests whether the workflow respects its hard gates, stops after candidate inventory when confirmation is pending, keeps research artifacts separate from authoring, and narrows scope when the user already supplies concrete sources.",
+  "assertions": [
+    "candidate_inventory_produced",
+    "pause_before_collect_respected",
+    "fusion_report_separate_from_target_skill",
+    "handoff_instead_of_authoring",
+    "non_research_request_rejected",
+    "source_scope_respected",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "candidate_inventory_produced": "The response compiles and presents a concrete candidate list or source inventory rather than skipping straight to analysis or authoring.",
+    "pause_before_collect_respected": "When confirmation is still required, the response stops after candidate inventory and does not proceed into Collect, Analyze, or Synthesize.",
+    "fusion_report_separate_from_target_skill": "When analysis proceeds, the output remains a distinct Fusion Report or research artifact rather than being embedded directly into a target skill package.",
+    "handoff_instead_of_authoring": "After producing the research artifact, the response hands off to a downstream creation workflow instead of silently drafting the target skill package inside `skill-researcher`.",
+    "non_research_request_rejected": "If the user only wants installation or another non-research action, the response refuses to turn that request into a broad ecosystem research workflow.",
+    "source_scope_respected": "When the user already provides concrete source URLs or a constrained sample, the response narrows the search to that supplied scope rather than launching an unnecessary broad survey.",
+    "next_step_explicit": "The response ends with the next step that unblocks the workflow, such as user confirmation of candidates or a downstream creation handoff."
+  },
+  "cases": [
+    {
+      "id": "eval-1",
+      "name": "Deep research request stops after candidate inventory",
+      "description": "Tests the hard gate between Discover and Collect. The workflow should compile the candidate set first, ask for approval, and stop there.",
+      "prompt": "I want to create a new `git worktree` skill, but first do a deep ecosystem survey. Compile the candidate set, show it to me, and stop there so I can approve the sample before any collection, analysis, or drafting starts.",
+      "mode": "deep",
+      "expected_phases": [
+        "Scope",
+        "Discover"
+      ],
+      "assertions": {
+        "candidate_inventory_produced": {
+          "check": "Produces a concrete candidate inventory with enough detail for the user to confirm or adjust it."
+        },
+        "pause_before_collect_respected": {
+          "check": "Stops after candidate inventory and does not continue into deeper analysis or synthesis."
+        },
+        "next_step_explicit": {
+          "check": "Ends by asking the user to confirm or adjust the candidate set."
+        }
+      }
+    },
+    {
+      "id": "eval-2",
+      "name": "Confirmed candidate set proceeds to a separate Fusion Report",
+      "description": "Tests the default handoff behavior after the candidate set has already been approved. The workflow may continue into Collect, Analyze, and Synthesize, but it should still stop at a research artifact rather than drafting the target skill package.",
+      "prompt": "Assume this candidate set has already been approved: official Git documentation, anthropics/skills examples, openai/skills examples, two community worktree skills, and one Cursor rule. Continue into collection, analysis, and synthesis. Produce the Fusion Report and the next handoff step, but do not start authoring the target skill package.",
+      "mode": "standard",
+      "expected_phases": [
+        "Collect",
+        "Analyze",
+        "Synthesize"
+      ],
+      "assertions": {
+        "fusion_report_separate_from_target_skill": {
+          "check": "Produces a Fusion Report or equivalent research artifact instead of embedding the output into `SKILL.md`, `skill.json`, or target-skill references."
+        },
+        "handoff_instead_of_authoring": {
+          "check": "Hands the work off to `skill-creator` or `skill-lifecycle-manager` rather than silently continuing into authoring."
+        },
+        "next_step_explicit": {
+          "check": "States the concrete next step after the research handoff."
+        }
+      }
+    },
+    {
+      "id": "eval-3",
+      "name": "Install request is not turned into research workflow",
+      "description": "Tests the negative boundary. A user asking to install a skill should be redirected to installation flow instead of a broad ecosystem survey.",
+      "prompt": "Find me a code-review skill I can install quickly. I do not need a fusion report or a market survey; I just want the fastest path to install something useful.",
+      "mode": "quick",
+      "expected_phases": [
+        "Boundary refusal"
+      ],
+      "assertions": {
+        "non_research_request_rejected": {
+          "check": "Refuses to turn the request into community-skill research and redirects toward installation-oriented tooling."
+        },
+        "next_step_explicit": {
+          "check": "Tells the user what to do next instead of starting research anyway."
+        }
+      }
+    },
+    {
+      "id": "eval-4",
+      "name": "User-supplied sources narrow the search scope",
+      "description": "Tests that concrete URLs or source names narrow the comparison instead of triggering a broad survey.",
+      "prompt": "Compare only these sources for a future prompt-engineering skill: `https://github.com/openai/skills`, `https://github.com/anthropics/skills`, and our local `skills/prompt-engineering/`. I do not want a broad ecosystem search. Produce a focused fusion-style comparison and stop at the handoff artifact.",
+      "mode": "quick",
+      "expected_phases": [
+        "Scope",
+        "Collect",
+        "Analyze",
+        "Synthesize"
+      ],
+      "assertions": {
+        "source_scope_respected": {
+          "check": "Keeps the comparison constrained to the supplied sources rather than expanding to a broad candidate hunt."
+        },
+        "fusion_report_separate_from_target_skill": {
+          "check": "Returns a focused research artifact instead of starting authoring work."
+        },
+        "handoff_instead_of_authoring": {
+          "check": "Ends with a handoff recommendation instead of writing the target skill package."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "A case passes if it scores >= 75% of the possible points for the assertions that apply to that case. The suite passes if every case passes individually."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical `skill-researcher` package is available on the target surface. Network access is useful for realism but optional because the suite primarily scores routing and handoff behavior.",
+    "execution": "Run each prompt in a session where the skill can activate. Capture whether the response stops at the correct gate or, when already approved, produces a Fusion Report without authoring the target skill package.",
+    "evaluation": "Score each assertion as pass, partial, or fail. Pay special attention to whether the response crosses any gate early or conflates research output with target-skill authoring.",
+    "environment": "Cases can run in a writable filesystem environment. Real web access is optional unless you want the candidate inventory to reference live sources."
+  }
+}

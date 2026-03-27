@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-27T11:45:36.333Z",
+  "generatedAt": "2026-03-27T12:16:26.493Z",
   "skills": [
     {
       "name": "agent-lifecycle-manager",
       "path": "skills/agent-lifecycle-manager",
       "displayName": "Agent Lifecycle Manager",
       "description": "Manage the lifecycle of sub-agents: create or update agent packages, validate cross-surface agent contracts, evaluate routing behavior, tighten invocation boundaries, tune Codex runtime defaults, install or publish agents, or audit an agent library. Use only when the request is explicitly about agents or agent libraries, not for ordinary coding, implementation, or general project planning.",
-      "version": "0.2.2",
+      "version": "0.2.4",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -224,8 +224,8 @@
       "name": "skill-lifecycle-manager",
       "path": "skills/skill-lifecycle-manager",
       "displayName": "Skill Lifecycle Manager",
-      "description": "Manage the lifecycle of agent skills: discover patterns, create or update a skill, validate it, evaluate it, project or install it, or audit a skill library. Use only for explicitly skill-focused requests.",
-      "version": "0.4.1",
+      "description": "Manage the lifecycle of agent skills: discover patterns, create or update a skill, validate it, evaluate it, project or install it, or audit a skill library. Use only when the request is explicitly about skills or skill libraries, not for general code tasks or agent management.",
+      "version": "0.5.0",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -246,7 +246,7 @@
       "path": "skills/skill-researcher",
       "displayName": "Skill Researcher",
       "description": "Survey community skills, require candidate confirmation before deeper analysis, and produce structured fusion reports as handoff artifacts for downstream skill creation.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "maturity": "experimental",
       "categories": [
         "research",

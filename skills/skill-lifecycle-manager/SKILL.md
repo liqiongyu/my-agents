@@ -49,7 +49,7 @@ Use this routing table first:
 
 | Stage | Primary question | Default move | Deeper helper |
 | --- | --- | --- | --- |
-| **Discover** | Do we need external patterns, official references, or upstream comparisons before writing? | Build a focused source inventory | `skill-researcher` |
+| **Discover** | Do we need external patterns, official references, or upstream comparisons before writing? | Build a focused source inventory | `skill-researcher` (binding workflow when delegated) |
 | **Create / Update** | Are we authoring a new skill or materially revising an existing one? | Write or revise the skill package | `skill-creator` patterns |
 | **Validate** | Does the skill meet structural, metadata, and repo requirements? | Run local validation before broader eval | `scripts/quick_validate.py` |
 | **Evaluate** | Does the skill actually help on realistic tasks? | Run qualitative or mixed eval loop | Anthropic-style eval workflow |
@@ -67,9 +67,10 @@ Read [invocation-posture.md](references/invocation-posture.md) before writing or
 3. **Separate body quality from trigger quality.** Improve instructions and trigger wording in separate passes when possible.
 4. **Prefer realistic eval prompts.** Evaluate against concrete user requests, not synthetic toy prompts.
 5. **Do not duplicate deep research inline.** If discovery becomes ecosystem research, delegate to `skill-researcher`.
-6. **Do not merge create and install by default.** A well-authored skill and a correctly installed skill are different lifecycle concerns.
-7. **Audit for library health, not only single-skill correctness.** A skill can be individually valid but still harmful in the aggregate because it duplicates another skill, wastes context, or has stale metadata.
-8. **Decide invocation posture before tuning the trigger.** First choose whether the skill should be `manual-first`, `hybrid`, or `auto-first`; then write the description to match that posture.
+6. **Delegated checkpoints are binding.** If a lifecycle stage delegates to a specialist skill, inherit that skill's required pauses, confirmations, and deliverables before resuming downstream stages.
+7. **Do not merge create and install by default.** A well-authored skill and a correctly installed skill are different lifecycle concerns.
+8. **Audit for library health, not only single-skill correctness.** A skill can be individually valid but still harmful in the aggregate because it duplicates another skill, wastes context, or has stale metadata.
+9. **Decide invocation posture before tuning the trigger.** First choose whether the skill should be `manual-first`, `hybrid`, or `auto-first`; then write the description to match that posture.
 
 ## Command Path Model
 
@@ -117,18 +118,23 @@ Use Discover when the domain is unfamiliar, the user wants comparison, or you su
 Default behavior:
 
 1. Prefer **official sources first**: OpenAI and Anthropic are the strongest structural references.
-2. If the task needs broader ecosystem comparison, invoke `skill-researcher` rather than recreating a full landscape survey manually.
-3. Capture a short source inventory:
+2. If the task needs broader ecosystem comparison, invoke `skill-researcher` as a delegated workflow rather than recreating a full landscape survey manually.
+3. Once delegated, inherit the specialist skill's checkpoints and deliverables. For `skill-researcher`, that means:
+   - stop and resolve the depth-mode choice first if the user has not already specified Quick, Standard, or Deep
+   - stop after candidate inventory and show the candidate set to the user for confirmation
+   - do not continue into Collect, Analyze, Synthesize, or `Create / Update` until that confirmation gate has been satisfied
+4. If Discover stays local, capture a short source inventory:
    - Which official skills are primary anchors
    - Which supplemental sources are worth borrowing from
    - Which patterns should be rejected
-4. Convert research into writing inputs:
+5. If delegated research completes, keep the result as a separate fusion brief or research handoff artifact before authoring begins.
+6. Convert confirmed research into writing inputs:
    - required lifecycle stages
    - trigger language cues
    - reusable files/scripts to include
    - evaluation expectations
 
-**Discover is similar to `skill-researcher`, but not identical.** `skill-researcher` is the deep external research specialist. This skill decides **when** that research is necessary and how to fold it into the rest of the lifecycle.
+**Discover is similar to `skill-researcher`, but not identical.** `skill-researcher` is the deep external research specialist. This skill decides **when** that research is necessary and how it reconnects to the rest of the lifecycle. Once Discover delegates, the specialist workflow governs the pause points and outputs.
 
 ### Phase 3: Create Or Update
 
@@ -298,14 +304,17 @@ Before finishing, report:
 - the next lifecycle stage, if any
 
 If the request ended mid-lifecycle, explicitly say what remains: for example, "draft completed; next step is evaluation" or "audit completed; next step is targeted consolidation".
+If the request paused inside Discover because a delegated workflow hit a required checkpoint, say that plainly: for example, "candidate inventory completed; next step is user confirmation before deeper analysis or authoring."
 
 ## Failure Patterns To Avoid
 
 - Collapsing all lifecycle stages into one giant pass when the user only asked for one stage
 - Duplicating deep discovery inside this skill instead of delegating to `skill-researcher`
+- Treating `skill-researcher` as inspiration instead of a binding delegated workflow
 - Treating `description` as documentation instead of activation logic
 - Running subjective evaluation with fake numeric precision
 - Mixing trigger optimization with body rewrites so heavily that you cannot tell what improved
+- Jumping from a deep research request straight into authoring before the delegated confirmation gate is satisfied
 - Baking Codex-only or Claude-only behavior into the canonical core without a good reason
 - Publishing or installing before the skill is structurally valid
 - Auditing only for broken files while missing duplicates, drift, or context waste

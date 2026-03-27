@@ -20,6 +20,7 @@ The suite checks whether the skill can:
 - keep the canonical skill package as the source of truth
 - generate or validate both Codex and Claude Code projections
 - treat trigger optimization as a separate pass
+- preserve delegated research checkpoints before authoring resumes
 - report the next lifecycle step clearly
 
 ## Test Cases
@@ -31,6 +32,7 @@ The suite checks whether the skill can:
 | `eval-3` | Audit cross-platform readiness | Audit/Governance -> Validate |
 | `eval-4` | Create a narrow utility skill | Create/Update -> Validate -> Project/Install/Publish |
 | `eval-5` | Rehabilitate an ordinary content skill | Create/Update -> Validate -> Evaluate -> Optimize Trigger |
+| `eval-6` | Pause after delegated research candidate inventory | Discover |
 
 ## Assertions
 
@@ -43,7 +45,10 @@ The suite uses these shared assertions:
 5. `claude_projection_filtered`
 6. `validation_executed`
 7. `trigger_work_separated`
-8. `next_step_explicit`
+8. `delegated_research_protocol_respected`
+9. `candidate_pause_respected`
+10. `no_authoring_before_confirmation`
+11. `next_step_explicit`
 
 See [eval-cases.json](eval-cases.json) for the detailed assertion definitions and per-case checks.
 
@@ -167,6 +172,7 @@ The review panel is designed for this step: it loads the case prompt, expected a
 - `eval-1` is the best first smoke test for a new dual-platform workflow.
 - `eval-2` is the most useful regression test after description changes.
 - `eval-3` is the best fit when the skill is being used as a governance or library-health tool.
+- `eval-6` is the regression test for the delegated Discover protocol fix: it should stop at candidate inventory instead of drafting too early.
 - The direct CLI runner now automates both `with-skill` and `baseline` runs. For the `baseline` stage it temporarily hides the project-local projection for the active surface when such a projection exists, and records that baseline mode in `result.json`.
 - The generated review panel stores draft state in browser local storage for that iteration and can export the final review as JSON.
 - `trigger-posture-cases.json` is the best fit for validating the new invocation-posture workflow because it asks for routing and posture classification without doing broad file edits.

@@ -5,6 +5,16 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-27
+
+### Added
+- Added a delegated-research regression case to `eval/eval-cases.json` so the suite now checks that deep Discover work can stop at candidate inventory instead of jumping straight into authoring.
+
+### Changed
+- Synchronized `skill.json` description wording with the richer frontmatter boundary so generated metadata now matches the canonical skill trigger text.
+- Tightened the Discover-stage protocol so delegated specialist workflows inherit their own mandatory checkpoints and handoff semantics before downstream stages resume.
+- Updated the lifecycle-mode reference and eval documentation to make the delegated research pause semantics explicit.
+
 ## [0.4.1] - 2026-03-27
 
 ### Added

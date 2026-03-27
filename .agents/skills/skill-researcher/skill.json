@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "name": "skill-researcher",
   "displayName": "Skill Researcher",
-  "description": "Discover, collect, and analyze community skills across the agent skills ecosystem to produce structured fusion reports for creating high-quality custom skills.",
-  "version": "0.1.0",
+  "description": "Survey community skills, require candidate confirmation before deeper analysis, and produce structured fusion reports as handoff artifacts for downstream skill creation.",
+  "version": "0.2.0",
   "maturity": "experimental",
   "categories": [
     "research",
@@ -24,6 +24,9 @@
   "entrypoints": {
     "skillDoc": "SKILL.md",
     "changelog": "CHANGELOG.md"
+  },
+  "requirements": {
+    "network": "optional"
   },
   "capabilities": {
     "shell": true,
