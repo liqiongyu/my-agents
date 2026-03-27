@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "name": "agent-lifecycle-manager",
+  "displayName": "Agent Lifecycle Manager",
+  "description": "Manage the lifecycle of sub-agents: create or update agent packages, validate cross-surface agent contracts, evaluate routing behavior, tighten invocation boundaries, tune Codex runtime defaults, install or publish agents, or audit an agent library. Use only when the request is explicitly about agents or agent libraries, not for ordinary coding, implementation, or general project planning.",
+  "version": "0.3.1",
+  "maturity": "experimental",
+  "categories": [
+    "workflow",
+    "design",
+    "productivity"
+  ],
+  "tags": [
+    "agent-lifecycle",
+    "subagents",
+    "agent-authoring",
+    "agent-validation",
+    "agent-audit",
+    "codex-runtime-controls"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "requirements": {
+    "runtimes": {
+      "node": ">=18",
+      "python": ">=3.9"
+    },
+    "tools": [
+      "git",
+      "npm",
+      "uv",
+      "codex",
+      "claude"
+    ],
+    "network": "optional"
+  },
+  "capabilities": {
+    "shell": true,
+    "network": true,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

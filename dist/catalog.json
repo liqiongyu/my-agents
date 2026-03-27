@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-27T12:16:26.493Z",
+  "generatedAt": "2026-03-27T14:06:45.003Z",
   "skills": [
     {
       "name": "agent-lifecycle-manager",
       "path": "skills/agent-lifecycle-manager",
       "displayName": "Agent Lifecycle Manager",
       "description": "Manage the lifecycle of sub-agents: create or update agent packages, validate cross-surface agent contracts, evaluate routing behavior, tighten invocation boundaries, tune Codex runtime defaults, install or publish agents, or audit an agent library. Use only when the request is explicitly about agents or agent libraries, not for ordinary coding, implementation, or general project planning.",
-      "version": "0.2.4",
+      "version": "0.3.1",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -458,6 +458,39 @@
       "platforms": [
         "claude-code",
         "codex"
+      ]
+    }
+  ],
+  "packs": [
+    {
+      "name": "product-manager",
+      "path": "packs/product-manager",
+      "displayName": "Product Manager Pack",
+      "description": "Product strategy, requirements, and research workflow pack.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "packType": "role-pack",
+      "persona": "product-manager",
+      "categories": [
+        "business",
+        "productivity",
+        "research"
+      ],
+      "tags": [
+        "pm",
+        "product",
+        "strategy"
+      ],
+      "skills": [
+        "clarify",
+        "brainstorming",
+        "business-plan",
+        "deep-research"
+      ],
+      "agents": [
+        "explorer",
+        "planner",
+        "researcher"
       ]
     }
   ]

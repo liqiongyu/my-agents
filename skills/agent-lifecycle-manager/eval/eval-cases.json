@@ -1,0 +1,246 @@
+{
+  "version": "0.3.1",
+  "skill": "agent-lifecycle-manager",
+  "description": "Evaluation suite for the agent-lifecycle-manager skill. The suite tests whether the skill can route agent lifecycle work correctly, preserve a coherent multi-surface agent contract, manage Codex runtime defaults explicitly when needed, keep delegated Discover research separate from authoring, separate trigger tuning from body edits, and end with a clear next step.",
+  "assertions": [
+    "stage_routing_correct",
+    "agent_contract_preserved",
+    "surface_alignment_explicit",
+    "runtime_controls_explicit",
+    "validation_executed",
+    "research_handoff_explicit",
+    "no_authoring_before_handoff_complete",
+    "trigger_work_separated",
+    "next_step_explicit",
+    "automated_tooling_used"
+  ],
+  "assertion_definitions": {
+    "stage_routing_correct": "The response chooses the smallest appropriate lifecycle route for the request instead of forcing every stage.",
+    "agent_contract_preserved": "The result creates or preserves the canonical agent package with `agent.json`, `claude-code.md`, `codex.toml`, and `CHANGELOG.md` when authoring is in scope, or preserves that package when the task is audit or trigger focused.",
+    "surface_alignment_explicit": "The response keeps `agent.json`, `claude-code.md`, and `codex.toml` visible as one contract across multiple surfaces instead of treating them as unrelated files.",
+    "runtime_controls_explicit": "When Codex runtime behavior matters, the response treats `sandbox_mode`, `model_reasoning_effort`, `model`, or `web_search` as deliberate contract choices instead of silent inheritance.",
+    "validation_executed": "The response runs or names concrete validation commands appropriate to the repo, such as `npm run build`, `npm test`, or repo-local skill validation commands.",
+    "research_handoff_explicit": "When Discover delegates to `explorer`, `docs-researcher`, or `researcher`, the response keeps that research as a separate handoff artifact and makes the agent-specific contract implications explicit before authoring.",
+    "no_authoring_before_handoff_complete": "For Discover-only research requests, the response does not begin drafting `agent.json`, `claude-code.md`, `codex.toml`, or `CHANGELOG.md` as though `Create / Update` had already started.",
+    "trigger_work_separated": "When the task includes trigger optimization, the response treats description tuning as a distinct pass and does not rewrite the whole package unnecessarily.",
+    "next_step_explicit": "The response closes with a concrete next lifecycle step, especially when realistic evaluation or install work remains.",
+    "automated_tooling_used": "The response uses the repo's automated agent validation or audit scripts (`quick_validate_agent.py`, `audit_agent_inventory.py`) rather than relying only on manual inspection."
+  },
+  "cases": [
+    {
+      "id": "eval-1",
+      "name": "Create a new dual-surface agent from a repeated workflow",
+      "description": "Tests whether the skill can author a new cross-surface agent package without collapsing the three authored views into separate personalities.",
+      "prompt": "Turn our repeated repository audit workflow into a reusable agent. It should ship as `agent.json`, `claude-code.md`, and `codex.toml`, validate cleanly in this repo, and stay consistent across Claude Code and Codex.",
+      "mode": "standard",
+      "expected_stages": [
+        "Create/Update",
+        "Validate"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should focus on authoring and validation. Discover is optional, but the response should not default to a full audit or install pass unless the prompt calls for it."
+        },
+        "agent_contract_preserved": {
+          "check": "Creates a canonical agent package with `agent.json`, `claude-code.md`, `codex.toml`, and `CHANGELOG.md`."
+        },
+        "surface_alignment_explicit": {
+          "check": "Makes the multi-surface contract explicit instead of treating each file as an independent deliverable."
+        },
+        "runtime_controls_explicit": {
+          "check": "Makes the Codex surface defaults explicit or intentionally justified instead of leaving the runtime posture accidental."
+        },
+        "validation_executed": {
+          "check": "Runs or explicitly reports repo-local validation commands."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next recommended lifecycle step, such as realistic prompt evaluation or install smoke testing."
+        }
+      }
+    },
+    {
+      "id": "eval-2",
+      "name": "Tighten an existing agent trigger without broad churn",
+      "description": "Tests a trigger-focused revision where description tuning should stay separate from broader body edits.",
+      "prompt": "Our `planner` agent over-triggers on ordinary implementation requests and users are confused about when to use `implementer` instead. Tighten the routing boundary and prove it is better, but do not do a broad rewrite unless the evidence says the body is the real problem.",
+      "mode": "standard",
+      "expected_stages": [
+        "Optimize Invocation",
+        "Validate",
+        "Evaluate"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should emphasize trigger optimization and validation first rather than rebuilding the whole agent."
+        },
+        "surface_alignment_explicit": {
+          "check": "Keeps the short descriptions aligned across the authored surfaces."
+        },
+        "validation_executed": {
+          "check": "Uses or references trigger prompts and structural validation after description changes."
+        },
+        "trigger_work_separated": {
+          "check": "Records description-focused changes separately from broader body changes."
+        },
+        "next_step_explicit": {
+          "check": "Calls out whether more behavior evaluation is needed after the trigger-focused pass."
+        }
+      }
+    },
+    {
+      "id": "eval-3",
+      "name": "Audit an agent library for overlap and overreach",
+      "description": "Tests audit and governance behavior on a whole agent library, with emphasis on parity, overreach, and drift.",
+      "prompt": "Audit our agent library for duplicate roles, overly broad tool budgets, weak negative boundaries, and Codex versus Claude drift. Prioritize the findings and tell me what the next lifecycle step should be.",
+      "mode": "standard",
+      "expected_stages": [
+        "Audit/Governance",
+        "Validate"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should lead with audit/governance and structural checks rather than authoring a new agent."
+        },
+        "surface_alignment_explicit": {
+          "check": "Evaluates readiness in terms of one contract across `agent.json`, `claude-code.md`, and `codex.toml`."
+        },
+        "runtime_controls_explicit": {
+          "check": "Treats runtime-control drift as part of the audit when Codex behavior is relevant."
+        },
+        "validation_executed": {
+          "check": "Runs or references repo-level validation rather than relying only on intuition."
+        },
+        "next_step_explicit": {
+          "check": "Ends with a prioritized lifecycle recommendation such as tighten, consolidate, validate, or install."
+        }
+      }
+    },
+    {
+      "id": "eval-4",
+      "name": "Standardize Codex runtime defaults across existing agents",
+      "description": "Tests whether the skill can treat `codex.toml` runtime defaults as contract design rather than isolated TOML cleanup.",
+      "prompt": "Audit our Codex agents and standardize `sandbox_mode` plus `model_reasoning_effort` so reusable agents have stable defaults without broadening permissions. Keep the changes aligned with each agent's contract and validate the result.",
+      "mode": "standard",
+      "expected_stages": [
+        "Audit/Governance",
+        "Create/Update",
+        "Validate"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should start with contract and drift analysis, then update the affected Codex surfaces, then validate."
+        },
+        "surface_alignment_explicit": {
+          "check": "Keeps runtime-default changes grounded in the broader multi-surface contract instead of editing `codex.toml` in isolation."
+        },
+        "runtime_controls_explicit": {
+          "check": "Chooses or revises `sandbox_mode` and `model_reasoning_effort` deliberately, with reasoning tied to the agent role."
+        },
+        "validation_executed": {
+          "check": "Runs or references repo validation after the Codex-surface changes."
+        },
+        "next_step_explicit": {
+          "check": "Calls out whether more behavioral evaluation or installation smoke testing is the next lifecycle step."
+        }
+      }
+    },
+    {
+      "id": "eval-5",
+      "name": "Stop at a delegated Discover handoff before agent authoring",
+      "description": "Tests delegated research behavior for unfamiliar agent design work. The skill should stay in Discover, make the research handoff explicit, and avoid drafting package files before the contract is grounded.",
+      "prompt": "Before drafting a reusable browser-automation agent, compare official Codex and Claude guidance plus a few representative community agent examples. I want a research handoff that tells me what archetype, tool budget, runtime defaults, and sub-agent graph patterns are credible. Stop before you draft `agent.json`, `claude-code.md`, or `codex.toml`.",
+      "mode": "standard",
+      "expected_stages": [
+        "Discover"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should stay in Discover and frame authoring as a later stage."
+        },
+        "research_handoff_explicit": {
+          "check": "Keeps the delegated research artifact separate and makes the contract implications explicit before any package editing begins."
+        },
+        "no_authoring_before_handoff_complete": {
+          "check": "Does not start drafting `agent.json`, `claude-code.md`, `codex.toml`, or `CHANGELOG.md` during this Discover-only pass."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the concrete next step of confirming or using the research handoff before `Create / Update`."
+        }
+      }
+    },
+    {
+      "id": "eval-6",
+      "name": "Validate a single agent for cross-surface contract alignment",
+      "description": "Tests whether the skill uses automated agent validation tooling to check cross-surface alignment rather than relying on manual file inspection.",
+      "prompt": "Validate our `reviewer` agent. Check that `agent.json`, `claude-code.md`, and `codex.toml` are aligned, that the archetype matches the capabilities, and that Codex runtime defaults are consistent with the contract. Use the repo's validation scripts.",
+      "mode": "standard",
+      "expected_stages": [
+        "Validate"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should focus on validation only, not authoring or auditing the whole library."
+        },
+        "validation_executed": {
+          "check": "Runs `quick_validate_agent.py` or equivalent automated validation, not just manual file reading."
+        },
+        "automated_tooling_used": {
+          "check": "Uses `quick_validate_agent.py` from the shared harness to validate the agent package."
+        },
+        "surface_alignment_explicit": {
+          "check": "Reports on cross-surface alignment findings from the validation output."
+        },
+        "runtime_controls_explicit": {
+          "check": "Reports on runtime default consistency from the validation output."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next lifecycle step, such as fixing any findings or proceeding to evaluation."
+        }
+      }
+    },
+    {
+      "id": "eval-7",
+      "name": "Run a full agent inventory audit and prioritize remediation",
+      "description": "Tests whether the skill uses the automated audit script to produce a structured library health report and routes findings into actionable lifecycle steps.",
+      "prompt": "Run a full audit of our agent library using the repo's audit tooling. Show me the health score, the prioritized findings, and what the next lifecycle steps should be for the most important issues.",
+      "mode": "standard",
+      "expected_stages": [
+        "Audit/Governance"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should focus on audit/governance, not authoring new agents."
+        },
+        "validation_executed": {
+          "check": "Runs `audit_agent_inventory.py` or equivalent automated audit, not just manual inspection."
+        },
+        "automated_tooling_used": {
+          "check": "Uses `audit_agent_inventory.py` from the shared harness to produce the audit report."
+        },
+        "surface_alignment_explicit": {
+          "check": "The audit report covers cross-surface alignment as one of its dimensions."
+        },
+        "next_step_explicit": {
+          "check": "Maps the audit findings to concrete lifecycle next steps such as tighten triggers, fix drift, or consolidate overlapping agents."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "A case passes if it scores at least 75 percent of the applicable assertion points. The suite passes if every case passes individually."
+  },
+  "runner_instructions": {
+    "setup": "Use the reusable harness under `skills/skill-lifecycle-manager/scripts/`. The canonical eval fixture for this skill is `skills/agent-lifecycle-manager/eval/eval-cases.json`.",
+    "execution": "Seed a workspace with `seed_eval_workspace.py`, then run one or more cases through `run_surface_eval.py` on the desired surface. Use `--stage baseline` when the comparison matters.",
+    "evaluation": "Score route quality, research-handoff clarity when Discover is delegated, contract alignment, runtime-control reasoning, and next-step clarity. Use `result.json` timestamps as a lightweight timing proxy when comparing with-skill and baseline runs.",
+    "environment": "Filesystem write access is required. Network access is optional unless the request explicitly exercises discovery against live sources. When the evaluated surface can edit files, prefer a disposable worktree or capture plus inspect `git status --short` before and after the run."
+  }
+}
