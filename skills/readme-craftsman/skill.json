@@ -5,19 +5,8 @@
   "description": "Generate, update, or review README.md files with deep codebase analysis, project-type-aware templates, and quality validation. Covers OSS libraries, web services, CLI tools, personal projects, internal tools, monorepos, and config directories.",
   "version": "1.1.1",
   "maturity": "stable",
-  "categories": [
-    "documentation",
-    "workflow",
-    "productivity"
-  ],
-  "tags": [
-    "readme",
-    "documentation",
-    "markdown",
-    "github",
-    "project-docs",
-    "open-source"
-  ],
+  "categories": ["documentation", "workflow", "productivity"],
+  "tags": ["readme", "documentation", "markdown", "github", "project-docs", "open-source"],
   "authors": [
     {
       "name": "Qiongyu Li"

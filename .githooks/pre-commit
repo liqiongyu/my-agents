@@ -3,3 +3,4 @@ set -e
 
 npm run sync-instructions
 git add AGENTS.md CLAUDE.md
+npm run check:staged

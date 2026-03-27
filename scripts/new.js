@@ -368,9 +368,7 @@ async function main() {
   }
 
   if (!isValidName(name)) {
-    console.error(
-      `Invalid name: ${name}. Expected kebab-case (e.g. "my-${type}").`
-    );
+    console.error(`Invalid name: ${name}. Expected kebab-case (e.g. "my-${type}").`);
     process.exitCode = 2;
     return;
   }

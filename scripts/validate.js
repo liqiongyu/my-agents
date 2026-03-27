@@ -78,9 +78,7 @@ async function checkDocLength(filePath, label, errors) {
 
   const content = await fs.readFile(filePath, "utf8");
   if (content.trim().length < MIN_DOC_LENGTH) {
-    errors.push(
-      `${label}: too short (${content.trim().length} chars, minimum ${MIN_DOC_LENGTH})`
-    );
+    errors.push(`${label}: too short (${content.trim().length} chars, minimum ${MIN_DOC_LENGTH})`);
   }
 }
 
@@ -88,9 +86,7 @@ function pushUnknownCategoryErrors(baseLabel, categories, allowedCategories, err
   if (!allowedCategories) return;
   for (const category of categories ?? []) {
     if (!allowedCategories.has(category)) {
-      errors.push(
-        `${baseLabel}: unknown category "${category}" (add it to categories.json first)`
-      );
+      errors.push(`${baseLabel}: unknown category "${category}" (add it to categories.json first)`);
     }
   }
 }
@@ -408,19 +404,13 @@ async function main() {
     const skillDoc = skill.entrypoints?.skillDoc ?? "SKILL.md";
     const changelog = skill.entrypoints?.changelog ?? "CHANGELOG.md";
 
-    await checkDocLength(
-      path.join(baseDir, skillDoc),
-      `skills/${dirName}/${skillDoc}`,
-      errors
-    );
+    await checkDocLength(path.join(baseDir, skillDoc), `skills/${dirName}/${skillDoc}`, errors);
 
     const changelogPath = path.join(baseDir, changelog);
     if (!(await fileExists(changelogPath))) {
       errors.push(`Missing changelog: skills/${dirName}/${changelog}`);
     } else if (!(await checkChangelogHasVersion(changelogPath, skill.version))) {
-      errors.push(
-        `skills/${dirName}/${changelog}: must contain a '## [${skill.version}]' section`
-      );
+      errors.push(`skills/${dirName}/${changelog}: must contain a '## [${skill.version}]' section`);
     }
   }
 
@@ -510,9 +500,7 @@ async function main() {
     if (!(await fileExists(changelogPath))) {
       errors.push(`Missing changelog: agents/${dirName}/${changelog}`);
     } else if (!(await checkChangelogHasVersion(changelogPath, agent.version))) {
-      errors.push(
-        `agents/${dirName}/${changelog}: must contain a '## [${agent.version}]' section`
-      );
+      errors.push(`agents/${dirName}/${changelog}: must contain a '## [${agent.version}]' section`);
     }
   }
 
@@ -585,9 +573,7 @@ async function main() {
     if (!(await fileExists(changelogPath))) {
       errors.push(`Missing changelog: packs/${dirName}/CHANGELOG.md`);
     } else if (!(await checkChangelogHasVersion(changelogPath, pack.version))) {
-      errors.push(
-        `packs/${dirName}/CHANGELOG.md: must contain a '## [${pack.version}]' section`
-      );
+      errors.push(`packs/${dirName}/CHANGELOG.md: must contain a '## [${pack.version}]' section`);
     }
 
     for (const duplicate of findDuplicates(pack.skills)) {
@@ -730,12 +716,8 @@ async function main() {
     errors.push(`Missing ${PACKS_CATALOG_PATH} (run \`npm run build\`)`);
   }
 
-  const {
-    expectedCatalogObj,
-    expectedSkillsMd,
-    expectedAgentsMd,
-    expectedPacksMd
-  } = await generateExpectedIndex(repoRoot);
+  const { expectedCatalogObj, expectedSkillsMd, expectedAgentsMd, expectedPacksMd } =
+    await generateExpectedIndex(repoRoot);
 
   if (await fileExists(catalogPath)) {
     const actual = await readJson(catalogPath);
@@ -750,15 +732,24 @@ async function main() {
     }
   }
 
-  if ((await fileExists(skillsMdPath)) && (await fs.readFile(skillsMdPath, "utf8")) !== expectedSkillsMd) {
+  if (
+    (await fileExists(skillsMdPath)) &&
+    (await fs.readFile(skillsMdPath, "utf8")) !== expectedSkillsMd
+  ) {
     errors.push(`${SKILLS_CATALOG_PATH} is out of date (run \`npm run build\`)`);
   }
 
-  if ((await fileExists(agentsMdPath)) && (await fs.readFile(agentsMdPath, "utf8")) !== expectedAgentsMd) {
+  if (
+    (await fileExists(agentsMdPath)) &&
+    (await fs.readFile(agentsMdPath, "utf8")) !== expectedAgentsMd
+  ) {
     errors.push(`${AGENTS_CATALOG_PATH} is out of date (run \`npm run build\`)`);
   }
 
-  if ((await fileExists(packsMdPath)) && (await fs.readFile(packsMdPath, "utf8")) !== expectedPacksMd) {
+  if (
+    (await fileExists(packsMdPath)) &&
+    (await fs.readFile(packsMdPath, "utf8")) !== expectedPacksMd
+  ) {
     errors.push(`${PACKS_CATALOG_PATH} is out of date (run \`npm run build\`)`);
   }
 

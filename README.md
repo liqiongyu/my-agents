@@ -11,7 +11,7 @@ This repository keeps the canonical source of truth under `skills/`, `agents/`, 
 
 > [!NOTE]
 > Edit packages in `skills/`, `agents/`, and `packs/`. Treat generated catalogs and project-scope runtime copies as derived artifacts.
-> Root `AGENTS.md` remains the contributor-facing guide for this repository, so generated catalogs live outside the root.
+> Root `AGENTS.md` and `CLAUDE.md` are generated contributor instruction files. Edit `instructions/root/` and regenerate them instead of hand-editing the root files.
 
 ## Quick Start
 
@@ -22,6 +22,7 @@ npm install
 npm run new -- my-skill
 npm run new -- --agent my-agent
 npm run new -- --pack my-pack
+npm run lint
 npm run build
 npm test
 ```
@@ -41,23 +42,25 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 - [docs/metadata/skill-metadata-policy.md](docs/metadata/skill-metadata-policy.md) explains how to use `requirements`, `capabilities`, and `maturity` consistently across skill packages.
 - [docs/metadata/pack-metadata-policy.md](docs/metadata/pack-metadata-policy.md) explains how to model pack membership, `packType`, and `persona` consistently.
 - [docs/metadata/project-manifest-policy.md](docs/metadata/project-manifest-policy.md) explains how to use `my-agents.project.json` for repository bootstrap.
-- [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md) remain the contributor-facing guides for repository workflow, release hygiene, and local conventions.
+- [instructions/root/shared.md](instructions/root/shared.md) is the source of truth for rules shared by Codex and Claude Code.
+- [AGENTS.md](AGENTS.md), [CLAUDE.md](CLAUDE.md), and [CONTRIBUTING.md](CONTRIBUTING.md) cover contributor workflow, release hygiene, and local conventions.
 
 ## Repository Layout
 
-| Path | Purpose |
-| --- | --- |
-| `docs/catalog/` | Generated Markdown catalogs for tracked skills, agents, and packs |
-| `docs/metadata/` | Repository-level metadata policy and authoring conventions |
-| `skills/<name>/` | Canonical source packages for reusable skills (`skill.json`, `SKILL.md`, `CHANGELOG.md`) |
-| `agents/<name>/` | Canonical source packages for reusable agents (`agent.json`, `claude-code.md`, `codex.toml`, `CHANGELOG.md`) |
-| `packs/<name>/` | Canonical source packages for installable compositions of skills and agents (`pack.json`, `README.md`, `CHANGELOG.md`) |
-| `my-agents.project.json` | Optional project bootstrap manifest consumed by `npm run sync-project` |
-| `scripts/` | Scaffolding, install, catalog build, and validation tooling |
-| `schemas/` | JSON Schemas for skill, agent, and catalog metadata |
-| `research/` | Research notes, source digests, and longer-form background documents |
-| `workspaces/<skill-name>/` | Evaluation sandboxes and scratch space for skill development |
-| `.claude/` and `.agents/` | Project-scope runtime projections created during local installation flows |
+| Path                       | Purpose                                                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `docs/catalog/`            | Generated Markdown catalogs for tracked skills, agents, and packs                                                      |
+| `docs/metadata/`           | Repository-level metadata policy and authoring conventions                                                             |
+| `skills/<name>/`           | Canonical source packages for reusable skills (`skill.json`, `SKILL.md`, `CHANGELOG.md`)                               |
+| `agents/<name>/`           | Canonical source packages for reusable agents (`agent.json`, `claude-code.md`, `codex.toml`, `CHANGELOG.md`)           |
+| `packs/<name>/`            | Canonical source packages for installable compositions of skills and agents (`pack.json`, `README.md`, `CHANGELOG.md`) |
+| `my-agents.project.json`   | Optional project bootstrap manifest consumed by `npm run sync-project`                                                 |
+| `instructions/root/`       | Canonical source fragments used to generate root `AGENTS.md` and `CLAUDE.md`                                           |
+| `scripts/`                 | Scaffolding, install, catalog build, and validation tooling                                                            |
+| `schemas/`                 | JSON Schemas for skill, agent, and catalog metadata                                                                    |
+| `research/`                | Research notes, source digests, and longer-form background documents                                                   |
+| `workspaces/<skill-name>/` | Evaluation sandboxes and scratch space for skill development                                                           |
+| `.claude/` and `.agents/`  | Project-scope runtime projections created during local installation flows                                              |
 
 ## Common Workflows
 
@@ -123,26 +126,48 @@ npm run sync-project -- --prune
 
 The sync command records its managed project-scope state in `.my-agents/project-sync-state.json`. Plain sync installs missing desired items; `--prune` also removes previously managed skills and agents that are no longer desired by the manifest.
 
+### Sync root instruction files
+
+```bash
+npm run sync-instructions
+npm run sync-instructions -- --check
+```
+
+`instructions/root/shared.md` holds the shared rules; `instructions/root/claude.md` and `instructions/root/codex.md` hold platform-specific additions. `npm install` configures the repo's versioned `.githooks/pre-commit`, which auto-runs instruction sync and stages `AGENTS.md` plus `CLAUDE.md` on commit. `npm test` also fails if the generated instruction files are stale.
+
+### Lint and format the repo
+
+```bash
+npm run lint
+npm run lint:fix
+npm run format
+npm run format:check
+```
+
+ESLint covers the repo's JavaScript tooling and Prettier covers supported repository source files such as Markdown, JSON, YAML, and TOML. The versioned `pre-commit` hook runs a fast staged-file pass: it syncs root instructions, formats staged files, auto-fixes staged JavaScript when possible, and re-stages the results.
+
 ## Installation Targets
 
-| Package type | Claude Code target | Codex target |
-| --- | --- | --- |
-| Skill | `~/.claude/skills/<name>/` or `.claude/skills/<name>/` | `~/.agents/skills/<name>/` or `.agents/skills/<name>/` |
-| Agent | `~/.claude/agents/<name>.md` or `.claude/agents/<name>.md` | `~/.codex/agents/<name>.toml` or `.codex/agents/<name>.toml` |
-| Pack | Installs its referenced skills and agents into the targets above | Installs its referenced skills and agents into the targets above |
+| Package type | Claude Code target                                               | Codex target                                                     |
+| ------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Skill        | `~/.claude/skills/<name>/` or `.claude/skills/<name>/`           | `~/.agents/skills/<name>/` or `.agents/skills/<name>/`           |
+| Agent        | `~/.claude/agents/<name>.md` or `.claude/agents/<name>.md`       | `~/.codex/agents/<name>.toml` or `.codex/agents/<name>.toml`     |
+| Pack         | Installs its referenced skills and agents into the targets above | Installs its referenced skills and agents into the targets above |
 
 ## Generated Files
 
 - `npm run build` regenerates `dist/catalog.json`, `docs/catalog/skills.md`, `docs/catalog/agents.md`, and `docs/catalog/packs.md`.
+- `npm run sync-instructions` regenerates the root `AGENTS.md` and `CLAUDE.md` files from `instructions/root/`.
 - Do not hand-edit those generated indexes; update the underlying packages instead.
-- Policy docs under `docs/metadata/` are source documents and should be edited directly when repository conventions change.
+- Policy docs under `docs/metadata/` and instruction fragments under `instructions/root/` are source documents and should be edited directly when repository conventions change.
 
 ## Validation and Release
 
 - `npm test` runs `npm run validate`.
-- Validation checks schemas, directory conventions, changelog/version alignment, pack reference integrity, optional project manifest integrity, generated index freshness, and minimum documentation quality.
+- Validation checks ESLint, Prettier, schemas, directory conventions, changelog/version alignment, pack reference integrity, optional project manifest integrity, generated index freshness, generated root instruction freshness, and minimum documentation quality.
 - When metadata semantics change, update the canonical package, any relevant policy docs, then rerun `npm run build` and `npm test` before committing.
 - GitHub Actions runs validation on every push and pull request via `.github/workflows/validate.yml`.
+- Dependabot keeps npm and GitHub Actions dependencies fresh via `.github/dependabot.yml`.
 - Tagging `v*` triggers `.github/workflows/release.yml`, which assembles GitHub Release notes from per-skill, per-agent, and per-pack changelogs.
 
 ## Contributing

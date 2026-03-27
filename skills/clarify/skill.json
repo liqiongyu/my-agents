@@ -5,10 +5,7 @@
   "description": "Structured framework for detecting ambiguity and asking hypothesis-driven clarifying questions before acting. Must consult when requests lack specifics needed to act correctly.",
   "version": "1.0.0",
   "maturity": "experimental",
-  "categories": [
-    "workflow",
-    "productivity"
-  ],
+  "categories": ["workflow", "productivity"],
   "tags": [
     "clarification",
     "requirements",

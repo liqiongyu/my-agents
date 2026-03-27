@@ -5,11 +5,7 @@
   "description": "Comprehensive editorial review for Chinese content before publication, covering typos, grammar, punctuation, fact-checking, political compliance, and advertising law.",
   "version": "0.1.0",
   "maturity": "experimental",
-  "categories": [
-    "review",
-    "productivity",
-    "workflow"
-  ],
+  "categories": ["review", "productivity", "workflow"],
   "tags": [
     "editorial",
     "proofreading",

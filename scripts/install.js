@@ -276,7 +276,8 @@ function parseArgs(argv) {
       const value = args[++index];
       if (value) {
         platformsSpecified = true;
-        platforms = value === "all" ? [...ALL_PLATFORMS] : value.split(",").map((item) => item.trim());
+        platforms =
+          value === "all" ? [...ALL_PLATFORMS] : value.split(",").map((item) => item.trim());
       }
     } else if (arg === "--scope") {
       const value = args[++index];
@@ -360,9 +361,7 @@ async function validateProjectManifest(repoRoot, manifest, manifestPath) {
   const validate = ajv.compile(schema);
 
   if (!validate(manifest)) {
-    console.error(
-      `${manifestPath}: schema validation failed\n${formatAjvErrors(validate.errors)}`
-    );
+    console.error(`${manifestPath}: schema validation failed\n${formatAjvErrors(validate.errors)}`);
     return false;
   }
 
@@ -603,12 +602,11 @@ async function syncProject(repoRoot, manifestPath, cliPlatforms, platformsSpecif
     return false;
   }
 
-  const effectivePlatforms =
-    platformsSpecified
-      ? cliPlatforms
-      : manifest.platforms?.length
-        ? manifest.platforms
-        : [...ALL_PLATFORMS];
+  const effectivePlatforms = platformsSpecified
+    ? cliPlatforms
+    : manifest.platforms?.length
+      ? manifest.platforms
+      : [...ALL_PLATFORMS];
 
   const statePath = path.join(process.cwd(), PROJECT_SYNC_STATE_PATH);
   let previousState;

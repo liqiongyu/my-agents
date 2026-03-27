@@ -5,10 +5,7 @@
   "description": "Master prompt engineering and context engineering for LLMs: drafting, testing, optimizing, securing, and scaling prompts across Claude, GPT, Gemini, and open-source models in production.",
   "version": "0.1.0",
   "maturity": "experimental",
-  "categories": [
-    "ai",
-    "productivity"
-  ],
+  "categories": ["ai", "productivity"],
   "tags": [
     "prompt-engineering",
     "context-engineering",

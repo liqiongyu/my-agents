@@ -6,13 +6,12 @@ __pycache__/
 *.tgz
 .env
 .env.*
+.agents/
 .claude/
+.codex/
 .my-agents/
+.eslintcache
+.prettiercache
 
 # Skill/agent eval workspaces (temporary, can be regenerated)
 workspaces/
-
-# rctl:block:start local-state
-# local rctl state
-.rctl/
-# rctl:block:end local-state

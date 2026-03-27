@@ -5,17 +5,8 @@
   "description": "Conduct comprehensive, citation-backed web research with multi-phase pipeline, parallel execution, anti-hallucination protocols, and structured report generation.",
   "version": "0.3.0",
   "maturity": "experimental",
-  "categories": [
-    "research",
-    "productivity"
-  ],
-  "tags": [
-    "research",
-    "analysis",
-    "web-search",
-    "citations",
-    "report"
-  ],
+  "categories": ["research", "productivity"],
+  "tags": ["research", "analysis", "web-search", "citations", "report"],
   "authors": [
     {
       "name": "Qiongyu Li"

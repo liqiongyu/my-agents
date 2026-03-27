@@ -29,9 +29,10 @@ async function main() {
   }
 
   console.log(
-    ["Updated generated instruction files:", ...result.writtenTargets.map((value) => `- ${value}`)].join(
-      "\n"
-    )
+    [
+      "Updated generated instruction files:",
+      ...result.writtenTargets.map((value) => `- ${value}`)
+    ].join("\n")
   );
 }
 

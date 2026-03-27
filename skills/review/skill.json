@@ -5,11 +5,7 @@
   "description": "Perform thorough, structured reviews on PRs, diffs, code, documentation, architecture designs, PRDs, API specs, and configuration changes with severity-graded findings and actionable suggestions.",
   "version": "0.4.1",
   "maturity": "experimental",
-  "categories": [
-    "review",
-    "coding",
-    "security"
-  ],
+  "categories": ["review", "coding", "security"],
   "tags": [
     "code-review",
     "pull-request",
