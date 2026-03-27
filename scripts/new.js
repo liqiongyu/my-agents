@@ -30,6 +30,8 @@ function parseArgs(argv) {
   for (const arg of args) {
     if (arg === "--agent" || arg === "-a") {
       type = "agent";
+    } else if (arg === "--pack" || arg === "-p") {
+      type = "pack";
     } else if (arg === "--skill" || arg === "-s") {
       type = "skill";
     } else if (!arg.startsWith("-")) {
@@ -249,15 +251,118 @@ async function scaffoldAgent(repoRoot, name) {
   console.log("  npm test");
 }
 
+async function scaffoldPack(repoRoot, name) {
+  const packDir = path.join(repoRoot, "packs", name);
+  if (await fileExists(packDir)) {
+    console.error(`Pack already exists: packs/${name}`);
+    process.exitCode = 2;
+    return;
+  }
+
+  if (await fileExists(path.join(repoRoot, "skills", name))) {
+    console.warn(`Warning: a skill named "${name}" already exists. Names may cause confusion.`);
+  }
+
+  if (await fileExists(path.join(repoRoot, "agents", name))) {
+    console.warn(`Warning: an agent named "${name}" already exists. Names may cause confusion.`);
+  }
+
+  await fs.mkdir(packDir, { recursive: true });
+
+  const packJson = {
+    schemaVersion: 1,
+    name,
+    displayName: name,
+    description: "TODO: one-line description",
+    version: "0.1.0",
+    maturity: "experimental",
+    packType: "role-pack",
+    categories: ["general"],
+    skills: [],
+    agents: [],
+    tags: [],
+    authors: [{ name: "TODO: your name" }]
+  };
+
+  await fs.writeFile(
+    path.join(packDir, "pack.json"),
+    `${JSON.stringify(packJson, null, 2)}\n`,
+    "utf8"
+  );
+
+  await fs.writeFile(
+    path.join(packDir, "README.md"),
+    [
+      `# ${name}`,
+      "",
+      "## Purpose",
+      "",
+      "<!-- Describe who this pack is for and what workflow it bundles. -->",
+      "",
+      "TODO",
+      "",
+      "## Included Skills",
+      "",
+      "<!-- List the skills that this pack installs. -->",
+      "",
+      "- TODO",
+      "",
+      "## Included Agents",
+      "",
+      "<!-- List the agents that this pack installs. -->",
+      "",
+      "- TODO",
+      "",
+      "## Install",
+      "",
+      "```bash",
+      `npm run install-pack -- ${name}`,
+      `npm run install-pack -- ${name} --platform codex --scope project`,
+      "```",
+      "",
+      "## Notes",
+      "",
+      "<!-- Explain assumptions, dependency choices, and any platform caveats. -->",
+      "",
+      "TODO",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+
+  await fs.writeFile(
+    path.join(packDir, "CHANGELOG.md"),
+    [
+      "# Changelog",
+      "",
+      "All notable changes to this pack will be documented in this file.",
+      "This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).",
+      "",
+      "## [Unreleased]",
+      "",
+      `## [0.1.0] - ${todayISODate()}`,
+      "- Initial release.",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+
+  console.log(`Created packs/${name}`);
+  console.log("Next:");
+  console.log("  npm run build");
+  console.log("  npm test");
+}
+
 async function main() {
   const repoRoot = path.resolve(__dirname, "..");
   const { type, name } = parseArgs(process.argv);
 
   if (!name) {
-    console.error("Usage: npm run new -- [--skill | --agent] <name>");
+    console.error("Usage: npm run new -- [--skill | --agent | --pack] <name>");
     console.error("");
     console.error("  --skill, -s   Create a new skill (default)");
     console.error("  --agent, -a   Create a new agent");
+    console.error("  --pack,  -p   Create a new pack");
     process.exitCode = 2;
     return;
   }
@@ -272,6 +377,8 @@ async function main() {
 
   if (type === "agent") {
     await scaffoldAgent(repoRoot, name);
+  } else if (type === "pack") {
+    await scaffoldPack(repoRoot, name);
   } else {
     await scaffoldSkill(repoRoot, name);
   }

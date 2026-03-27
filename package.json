@@ -14,8 +14,11 @@
     "validate": "node scripts/sync-instructions.js --check && node scripts/validate.js",
     "install-skill": "node scripts/install.js --skill",
     "install-agent": "node scripts/install.js --agent",
+    "install-pack": "node scripts/install.js --pack",
+    "sync-project": "node scripts/install.js --sync-project",
     "uninstall-skill": "node scripts/install.js --skill --uninstall",
     "uninstall-agent": "node scripts/install.js --agent --uninstall",
+    "uninstall-pack": "node scripts/install.js --pack --uninstall",
     "test": "npm run validate"
   },
   "bin": {

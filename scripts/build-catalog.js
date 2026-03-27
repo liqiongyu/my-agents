@@ -3,6 +3,7 @@ const path = require("node:path");
 
 const SKILLS_CATALOG_PATH = path.join("docs", "catalog", "skills.md");
 const AGENTS_CATALOG_PATH = path.join("docs", "catalog", "agents.md");
+const PACKS_CATALOG_PATH = path.join("docs", "catalog", "packs.md");
 const MACHINE_CATALOG_PATH = path.join("dist", "catalog.json");
 
 async function fileExists(filePath) {
@@ -23,8 +24,8 @@ async function listDirs(baseDir) {
   if (!(await fileExists(baseDir))) return [];
   const entries = await fs.readdir(baseDir, { withFileTypes: true });
   return entries
-    .filter((e) => e.isDirectory())
-    .map((e) => e.name)
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
     .filter((name) => !name.startsWith("_") && !name.startsWith("."));
 }
 
@@ -69,6 +70,24 @@ function toAgentCatalogItem(agent, dirName, platforms) {
   };
 }
 
+function toPackCatalogItem(pack, dirName) {
+  return {
+    name: pack.name,
+    path: `packs/${dirName}`,
+    displayName: pack.displayName,
+    description: pack.description,
+    version: pack.version,
+    maturity: pack.maturity,
+    packType: pack.packType,
+    persona: pack.persona,
+    categories: pack.categories,
+    tags: pack.tags ?? [],
+    skills: pack.skills ?? [],
+    agents: pack.agents ?? [],
+    leadAgent: pack.leadAgent
+  };
+}
+
 function renderSkillsMarkdown(items) {
   const header = [
     "# Skills Catalog",
@@ -79,11 +98,11 @@ function renderSkillsMarkdown(items) {
     "| --- | --- | --- | --- | --- |"
   ];
 
-  const rows = items.map((it) => {
-    const link = `[${it.name}](../../${it.path}/SKILL.md)`;
-    const categories = (it.categories ?? []).join(", ");
-    const desc = (it.description ?? "").replace(/\r?\n/g, " ");
-    return `| ${link} | ${it.version} | ${it.maturity} | ${categories} | ${desc} |`;
+  const rows = items.map((item) => {
+    const link = `[${item.name}](../../${item.path}/SKILL.md)`;
+    const categories = (item.categories ?? []).join(", ");
+    const desc = (item.description ?? "").replace(/\r?\n/g, " ");
+    return `| ${link} | ${item.version} | ${item.maturity} | ${categories} | ${desc} |`;
   });
 
   return [...header, ...rows, ""].join("\n");
@@ -99,12 +118,33 @@ function renderAgentsMarkdown(items) {
     "| --- | --- | --- | --- | --- | --- | --- |"
   ];
 
-  const rows = items.map((it) => {
-    const link = `[${it.name}](../../${it.path}/claude-code.md)`;
-    const platforms = (it.platforms ?? []).join(", ");
-    const categories = (it.categories ?? []).join(", ");
-    const desc = (it.description ?? "").replace(/\r?\n/g, " ");
-    return `| ${link} | ${it.version} | ${it.maturity} | ${it.archetype} | ${platforms} | ${categories} | ${desc} |`;
+  const rows = items.map((item) => {
+    const link = `[${item.name}](../../${item.path}/claude-code.md)`;
+    const platforms = (item.platforms ?? []).join(", ");
+    const categories = (item.categories ?? []).join(", ");
+    const desc = (item.description ?? "").replace(/\r?\n/g, " ");
+    return `| ${link} | ${item.version} | ${item.maturity} | ${item.archetype} | ${platforms} | ${categories} | ${desc} |`;
+  });
+
+  return [...header, ...rows, ""].join("\n");
+}
+
+function renderPacksMarkdown(items) {
+  const header = [
+    "# Packs Catalog",
+    "",
+    "> This file is generated. Run `npm run build`.",
+    "",
+    "| Name | Type | Version | Maturity | Categories | Members | Description |",
+    "| --- | --- | --- | --- | --- | --- | --- |"
+  ];
+
+  const rows = items.map((item) => {
+    const link = `[${item.name}](../../${item.path}/README.md)`;
+    const categories = (item.categories ?? []).join(", ");
+    const desc = (item.description ?? "").replace(/\r?\n/g, " ");
+    const members = `${(item.skills ?? []).length} skills, ${(item.agents ?? []).length} agents`;
+    return `| ${link} | ${item.packType} | ${item.version} | ${item.maturity} | ${categories} | ${members} | ${desc} |`;
   });
 
   return [...header, ...rows, ""].join("\n");
@@ -115,7 +155,6 @@ async function main() {
   await fs.mkdir(path.join(repoRoot, "docs", "catalog"), { recursive: true });
   await fs.mkdir(path.join(repoRoot, "dist"), { recursive: true });
 
-  // Build skill items
   const skillDirs = await listDirs(path.join(repoRoot, "skills"));
   const skillItems = [];
   for (const dirName of skillDirs) {
@@ -126,7 +165,6 @@ async function main() {
   }
   skillItems.sort((a, b) => a.name.localeCompare(b.name));
 
-  // Build agent items
   const agentDirs = await listDirs(path.join(repoRoot, "agents"));
   const agentItems = [];
   for (const dirName of agentDirs) {
@@ -138,12 +176,22 @@ async function main() {
   }
   agentItems.sort((a, b) => a.name.localeCompare(b.name));
 
-  // Write dist/catalog.json
+  const packDirs = await listDirs(path.join(repoRoot, "packs"));
+  const packItems = [];
+  for (const dirName of packDirs) {
+    const packJsonPath = path.join(repoRoot, "packs", dirName, "pack.json");
+    if (!(await fileExists(packJsonPath))) continue;
+    const pack = await readJson(packJsonPath);
+    packItems.push(toPackCatalogItem(pack, dirName));
+  }
+  packItems.sort((a, b) => a.name.localeCompare(b.name));
+
   const catalog = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     skills: skillItems,
-    agents: agentItems
+    agents: agentItems,
+    packs: packItems
   };
 
   await fs.writeFile(
@@ -152,17 +200,21 @@ async function main() {
     "utf8"
   );
 
-  // Write skill catalog markdown
   await fs.writeFile(
     path.join(repoRoot, SKILLS_CATALOG_PATH),
     renderSkillsMarkdown(skillItems),
     "utf8"
   );
 
-  // Write agent catalog markdown
   await fs.writeFile(
     path.join(repoRoot, AGENTS_CATALOG_PATH),
     renderAgentsMarkdown(agentItems),
+    "utf8"
+  );
+
+  await fs.writeFile(
+    path.join(repoRoot, PACKS_CATALOG_PATH),
+    renderPacksMarkdown(packItems),
     "utf8"
   );
 }

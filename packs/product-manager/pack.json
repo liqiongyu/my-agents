@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "name": "product-manager",
+  "displayName": "Product Manager Pack",
+  "description": "Product strategy, requirements, and research workflow pack.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "packType": "role-pack",
+  "persona": "product-manager",
+  "categories": [
+    "business",
+    "productivity",
+    "research"
+  ],
+  "skills": [
+    "clarify",
+    "brainstorming",
+    "business-plan",
+    "deep-research"
+  ],
+  "agents": [
+    "explorer",
+    "planner",
+    "researcher"
+  ],
+  "tags": [
+    "pm",
+    "product",
+    "strategy"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ]
+}
