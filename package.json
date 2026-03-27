@@ -9,7 +9,9 @@
   "scripts": {
     "build": "node scripts/build-catalog.js",
     "new": "node scripts/new.js",
-    "validate": "node scripts/validate.js",
+    "prepare": "node scripts/setup-git-hooks.js",
+    "sync-instructions": "node scripts/sync-instructions.js",
+    "validate": "node scripts/sync-instructions.js --check && node scripts/validate.js",
     "install-skill": "node scripts/install.js --skill",
     "install-agent": "node scripts/install.js --agent",
     "uninstall-skill": "node scripts/install.js --skill --uninstall",

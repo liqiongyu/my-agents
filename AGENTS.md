@@ -1,26 +1,51 @@
+> This file is generated from `instructions/root/shared.md` and `instructions/root/codex.md`.
+> Edit those source fragments instead of hand-editing this file.
+> Run `npm run sync-instructions` after changing them. The versioned `pre-commit` hook auto-syncs and stages this file, and `npm test` plus CI fail if it drifts.
+
 # Repository Guidelines
 
-## Project Structure & Module Organization
-This repository is a monorepo for reusable agent and skill packages. Edit canonical sources in `skills/<name>/` and `agents/<name>/`, not projected runtime copies in `.agents/` or `.claude/`. Each skill package should contain `skill.json`, `SKILL.md`, and `CHANGELOG.md`; each agent package should contain `agent.json`, at least one platform file such as `claude-code.md` or `codex.toml`, and `CHANGELOG.md`. Shared schemas live in `schemas/`, authoring tools live in `scripts/`, and longer research notes live in `research/`.
+## Instruction Source Of Truth
+The root `AGENTS.md` and `CLAUDE.md` files are generated outputs. Edit `instructions/root/shared.md` plus the relevant platform fragment (`instructions/root/codex.md` or `instructions/root/claude.md`) instead of hand-editing the generated files. Run `npm run sync-instructions` after changing those source files. The repo's versioned `pre-commit` hook auto-syncs and stages the generated files, and `npm test` plus CI fail if they drift.
 
-## Build, Test, and Development Commands
+## Project Structure & Module Organization
+This repository is a monorepo for reusable skills, agents, and installable packs. Edit canonical sources in `skills/<name>/`, `agents/<name>/`, and `packs/<name>/`, not projected runtime copies in `.agents/`, `.claude/`, or `.codex/`.
+
+- Skill packages should contain `skill.json`, `SKILL.md`, and `CHANGELOG.md`; `references/`, `scripts/`, `assets/`, and `projection.json` are optional.
+- Agent packages should contain `agent.json`, at least one platform definition file such as `claude-code.md` or `codex.toml`, and `CHANGELOG.md`.
+- Pack packages should contain `pack.json`, `README.md`, and `CHANGELOG.md`.
+- Shared schemas live in `schemas/`; authoring tools live in `scripts/`; generated catalogs live in `docs/catalog/` and `dist/catalog.json`; longer research notes live in `research/`.
+
+## Build, Test, And Development Commands
 Use Node.js 18+.
 
-- `npm install` installs repo dependencies.
-- `npm run new -- my-skill` scaffolds a new skill package.
-- `npm run new -- --agent my-agent` scaffolds a new agent package.
-- `npm run build` regenerates `dist/catalog.json`, `docs/catalog/skills.md`, and `docs/catalog/agents.md`.
-- `npm test` runs the full validation suite through `scripts/validate.js`.
-- `npm run install-skill -- clarify --platform codex --scope project` installs a skill into a local runtime surface for testing.
+- `npm install` installs repo dependencies and configures the repo's versioned Git hooks for this clone.
+- `npm run sync-instructions` regenerates root `AGENTS.md` and `CLAUDE.md`.
+- `npm run sync-instructions -- --check` verifies the generated root instruction files are current.
+- `npm run new -- my-skill`, `npm run new -- --agent my-agent`, and `npm run new -- --pack my-pack` scaffold canonical packages.
+- `npm run build` regenerates `dist/catalog.json`, `docs/catalog/skills.md`, `docs/catalog/agents.md`, and `docs/catalog/packs.md`.
+- `npm test` runs repository validation.
+- `npm run install-skill -- <name>`, `npm run install-agent -- <name>`, `npm run install-pack -- <name>`, and `npm run sync-project` manage runtime installs. Install commands support `--platform claude|codex|all`, `--scope user|project`, and `--manifest <path>` where relevant.
 
 ## Coding Style & Naming Conventions
-Match the existing style in surrounding files. JavaScript in `scripts/` uses CommonJS, 2-space indentation, semicolons, and double quotes. Python helpers use 4-space indentation and should stay deterministic and CLI-friendly. Use kebab-case for package directories and keep `name` fields in `skill.json` and `agent.json` aligned with the folder name. Prefer ASCII Markdown and do not hand-edit generated catalogs under `docs/catalog/` or `dist/catalog.json`.
+Match the existing style in surrounding files. JavaScript in `scripts/` uses CommonJS, 2-space indentation, semicolons, and double quotes. Python helpers use 4-space indentation and should stay deterministic and CLI-friendly. Use kebab-case for package directories and keep `name` fields in `skill.json`, `agent.json`, and `pack.json` aligned with the folder name. Prefer ASCII Markdown. Do not hand-edit generated catalogs, `dist/catalog.json`, or the generated root instruction files.
 
-## Testing Guidelines
-Run `npm run build` and `npm test` before opening a PR, especially after changing package metadata, schemas, or generated catalogs. Validation checks schema compliance, changelog/version alignment, category whitelists, catalog freshness, and minimum documentation length. If you modify Python helpers under `skills/skill-lifecycle-manager/scripts/`, also run `python3 -m unittest discover -s skills/skill-lifecycle-manager/tests`.
+## Quality & Validation Rules
+- Categories must come from `categories.json`; add a new category there before using it in package metadata.
+- Skill docs, agent platform docs, and pack READMEs must be substantive and not placeholders.
+- When a version changes in `skill.json`, `agent.json`, or `pack.json`, add a matching `## [x.y.z]` entry to the package `CHANGELOG.md`.
+- Follow SemVer: MAJOR for breaking changes, MINOR for new capabilities, PATCH for fixes.
+- Run `npm run sync-instructions`, `npm run build`, and `npm test` before opening a PR after changing canonical packages, metadata, generated outputs, or contributor instructions.
+- Validation checks schema compliance, directory conventions, changelog/version alignment, category whitelists, pack and project-manifest reference integrity, generated catalog freshness, and generated instruction freshness.
 
-## Commit & Pull Request Guidelines
-Recent history favors Conventional Commits such as `feat(skills): add skill lifecycle manager workflow` and `chore(catalog): refresh generated metadata`; keep using that format. Keep PRs focused, explain whether the change affects canonical packages, generated catalogs, or install flows, and link any relevant issue or research note. When changing a skill or agent, bump its version and add a matching changelog entry.
+## GitHub & Contribution Workflow
+Use Conventional Commits such as `feat(skills): add skill lifecycle manager workflow` or `chore(catalog): refresh generated metadata`. Keep PRs focused, explain whether the change affects canonical packages, generated outputs, install flows, or local-only behavior, and link any relevant issue or research note. GitHub Actions runs `npm test` on every push and PR via `.github/workflows/validate.yml`. Tagging `v*` triggers `.github/workflows/release.yml`, which assembles GitHub Release notes from per-skill, per-agent, and per-pack changelogs.
 
-## Contributor Notes
-Add new categories to `categories.json` before referencing them in package metadata. Keep root guidance concise and put package-specific operating details inside the relevant `SKILL.md`, `claude-code.md`, or changelog.
+## Common Gotchas
+- `dist/catalog.json` contains a volatile `generatedAt` timestamp; freshness checks compare the durable catalog fields, not that timestamp.
+- Schema `$id` values under `schemas/` point at GitHub raw URLs; update them if the repo is renamed or transferred.
+- Keep root guidance concise and push package-specific operating details into the relevant `SKILL.md`, `claude-code.md`, `codex.toml`, pack `README.md`, or changelog.
+
+## Codex Notes
+- Keep repository-wide instructions in the root `AGENTS.md`. If a subtree ever needs narrower guidance, add another scoped `AGENTS.md` inside that subtree instead of bloating the root file.
+- Treat the root `AGENTS.md` as generated output from `instructions/root/shared.md` and `instructions/root/codex.md`; do not hand-edit it.
+- Codex project-scope runtime installs live under `.agents/skills/` for skills and `.codex/agents/` for agents. Update canonical packages and reinstall rather than editing projected runtime copies.

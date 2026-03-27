@@ -1,7 +1,3 @@
-> This file is generated from `instructions/root/shared.md` and `instructions/root/claude.md`.
-> Edit those source fragments instead of hand-editing this file.
-> Run `npm run sync-instructions` after changing them. The versioned `pre-commit` hook auto-syncs and stages this file, and `npm test` plus CI fail if it drifts.
-
 # Repository Guidelines
 
 ## Instruction Source Of Truth
@@ -44,11 +40,3 @@ Use Conventional Commits such as `feat(skills): add skill lifecycle manager work
 - `dist/catalog.json` contains a volatile `generatedAt` timestamp; freshness checks compare the durable catalog fields, not that timestamp.
 - Schema `$id` values under `schemas/` point at GitHub raw URLs; update them if the repo is renamed or transferred.
 - Keep root guidance concise and push package-specific operating details into the relevant `SKILL.md`, `claude-code.md`, `codex.toml`, pack `README.md`, or changelog.
-
-## Claude Code Notes
-- `CLAUDE.md` is intentionally a thin projection of the shared rules plus Claude-specific caveats. If a rule should apply to both Claude Code and Codex, put it in `instructions/root/shared.md`.
-- Eval workspaces go in `workspaces/<skill-name>/` (sibling to `skills/`), not inside the skill package.
-- Knowledge-domain skills such as `prompt-engineering` or debugging methodology may have low auto-trigger rates in Claude; explicit `/skill-name` invocation can work better.
-- `skill-creator` description optimization (`run_loop.py`) requires `ANTHROPIC_API_KEY`; it calls the Anthropic SDK directly, not `claude -p`.
-- When overlapping skills are installed, prune older or superseded entries to keep the Claude skill list clear.
-- For Python work in this repo, prefer `uv run`, `uv pip`, and other `uv` commands instead of bare `python`, `python3`, or `pip`.
