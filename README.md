@@ -1,101 +1,108 @@
 # My Agents
 
-A monorepo for creating, managing, and publishing reusable **Agent skills** and **sub-agent definitions** for Claude Code, Codex, and other AI coding agents.
+Language: English | [Chinese](README.zh-CN.md)
 
-一个用来创建、管理和发布可复用 **Agent Skills** 和 **Sub-Agent 定义**的 Monorepo，支持 Claude Code、Codex 等 AI 编程工具。
+[![Validate](https://github.com/liqiongyu/my-agents/actions/workflows/validate.yml/badge.svg)](https://github.com/liqiongyu/my-agents/actions/workflows/validate.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+A monorepo for authoring, validating, and publishing reusable agent skills and sub-agent packages for Claude Code, Codex, and similar AI coding agents.
+
+This repository keeps the canonical source of truth under `skills/` and `agents/`, generates discovery catalogs from that source, and provides scaffold/install tooling so the same content can be projected into different runtime surfaces.
+
+> [!NOTE]
+> Edit packages in `skills/` and `agents/`. Treat generated catalogs and project-scope runtime copies as derived artifacts.
+> Root `AGENTS.md` remains the contributor-facing guide for this repository, so generated catalogs live outside the root.
 
 ## Quick Start
 
+Prerequisite: Node.js 18 or newer.
+
 ```bash
-# Install dependencies
 npm install
-
-# Create a new skill (default)
-npm run new -- <skill-name>
-
-# Create a new agent
-npm run new -- --agent <agent-name>
-
-# Rebuild indexes
+npm run new -- my-skill
+npm run new -- --agent my-agent
 npm run build
-
-# Validate everything
 npm test
 ```
 
-## Using a Skill
+## Browse the Catalog
 
-```bash
-# Install to ~/.claude/commands/
-npm run install-skill -- <skill-name>
-```
+- [docs/catalog/skills.md](docs/catalog/skills.md) is the generated human-readable index of tracked skills.
+- [docs/catalog/agents.md](docs/catalog/agents.md) is the generated human-readable index of tracked agents.
+- `dist/catalog.json` is the generated machine-readable index consumed by tooling.
 
-## Using an Agent
+## Repository Layout
 
-```bash
-# Install to ~/.claude/agents/ and ~/.codex/agents/
-npm run install-agent -- <agent-name>
-```
+| Path | Purpose |
+| --- | --- |
+| `skills/<name>/` | Canonical source packages for reusable skills (`skill.json`, `SKILL.md`, `CHANGELOG.md`) |
+| `agents/<name>/` | Canonical source packages for reusable agents (`agent.json`, `claude-code.md`, `codex.toml`, `CHANGELOG.md`) |
+| `scripts/` | Scaffolding, install, catalog build, and validation tooling |
+| `schemas/` | JSON Schemas for skill, agent, and catalog metadata |
+| `research/` | Research notes, source digests, and longer-form background documents |
+| `workspaces/<skill-name>/` | Evaluation sandboxes and scratch space for skill development |
+| `.claude/` and `.agents/` | Project-scope runtime projections created during local installation flows |
 
-## Directory Structure
+## Common Workflows
 
-```text
-skills/<skill-name>/
-  skill.json       # Machine-readable metadata (validated by schema)
-  SKILL.md         # The skill prompt (trigger, instructions, examples, caveats)
-  CHANGELOG.md     # Per-skill changelog (Keep a Changelog format)
-
-agents/<agent-name>/
-  agent.json       # Machine-readable metadata (validated by schema)
-  claude-code.md   # Claude Code agent definition (Markdown + YAML frontmatter)
-  codex.toml       # Codex agent role definition (TOML)
-  CHANGELOG.md     # Per-agent changelog (Keep a Changelog format)
-
-schemas/           # JSON Schemas for skill.json, agent.json, and catalog.json
-scripts/           # Build, validate, scaffold, and install tooling
-categories.json    # Allowed category whitelist
-catalog.json       # Auto-generated index (machine-readable)
-SKILLS.md          # Auto-generated skill index (human-readable)
-AGENTS.md          # Auto-generated agent index (human-readable)
-```
-
-## Creating a Skill
+### Create a skill
 
 ```bash
 npm run new -- my-skill
+npm run build
+npm test
 ```
 
 This scaffolds `skills/my-skill/` with `skill.json`, `SKILL.md`, and `CHANGELOG.md`.
 
-## Creating an Agent
+### Create an agent
 
 ```bash
 npm run new -- --agent my-agent
+npm run build
+npm test
 ```
 
 This scaffolds `agents/my-agent/` with `agent.json`, `claude-code.md`, `codex.toml`, and `CHANGELOG.md`.
 
-Then:
+### Install into runtime surfaces
 
 ```bash
-npm run build   # regenerate catalog.json, SKILLS.md, and AGENTS.md
-npm test        # validate everything
+npm run install-skill -- clarify
+npm run install-skill -- clarify --platform codex --scope project
+npm run install-agent -- explorer
+npm run install-agent -- explorer --platform codex --scope project
 ```
 
-## Versioning
+The install tool also supports `--all`, `--platform claude|codex|all`, `--scope user|project`, and matching `npm run uninstall-skill` / `npm run uninstall-agent` commands.
 
-- **MAJOR**: Breaking changes (incompatible input/output/behavior)
-- **MINOR**: Backward-compatible new capabilities
-- **PATCH**: Backward-compatible bug fixes or doc improvements
+Skills can include `projection.json` to exclude author-only files from runtime projections while keeping the canonical package intact in the repository.
 
-## Categories
+## Installation Targets
 
-All categories must be listed in `categories.json`. To add a new category, update that file first.
+| Package type | Claude Code target | Codex target |
+| --- | --- | --- |
+| Skill | `~/.claude/skills/<name>/` or `.claude/skills/<name>/` | `~/.agents/skills/<name>/` or `.agents/skills/<name>/` |
+| Agent | `~/.claude/agents/<name>.md` or `.claude/agents/<name>.md` | `~/.codex/agents/<name>.toml` or `.codex/agents/<name>.toml` |
+
+## Generated Files
+
+- `npm run build` regenerates `dist/catalog.json`, `docs/catalog/skills.md`, and `docs/catalog/agents.md`.
+- Do not hand-edit those generated indexes; update the underlying packages instead.
+
+## Validation and Release
+
+- `npm test` runs `npm run validate`.
+- Validation checks schemas, directory conventions, changelog/version alignment, generated index freshness, and minimum documentation quality.
+- GitHub Actions runs validation on every push and pull request via `.github/workflows/validate.yml`.
+- Tagging `v*` triggers `.github/workflows/release.yml`, which assembles GitHub Release notes from per-skill and per-agent changelogs.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for authoring rules and release hygiene.
+
+If you need a new category, add it to [categories.json](categories.json) before using it in `skill.json` or `agent.json`.
 
 ## License
 
-[MIT](LICENSE) — Qiongyu Li
+[MIT](LICENSE) - Qiongyu Li
