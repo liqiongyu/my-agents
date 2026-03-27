@@ -31,10 +31,20 @@ npm test
 - [docs/catalog/agents.md](docs/catalog/agents.md) is the generated human-readable index of tracked agents.
 - `dist/catalog.json` is the generated machine-readable index consumed by tooling.
 
+If you want a quick sense of the current library shape, start with `skill-lifecycle-manager`, `skill-researcher`, and `agent-lifecycle-manager` in the generated skills catalog. They reflect the repo's current direction around lifecycle routing, research handoffs, and cross-surface packaging.
+
+## Metadata Conventions
+
+- [schemas/skill.schema.json](schemas/skill.schema.json), [schemas/agent.schema.json](schemas/agent.schema.json), and [schemas/catalog.schema.json](schemas/catalog.schema.json) define the machine-readable metadata contracts.
+- [docs/metadata/skill-metadata-policy.md](docs/metadata/skill-metadata-policy.md) explains how to use `requirements`, `capabilities`, and `maturity` consistently across skill packages.
+- [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md) remain the contributor-facing guides for repository workflow, release hygiene, and local conventions.
+
 ## Repository Layout
 
 | Path | Purpose |
 | --- | --- |
+| `docs/catalog/` | Generated Markdown catalogs for tracked skills and agents |
+| `docs/metadata/` | Repository-level metadata policy and authoring conventions |
 | `skills/<name>/` | Canonical source packages for reusable skills (`skill.json`, `SKILL.md`, `CHANGELOG.md`) |
 | `agents/<name>/` | Canonical source packages for reusable agents (`agent.json`, `claude-code.md`, `codex.toml`, `CHANGELOG.md`) |
 | `scripts/` | Scaffolding, install, catalog build, and validation tooling |
@@ -89,11 +99,13 @@ Skills can include `projection.json` to exclude author-only files from runtime p
 
 - `npm run build` regenerates `dist/catalog.json`, `docs/catalog/skills.md`, and `docs/catalog/agents.md`.
 - Do not hand-edit those generated indexes; update the underlying packages instead.
+- Policy docs under `docs/metadata/` are source documents and should be edited directly when repository conventions change.
 
 ## Validation and Release
 
 - `npm test` runs `npm run validate`.
 - Validation checks schemas, directory conventions, changelog/version alignment, generated index freshness, and minimum documentation quality.
+- When metadata semantics change, update the canonical package, any relevant policy docs, then rerun `npm run build` and `npm test` before committing.
 - GitHub Actions runs validation on every push and pull request via `.github/workflows/validate.yml`.
 - Tagging `v*` triggers `.github/workflows/release.yml`, which assembles GitHub Release notes from per-skill and per-agent changelogs.
 

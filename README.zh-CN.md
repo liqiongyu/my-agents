@@ -31,10 +31,20 @@ npm test
 - [docs/catalog/agents.md](docs/catalog/agents.md) 是自动生成的代理索引，适合人工浏览。
 - `dist/catalog.json` 是供脚本和工具消费的机器可读索引。
 
+如果想快速理解当前仓库的主线方向，可以先从生成索引中的 `skill-lifecycle-manager`、`skill-researcher` 和 `agent-lifecycle-manager` 看起。它们分别代表生命周期路由、研究交接，以及跨运行时投影这一批核心能力。
+
+## 元数据约定
+
+- [schemas/skill.schema.json](schemas/skill.schema.json)、[schemas/agent.schema.json](schemas/agent.schema.json) 和 [schemas/catalog.schema.json](schemas/catalog.schema.json) 定义了机器可读的元数据契约。
+- [docs/metadata/skill-metadata-policy.md](docs/metadata/skill-metadata-policy.md) 说明了如何一致地使用 `requirements`、`capabilities` 和 `maturity` 等字段。
+- [AGENTS.md](AGENTS.md) 与 [CONTRIBUTING.md](CONTRIBUTING.md) 仍然是贡献者视角下的仓库工作流、发布卫生和本地约定说明。
+
 ## 仓库结构
 
 | 路径 | 用途 |
 | --- | --- |
+| `docs/catalog/` | 自动生成的技能与代理目录索引 |
+| `docs/metadata/` | 仓库级元数据策略与编写约定 |
 | `skills/<name>/` | Skills 的标准源码包，包含 `skill.json`、`SKILL.md`、`CHANGELOG.md` |
 | `agents/<name>/` | Agents 的标准源码包，包含 `agent.json`、`claude-code.md`、`codex.toml`、`CHANGELOG.md` |
 | `scripts/` | 脚手架、安装、目录构建与校验脚本 |
@@ -89,11 +99,13 @@ npm run install-agent -- explorer --platform codex --scope project
 
 - `npm run build` 会重新生成 `dist/catalog.json`、`docs/catalog/skills.md` 和 `docs/catalog/agents.md`。
 - 这些索引文件不建议手动编辑，应该回到对应的源码包中修改。
+- `docs/metadata/` 下的策略文档不是生成文件；仓库约定变化时应直接修改这些文档。
 
 ## 校验与发布
 
 - `npm test` 实际执行的是 `npm run validate`。
 - 校验内容包括 schema、目录约定、CHANGELOG 与版本号一致性、生成索引是否最新，以及文档最小质量要求。
+- 如果调整了元数据语义或仓库策略，应该先更新标准源码包与相关策略文档，再执行 `npm run build` 和 `npm test`。
 - GitHub Actions 会在每次 push 和 pull request 时运行 `.github/workflows/validate.yml`。
 - 打上 `v*` 标签后会触发 `.github/workflows/release.yml`，从各个 skill 和 agent 的 changelog 中汇总 GitHub Release 说明。
 
