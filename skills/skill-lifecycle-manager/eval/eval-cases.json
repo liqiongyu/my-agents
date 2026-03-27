@@ -1,0 +1,204 @@
+{
+  "version": "0.1.0",
+  "skill": "skill-lifecycle-manager",
+  "description": "Cross-platform evaluation suite for the skill-lifecycle-manager skill. The suite tests whether the skill can route lifecycle work correctly, preserve a shared canonical core, generate Codex and Claude Code projections, and keep validation and trigger-optimization concerns explicit.",
+  "assertions": [
+    "stage_routing_correct",
+    "canonical_core_created_or_preserved",
+    "projection_strategy_explicit",
+    "codex_projection_present",
+    "claude_projection_filtered",
+    "validation_executed",
+    "trigger_work_separated",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "stage_routing_correct": "The response chooses the smallest appropriate lifecycle route for the request instead of forcing every stage. Stages are named clearly and match the task.",
+    "canonical_core_created_or_preserved": "The result treats the canonical skill package as the source of truth. It creates or updates `SKILL.md`, `skill.json`, and `CHANGELOG.md` when the task is authoring-oriented, or preserves the existing canonical package when the task is audit/optimization oriented.",
+    "projection_strategy_explicit": "The response explains or applies the distinction between shared core content and platform-specific packaging or metadata. It does not silently collapse Codex and Claude Code into one undifferentiated surface.",
+    "codex_projection_present": "For tasks that require distribution, the result generates or validates a Codex projection under `.agents/skills/<name>/` and keeps the runtime-relevant package intact.",
+    "claude_projection_filtered": "For tasks that require distribution, the result generates or validates a Claude Code projection under `.claude/skills/<name>/` and omits repo-only metadata such as `skill.json`, `CHANGELOG.md`, or unrelated build artifacts.",
+    "validation_executed": "The response runs or names concrete validation commands appropriate to the task, such as `quick_validate.py`, `validate_projection.py`, or repo validation commands.",
+    "trigger_work_separated": "When the task includes trigger optimization, the response treats description tuning as a distinct pass and does not unnecessarily rewrite the whole skill body.",
+    "next_step_explicit": "The response closes with a concrete next lifecycle step, especially when real-world evaluation or install/publish work remains."
+  },
+  "cases": [
+    {
+      "id": "eval-1",
+      "name": "Create a new dual-platform skill from a repeated workflow",
+      "description": "Tests Create/Update -> Validate -> Project route selection. The skill should produce a canonical skill package plus Codex and Claude Code projections without treating the two targets as identical.",
+      "prompt": "Turn our repeated API deprecation review workflow into a reusable skill. It needs to work for both Codex and Claude Code, keep one canonical source of truth, create the projections, and validate the result before you stop.",
+      "mode": "standard",
+      "expected_stages": [
+        "Create/Update",
+        "Validate",
+        "Project/Install/Publish"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should focus on authoring, validation, and projection. Discover is optional, but the response should not default to a full ecosystem survey unless the request or context demands it."
+        },
+        "canonical_core_created_or_preserved": {
+          "check": "Creates a canonical skill package with `SKILL.md`, `skill.json`, and `CHANGELOG.md` as the durable source of truth."
+        },
+        "projection_strategy_explicit": {
+          "check": "Explains or demonstrates that Codex and Claude Code projections are derived from the canonical package rather than separately hand-authored."
+        },
+        "codex_projection_present": {
+          "check": "Produces or validates a `.agents/skills/<name>/` projection that keeps the runtime package intact."
+        },
+        "claude_projection_filtered": {
+          "check": "Produces or validates a `.claude/skills/<name>/` projection that excludes repo-only metadata or build artifacts."
+        },
+        "validation_executed": {
+          "check": "Runs or explicitly reports `quick_validate.py` and `validate_projection.py`, plus any repo-level validation if needed."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next recommended lifecycle step, such as real prompt evaluation or install smoke testing."
+        }
+      }
+    },
+    {
+      "id": "eval-2",
+      "name": "Optimize trigger boundaries without rewriting the whole skill",
+      "description": "Tests whether trigger optimization stays a separate pass. The ideal behavior is to define should-trigger, should-not-trigger, and near-miss prompts while keeping the body stable unless the evidence points to a deeper issue.",
+      "prompt": "Our `skill-lifecycle-manager` works, but it under-triggers on Claude Code and sometimes over-triggers on Codex. Improve the description and prove the trigger boundary is tighter, but do not do a broad rewrite unless the eval evidence says the body is actually the problem.",
+      "mode": "standard",
+      "expected_stages": [
+        "Optimize Trigger",
+        "Validate",
+        "Evaluate"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should emphasize trigger optimization and validation first, not a full create-from-scratch pass."
+        },
+        "projection_strategy_explicit": {
+          "check": "Keeps platform differences visible while still treating the canonical description as the primary trigger surface."
+        },
+        "validation_executed": {
+          "check": "Uses or references trigger eval prompts and structural validation after description changes."
+        },
+        "trigger_work_separated": {
+          "check": "Records description-focused changes separately from body changes and avoids broad churn without evidence."
+        },
+        "next_step_explicit": {
+          "check": "Calls out whether more behavior evaluation is needed after the trigger-focused pass."
+        }
+      }
+    },
+    {
+      "id": "eval-3",
+      "name": "Audit cross-platform readiness of an existing skill library",
+      "description": "Tests Audit/Governance with cross-platform reasoning. The skill should identify duplicates, stale projections, and readiness gaps, then recommend the next lifecycle step instead of immediately rewriting everything.",
+      "prompt": "Audit our skill library for cross-platform readiness. I care about duplicate intent, stale or missing Codex and Claude projections, context bloat, and skills that claim to be portable but aren't actually validated. Prioritize the findings and tell me what should happen next.",
+      "mode": "standard",
+      "expected_stages": [
+        "Audit/Governance",
+        "Validate"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should lead with audit/governance and structural checks rather than authoring a new skill."
+        },
+        "projection_strategy_explicit": {
+          "check": "Evaluates readiness in terms of canonical source, projection drift, and target-surface expectations."
+        },
+        "codex_projection_present": {
+          "check": "Checks whether Codex projections exist or are in sync when the audited skill claims Codex support."
+        },
+        "claude_projection_filtered": {
+          "check": "Checks whether Claude projections exist or are in sync and whether they contain only runtime-relevant files."
+        },
+        "validation_executed": {
+          "check": "Runs or references inventory audit and projection validation commands rather than relying only on intuition."
+        },
+        "next_step_explicit": {
+          "check": "Ends with a prioritized lifecycle recommendation such as consolidate, project, re-evaluate, or leave as-is."
+        }
+      }
+    },
+    {
+      "id": "eval-4",
+      "name": "Create a narrow utility skill that is not itself a meta-skill",
+      "description": "Tests an ordinary skill-authoring request rather than `skill-lifecycle-manager` refining itself. The target skill is a small utility that normalizes frontmatter keys in skill files while still needing canonical packaging and cross-platform projections.",
+      "prompt": "Turn our repeated markdown frontmatter cleanup workflow into a reusable skill. It should normalize frontmatter keys across skill files, stay narrow and safe, work in both Codex and Claude Code, keep one canonical source of truth, create the projections, and validate the result before you stop.",
+      "mode": "standard",
+      "expected_stages": [
+        "Create/Update",
+        "Validate",
+        "Project/Install/Publish"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should stay focused on authoring, validation, and projection. It should not overfit to meta-skill work just because the manager is evaluating itself."
+        },
+        "canonical_core_created_or_preserved": {
+          "check": "Creates the utility skill as a canonical package with `SKILL.md`, `skill.json`, and `CHANGELOG.md`."
+        },
+        "projection_strategy_explicit": {
+          "check": "Still distinguishes shared canonical content from platform-specific projections even for an ordinary utility skill."
+        },
+        "codex_projection_present": {
+          "check": "Produces or validates a Codex projection for the new utility skill when distribution is requested."
+        },
+        "claude_projection_filtered": {
+          "check": "Produces or validates a Claude Code projection that excludes repo-only metadata or build artifacts."
+        },
+        "validation_executed": {
+          "check": "Runs or explicitly reports canonical and projection validation commands."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next lifecycle step, such as running realistic utility prompts or install smoke testing."
+        }
+      }
+    },
+    {
+      "id": "eval-5",
+      "name": "Rehabilitate an ordinary content skill with separate body and trigger passes",
+      "description": "Tests a non-meta revision path where the target is an everyday content skill. The response should improve the skill, validate it, evaluate it against realistic work, and keep trigger tuning separate from body fixes.",
+      "prompt": "Our `release-notes-helper` skill drafts changelog summaries, but users say it misses edge cases and sometimes triggers too broadly on general docs work. Update the skill, validate it, compare the revised version against a meaningful baseline if that helps, and keep description tuning separate from body fixes.",
+      "mode": "standard",
+      "expected_stages": [
+        "Create/Update",
+        "Validate",
+        "Evaluate",
+        "Optimize Trigger"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should focus on revision, validation, evaluation, and a separate trigger pass rather than restarting with a brand-new skill or a full ecosystem survey."
+        },
+        "canonical_core_created_or_preserved": {
+          "check": "Treats the existing `release-notes-helper` canonical package as the thing being revised and preserved."
+        },
+        "validation_executed": {
+          "check": "Runs or names the relevant validation commands before or alongside evaluation."
+        },
+        "trigger_work_separated": {
+          "check": "Keeps the broadness complaint in a distinct trigger-optimization pass instead of mixing description changes into every other edit."
+        },
+        "next_step_explicit": {
+          "check": "Ends with a concrete next step such as rerunning realistic release-note prompts or shipping the tightened description."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "A case passes if it scores >= 75% of the possible points for the assertions that apply to that case. The suite passes if every case passes individually."
+  },
+  "runner_instructions": {
+    "setup": "Install the skill on the target surface(s) or ensure the canonical package is discoverable. If testing projection behavior, prepare writable `.agents/skills/` and `.claude/skills/` surfaces or use a temporary output root.",
+    "execution": "Run each prompt in a session where the skill is available. When the case involves projections, capture the generated filesystem artifacts as part of the evidence.",
+    "evaluation": "Score each assertion as pass, partial, or fail. For projection assertions, inspect both the canonical package and the generated Codex/Claude directories.",
+    "environment": "Cases should be run with filesystem write access. Network access is optional unless Discover is explicitly exercised."
+  }
+}

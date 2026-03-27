@@ -38,7 +38,7 @@ function formatAjvErrors(errors) {
 async function checkChangelogHasVersion(changelogPath, version) {
   const raw = await fs.readFile(changelogPath, "utf8");
   const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`^##\\s*\\[?${escaped}\\]?\\b`, "m");
+  const re = new RegExp(`^##\\s*\\[?${escaped}\\]?(?:\\s+-.*)?$`, "m");
   return re.test(raw);
 }
 

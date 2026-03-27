@@ -1,0 +1,30 @@
+change_id: feat-skill-lifecycle-manager-hardening
+title: Harden skill-lifecycle-manager evaluation and audit workflows
+status: archived
+disposition: completed
+zones:
+- root
+risk_level: medium
+lifecycle:
+  phase: archived
+  started_at: "2026-03-27T07:08:57Z"
+  updated_at: "2026-03-27T08:56:15Z"
+  artifacts:
+    plan: done
+    implementation: done
+    verification: done
+    rollback: done
+  next_step: none
+links:
+  plan: plan.md
+  status: status.md
+  evidence: evidence.md
+  rollback: rollback.md
+  openspec_change: ""
+notes:
+- Scope is limited to the canonical `skills/skill-lifecycle-manager/` package, its projected surfaces, and supporting rctl records for this hardening pass.
+- The main goals are to close the audit-tooling gap, automate baseline eval runs, harden projection root handling and timeout behavior, and add focused Python tests.
+- projection.json now excludes both eval/ and tests/ so author-only fixtures do not leak into Codex or Claude runtime surfaces.
+- Follow-up scope now also includes making command examples projection-safe, clarifying the 9-phase versus 7-stage model, improving frontmatter parsing behavior/limits, and broadening eval coverage beyond self-referential cases.
+- quick_validate.py now prefers PyYAML when available and falls back to a documented flat parser in minimal environments.
+- Archived as completed on 2026-03-27 after the hardening pass, follow-up corrections, and final verification were finished.

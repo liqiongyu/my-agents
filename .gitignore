@@ -1,5 +1,7 @@
 node_modules/
 .DS_Store
+__pycache__/
+*.py[cod]
 *.log
 *.tgz
 .env
@@ -9,3 +11,7 @@ node_modules/
 # Skill/agent eval workspaces (temporary, can be regenerated)
 workspaces/
 
+# rctl:block:start local-state
+# local rctl state
+.rctl/
+# rctl:block:end local-state

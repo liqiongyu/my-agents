@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-26T13:47:02.582Z",
+  "generatedAt": "2026-03-27T08:32:20.497Z",
   "skills": [
     {
       "name": "brainstorming",
@@ -176,6 +176,46 @@
         "architecture",
         "security",
         "quality"
+      ]
+    },
+    {
+      "name": "skill-lifecycle-manager",
+      "path": "skills/skill-lifecycle-manager",
+      "displayName": "Skill Lifecycle Manager",
+      "description": "Manage the lifecycle of agent skills: discover patterns, create or update a skill, validate it, evaluate it, project or install it, or audit a skill library. Use only for explicitly skill-focused requests.",
+      "version": "0.4.1",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "research",
+        "productivity"
+      ],
+      "tags": [
+        "skill-lifecycle",
+        "skill-creation",
+        "skill-validation",
+        "skill-evaluation",
+        "trigger-optimization",
+        "skill-audit"
+      ]
+    },
+    {
+      "name": "skill-researcher",
+      "path": "skills/skill-researcher",
+      "displayName": "Skill Researcher",
+      "description": "Discover, collect, and analyze community skills across the agent skills ecosystem to produce structured fusion reports for creating high-quality custom skills.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "research",
+        "workflow"
+      ],
+      "tags": [
+        "skill-discovery",
+        "fusion",
+        "community-skills",
+        "ecosystem-research",
+        "skill-creation"
       ]
     }
   ],

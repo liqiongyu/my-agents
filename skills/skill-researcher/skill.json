@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "name": "skill-researcher",
+  "displayName": "Skill Researcher",
+  "description": "Discover, collect, and analyze community skills across the agent skills ecosystem to produce structured fusion reports for creating high-quality custom skills.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": [
+    "research",
+    "workflow"
+  ],
+  "tags": [
+    "skill-discovery",
+    "fusion",
+    "community-skills",
+    "ecosystem-research",
+    "skill-creation"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "capabilities": {
+    "shell": true,
+    "network": true,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

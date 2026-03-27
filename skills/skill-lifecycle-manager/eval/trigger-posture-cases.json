@@ -1,0 +1,236 @@
+{
+  "version": "0.1.0",
+  "skill": "skill-lifecycle-manager",
+  "type": "trigger-posture",
+  "description": "Posture-aware trigger and routing suite for skill-lifecycle-manager. The suite checks whether the skill can distinguish explicit skill-work requests from adjacent non-skill requests, and whether it chooses the right invocation posture (`manual-first`, `hybrid`, or `auto-first`) before drafting or optimizing a target skill. A few cases intentionally preserve bounded judgment: overlap checks against an existing skill may be the right next move, and very narrow utility skills may land on `hybrid` or `auto-first` depending on how conservative the surface is about implicit activation.",
+  "assertions": [
+    "routing_verdict_correct",
+    "invocation_posture_explicit",
+    "posture_matches_request",
+    "stage_routing_correct",
+    "negative_boundary_respected",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response makes the right top-level call: route into skill-lifecycle-manager for explicitly skill-focused requests, and decline or redirect adjacent non-skill requests.",
+    "invocation_posture_explicit": "For routed skill requests, the response explicitly names the target skill's invocation posture as `manual-first`, `hybrid`, or `auto-first` before talking about description changes.",
+    "posture_matches_request": "The chosen invocation posture matches the request. Heavy, risky, or governance-oriented skills should stay `manual-first`; mixed explicit/implicit use cases may be `hybrid`; narrow, low-cost utility skills can be `auto-first`. For a few boundary cases, a conservative `hybrid` answer can still pass if the reasoning explicitly limits automatic triggering to unmistakable in-scope requests.",
+    "stage_routing_correct": "The response names the smallest sensible lifecycle stages for the request instead of defaulting to an oversized end-to-end plan.",
+    "negative_boundary_respected": "For requests that should not route to this skill, the response explains the boundary clearly instead of stretching the skill into general code work or agent management.",
+    "next_step_explicit": "The response closes with a concrete next step such as draft, validate, run trigger evals, or use a different workflow."
+  },
+  "cases": [
+    {
+      "id": "tp-manual-audit-skill",
+      "name": "Create a heavy audit skill that should stay manual-first",
+      "description": "Explicitly skill-focused authoring request. The target skill is audit-heavy and should bias toward manual invocation because false positives would create noisy governance work.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Create/Update",
+        "Validate"
+      ],
+      "prompt": "A user says: 'Create a new skill that audits our local skill library for duplicate intent, stale metadata, and context bloat. It will mostly be used intentionally during cleanup passes.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill, what invocation posture the new skill should have, and what the next lifecycle stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is explicitly about creating a skill, so it should route to skill-lifecycle-manager for lifecycle triage."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly say `manual-first`."
+        },
+        "posture_matches_request": {
+          "check": "Because the target skill is heavy and governance-oriented, `manual-first` is the correct posture."
+        },
+        "stage_routing_correct": {
+          "check": "The route should focus on Create/Update plus Validate, not a full ecosystem survey by default."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the next lifecycle step, such as drafting the skill package or writing trigger eval prompts."
+        }
+      }
+    },
+    {
+      "id": "tp-hybrid-readme-skill",
+      "name": "Handle a README cleanup skill request with overlap awareness",
+      "description": "Explicit skill authoring request where the relevant README-focused capability would likely be `hybrid`, but the first good move may be to check for overlap with an existing README skill before creating a duplicate.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "hybrid (for the relevant README skill)",
+      "expected_stages": [
+        "Discover",
+        "Create/Update",
+        "Optimize Trigger",
+        "Validate"
+      ],
+      "prompt": "A user says: 'Create a skill for README cleanup and clarity improvements. People may call it explicitly, but it could also help on obvious README improvement requests.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill, what invocation posture the new skill should have, and what the next lifecycle stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is an explicit request to create a skill, so it should route to skill-lifecycle-manager."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly choose a posture."
+        },
+        "posture_matches_request": {
+          "check": "Because the request describes both explicit use and a few high-confidence automatic cases, the relevant README skill should be treated as `hybrid`."
+        },
+        "stage_routing_correct": {
+          "check": "The route should surface overlap or duplicate-intent checking first. It is acceptable to recommend updating or trigger-tuning an existing README skill instead of creating a new one immediately."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name a clear next step such as comparing against `readme-craftsman`, then either updating or trigger-tuning that skill, or creating a new one only if a real gap remains."
+        }
+      }
+    },
+    {
+      "id": "tp-auto-frontmatter-skill",
+      "name": "Create a tiny frontmatter utility skill near the hybrid/auto-first boundary",
+      "description": "Explicit skill authoring request where the target skill is narrow, cheap to trigger, and intended to help with obvious frontmatter cleanup work. Some surfaces may still answer conservatively with `hybrid` if they want implicit activation to stay tightly bounded.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "auto-first (conservative hybrid also acceptable)",
+      "expected_stages": [
+        "Create/Update",
+        "Validate"
+      ],
+      "prompt": "A user says: 'Create a tiny skill that normalizes markdown frontmatter keys in skill files. It is safe, narrow, and should help automatically on obvious frontmatter cleanup tasks.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill, what invocation posture the new skill should have, and what the next lifecycle stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is an explicit request to create a skill, so it should route to skill-lifecycle-manager."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly choose a posture."
+        },
+        "posture_matches_request": {
+          "check": "Because the target skill is intentionally narrow, safe, and expected to help automatically, `auto-first` is the default target. A conservative `hybrid` answer is also acceptable if it clearly limits automatic help to obvious frontmatter-key normalization in skill files."
+        },
+        "stage_routing_correct": {
+          "check": "The route should emphasize Create/Update plus Validate."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name a concrete next step such as drafting the package and building near-miss trigger prompts."
+        }
+      }
+    },
+    {
+      "id": "tp-manual-trigger-tightening",
+      "name": "Tighten a manual-first meta-skill without broadening recall",
+      "description": "Explicit trigger-optimization request for a heavy meta-skill that should remain manual-first.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Optimize Trigger",
+        "Validate",
+        "Evaluate"
+      ],
+      "prompt": "A user says: 'Our skill-lifecycle-manager is too eager. Keep it manual-first and tighten the description so it only responds to explicit skill requests.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill, what posture applies, and what the next lifecycle stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is explicit trigger optimization for a named skill, so it should route to skill-lifecycle-manager."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly say `manual-first`."
+        },
+        "posture_matches_request": {
+          "check": "The request explicitly says to keep the skill manual-first, so any other posture would be incorrect."
+        },
+        "stage_routing_correct": {
+          "check": "The route should emphasize Optimize Trigger first, with Validate and a narrow trigger-focused Evaluate pass."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the next step, such as drafting `should-trigger` and `should-not-trigger` prompts."
+        }
+      }
+    },
+    {
+      "id": "tn-general-pr-review",
+      "name": "Do not route a general pull request review request",
+      "description": "Adjacent coding task. The request is not about skills and should stay outside skill-lifecycle-manager.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Review this pull request for bugs and style issues.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to skill-lifecycle-manager."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should explain that this is general code review, not skill lifecycle work."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to a more appropriate next step or workflow instead of stretching the skill boundary."
+        }
+      }
+    },
+    {
+      "id": "tn-agent-install",
+      "name": "Do not route an agent installation request",
+      "description": "Adjacent agent-management task. The request mentions Codex installation but is about agents, not skills.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Install the explorer agent into Codex and make sure it is available for codebase mapping.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to skill-lifecycle-manager."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should say this is agent management rather than skill lifecycle work."
+        },
+        "next_step_explicit": {
+          "check": "The answer should tell the user to use an agent-install or agent-management workflow instead."
+        }
+      }
+    },
+    {
+      "id": "tn-api-description",
+      "name": "Do not route a non-skill description-writing request",
+      "description": "Near-miss wording. The request mentions a description, but it is about an API endpoint rather than a skill.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Help me write a better description for this API endpoint.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to skill-lifecycle-manager."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should explain that description-writing alone is not enough; the request must be explicitly about a skill."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to a more appropriate documentation or writing workflow instead."
+        }
+      }
+    },
+    {
+      "id": "nm-skills-platform-check",
+      "name": "Route an indirect but still skill-scoped platform check",
+      "description": "Near-miss wording that should still route because the request is clearly about the local skill library and platform readiness.",
+      "expected_trigger": "should-trigger",
+      "expected_stages": [
+        "Audit/Governance",
+        "Validate"
+      ],
+      "prompt": "A user says: 'Check if our skills are set up correctly for Codex.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill and what the next lifecycle stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to skill-lifecycle-manager because the request is still about skills and platform readiness."
+        },
+        "stage_routing_correct": {
+          "check": "The route should emphasize Validate plus Audit/Governance. It is also acceptable to mention projection refresh or install/publish work as a remediation step after validation finds problems."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name a concrete next step such as projection validation or inventory audit."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this suite as a manual routing-and-posture review rather than a hard automation gate. Score per assertion after reading the captured response in the review panel. Some cases intentionally allow bounded cross-surface variation when the reasoning is explicit, especially around overlap-checking an existing skill and the hybrid-versus-auto-first boundary. A case passes if it scores >= 75% of the possible points for the assertions that apply to that case."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical skill package is discoverable. These prompts are intentionally classification-only and should be run without editing files.",
+    "execution": "Run each prompt through Codex or Claude Code with the skill available. The response should classify routing and, when relevant, pick a target skill invocation posture.",
+    "evaluation": "Use the review panel to score whether the routing verdict, posture choice, and next-step guidance match the case intent.",
+    "environment": "Filesystem write access is useful for the runner's output artifacts, but the prompts themselves should not require file edits."
+  }
+}

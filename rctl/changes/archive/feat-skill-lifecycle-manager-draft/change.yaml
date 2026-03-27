@@ -1,0 +1,28 @@
+change_id: feat-skill-lifecycle-manager-draft
+title: Draft a repo-compatible skill lifecycle manager skill
+status: archived
+disposition: completed
+zones:
+- root
+risk_level: medium
+lifecycle:
+  phase: archived
+  started_at: "2026-03-27T03:01:05Z"
+  updated_at: "2026-03-27T06:55:25Z"
+  artifacts:
+    plan: done
+    implementation: done
+    verification: done
+    rollback: done
+  next_step: none
+links:
+  plan: plan.md
+  status: status.md
+  evidence: evidence.md
+  rollback: rollback.md
+  openspec_change: ''
+notes:
+- The skill should combine OpenAI's structural discipline with Anthropic's evaluation loop, while preserving repo-specific packaging and validation conventions.
+- The draft now includes a canonical-core plus projection model for Codex and Claude Code, with platform-aware validation and install-path adjustments.
+- "Archived as completed on 2026-03-27 after validation, cross-surface posture review, and closure summary were finished."
+- "The archive step initially missed that rctl was available at .venv/bin/rctl because it was not on PATH in this shell."
