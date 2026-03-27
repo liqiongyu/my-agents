@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "skill": "skill-researcher",
   "description": "Evaluation suite for the skill-researcher skill. The suite tests whether the workflow respects its hard gates, stops after candidate inventory when confirmation is pending, keeps research artifacts separate from authoring, and narrows scope when the user already supplies concrete sources.",
   "assertions": [
