@@ -1,6 +1,10 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 
+const SKILLS_CATALOG_PATH = path.join("docs", "catalog", "skills.md");
+const AGENTS_CATALOG_PATH = path.join("docs", "catalog", "agents.md");
+const MACHINE_CATALOG_PATH = path.join("dist", "catalog.json");
+
 async function fileExists(filePath) {
   try {
     await fs.access(filePath);
@@ -76,7 +80,7 @@ function renderSkillsMarkdown(items) {
   ];
 
   const rows = items.map((it) => {
-    const link = `[${it.name}](${it.path}/SKILL.md)`;
+    const link = `[${it.name}](../../${it.path}/SKILL.md)`;
     const categories = (it.categories ?? []).join(", ");
     const desc = (it.description ?? "").replace(/\r?\n/g, " ");
     return `| ${link} | ${it.version} | ${it.maturity} | ${categories} | ${desc} |`;
@@ -86,21 +90,6 @@ function renderSkillsMarkdown(items) {
 }
 
 function renderAgentsMarkdown(items) {
-  const routingBlock = [
-    "<!-- rctl:block:start routing -->",
-    "## rctl routing",
-    "",
-    "- Treat `rctl/control-plane/control-plane.yaml` as the machine-readable entrypoint.",
-    "- Plans, status, evidence, and rollback notes live under `rctl/changes/`.",
-    "- Command/skill mappings live under `rctl/registry/`.",
-    "- Durable docs and policies live under `rctl/docs/` and `rctl/control-plane/`.",
-    "- Codex-native skills live under `.agents/skills/`.",
-    "- Claude Code uses `CLAUDE.md`, `.claude/skills/`, and `.claude/commands/`.",
-    "- Keep root guidance short; detailed operating truth belongs under `rctl/`.",
-    "",
-    "- For non-trivial work, create or update an active change under `rctl/changes/active/<change-id>/` before broad edits.",
-    "<!-- rctl:block:end routing -->"
-  ];
   const header = [
     "# Agents Catalog",
     "",
@@ -111,18 +100,20 @@ function renderAgentsMarkdown(items) {
   ];
 
   const rows = items.map((it) => {
-    const link = `[${it.name}](${it.path}/claude-code.md)`;
+    const link = `[${it.name}](../../${it.path}/claude-code.md)`;
     const platforms = (it.platforms ?? []).join(", ");
     const categories = (it.categories ?? []).join(", ");
     const desc = (it.description ?? "").replace(/\r?\n/g, " ");
     return `| ${link} | ${it.version} | ${it.maturity} | ${it.archetype} | ${platforms} | ${categories} | ${desc} |`;
   });
 
-  return [...header, ...rows, "", ...routingBlock, ""].join("\n");
+  return [...header, ...rows, ""].join("\n");
 }
 
 async function main() {
   const repoRoot = path.resolve(__dirname, "..");
+  await fs.mkdir(path.join(repoRoot, "docs", "catalog"), { recursive: true });
+  await fs.mkdir(path.join(repoRoot, "dist"), { recursive: true });
 
   // Build skill items
   const skillDirs = await listDirs(path.join(repoRoot, "skills"));
@@ -147,7 +138,7 @@ async function main() {
   }
   agentItems.sort((a, b) => a.name.localeCompare(b.name));
 
-  // Write catalog.json
+  // Write dist/catalog.json
   const catalog = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -156,21 +147,21 @@ async function main() {
   };
 
   await fs.writeFile(
-    path.join(repoRoot, "catalog.json"),
+    path.join(repoRoot, MACHINE_CATALOG_PATH),
     `${JSON.stringify(catalog, null, 2)}\n`,
     "utf8"
   );
 
-  // Write SKILLS.md
+  // Write skill catalog markdown
   await fs.writeFile(
-    path.join(repoRoot, "SKILLS.md"),
+    path.join(repoRoot, SKILLS_CATALOG_PATH),
     renderSkillsMarkdown(skillItems),
     "utf8"
   );
 
-  // Write AGENTS.md
+  // Write agent catalog markdown
   await fs.writeFile(
-    path.join(repoRoot, "AGENTS.md"),
+    path.join(repoRoot, AGENTS_CATALOG_PATH),
     renderAgentsMarkdown(agentItems),
     "utf8"
   );

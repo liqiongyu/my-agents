@@ -5,6 +5,9 @@ const Ajv = require("ajv/dist/2020");
 const addFormats = require("ajv-formats");
 
 const MIN_DOC_LENGTH = 200;
+const SKILLS_CATALOG_PATH = path.join("docs", "catalog", "skills.md");
+const AGENTS_CATALOG_PATH = path.join("docs", "catalog", "agents.md");
+const MACHINE_CATALOG_PATH = path.join("dist", "catalog.json");
 
 async function fileExists(filePath) {
   try {
@@ -106,10 +109,10 @@ async function generateExpectedIndex(repoRoot) {
   }
   agentItems.sort((a, b) => a.name.localeCompare(b.name));
 
-  // catalog.json comparison ignores generatedAt (volatile field)
+  // dist/catalog.json comparison ignores generatedAt (volatile field)
   const expectedCatalogObj = { schemaVersion: 1, skills: skillItems, agents: agentItems };
 
-  // SKILLS.md
+  // Skill catalog markdown
   const skillHeader = [
     "# Skills Catalog",
     "",
@@ -119,14 +122,14 @@ async function generateExpectedIndex(repoRoot) {
     "| --- | --- | --- | --- | --- |"
   ];
   const skillRows = skillItems.map((it) => {
-    const link = `[${it.name}](${it.path}/SKILL.md)`;
+    const link = `[${it.name}](../../${it.path}/SKILL.md)`;
     const categories = (it.categories ?? []).join(", ");
     const desc = (it.description ?? "").replace(/\r?\n/g, " ");
     return `| ${link} | ${it.version} | ${it.maturity} | ${categories} | ${desc} |`;
   });
   const expectedSkillsMd = [...skillHeader, ...skillRows, ""].join("\n");
 
-  // AGENTS.md
+  // Agent catalog markdown
   const agentHeader = [
     "# Agents Catalog",
     "",
@@ -136,28 +139,13 @@ async function generateExpectedIndex(repoRoot) {
     "| --- | --- | --- | --- | --- | --- | --- |"
   ];
   const agentRows = agentItems.map((it) => {
-    const link = `[${it.name}](${it.path}/claude-code.md)`;
+    const link = `[${it.name}](../../${it.path}/claude-code.md)`;
     const platforms = (it.platforms ?? []).join(", ");
     const categories = (it.categories ?? []).join(", ");
     const desc = (it.description ?? "").replace(/\r?\n/g, " ");
     return `| ${link} | ${it.version} | ${it.maturity} | ${it.archetype} | ${platforms} | ${categories} | ${desc} |`;
   });
-  const agentRoutingBlock = [
-    "<!-- rctl:block:start routing -->",
-    "## rctl routing",
-    "",
-    "- Treat `rctl/control-plane/control-plane.yaml` as the machine-readable entrypoint.",
-    "- Plans, status, evidence, and rollback notes live under `rctl/changes/`.",
-    "- Command/skill mappings live under `rctl/registry/`.",
-    "- Durable docs and policies live under `rctl/docs/` and `rctl/control-plane/`.",
-    "- Codex-native skills live under `.agents/skills/`.",
-    "- Claude Code uses `CLAUDE.md`, `.claude/skills/`, and `.claude/commands/`.",
-    "- Keep root guidance short; detailed operating truth belongs under `rctl/`.",
-    "",
-    "- For non-trivial work, create or update an active change under `rctl/changes/active/<change-id>/` before broad edits.",
-    "<!-- rctl:block:end routing -->"
-  ];
-  const expectedAgentsMd = [...agentHeader, ...agentRows, "", ...agentRoutingBlock, ""].join("\n");
+  const expectedAgentsMd = [...agentHeader, ...agentRows, ""].join("\n");
 
   return { expectedCatalogObj, expectedSkillsMd, expectedAgentsMd };
 }
@@ -435,50 +423,54 @@ async function main() {
 
   // ── Validate catalog files ───────────────────────────────────────
 
-  const catalogPath = path.join(repoRoot, "catalog.json");
+  const catalogPath = path.join(repoRoot, MACHINE_CATALOG_PATH);
   if (!(await fileExists(catalogPath))) {
-    errors.push("Missing catalog.json (run `npm run build`)");
+    errors.push(`Missing ${MACHINE_CATALOG_PATH} (run \`npm run build\`)`);
   } else {
     let catalog;
     try {
       catalog = await readJson(catalogPath);
     } catch (err) {
-      errors.push(`catalog.json: invalid JSON (${err.message})`);
+      errors.push(`${MACHINE_CATALOG_PATH}: invalid JSON (${err.message})`);
       catalog = null;
     }
 
     if (catalog && !validateCatalog(catalog)) {
-      errors.push(`catalog.json: schema validation failed\n${formatAjvErrors(validateCatalog.errors)}`);
+      errors.push(
+        `${MACHINE_CATALOG_PATH}: schema validation failed\n${formatAjvErrors(
+          validateCatalog.errors
+        )}`
+      );
     }
   }
 
-  const skillsMdPath = path.join(repoRoot, "SKILLS.md");
+  const skillsMdPath = path.join(repoRoot, SKILLS_CATALOG_PATH);
   if (!(await fileExists(skillsMdPath))) {
-    errors.push("Missing SKILLS.md (run `npm run build`)");
+    errors.push(`Missing ${SKILLS_CATALOG_PATH} (run \`npm run build\`)`);
   }
 
-  const agentsMdPath = path.join(repoRoot, "AGENTS.md");
+  const agentsMdPath = path.join(repoRoot, AGENTS_CATALOG_PATH);
   if (!(await fileExists(agentsMdPath))) {
-    errors.push("Missing AGENTS.md (run `npm run build`)");
+    errors.push(`Missing ${AGENTS_CATALOG_PATH} (run \`npm run build\`)`);
   }
 
   const { expectedCatalogObj, expectedSkillsMd, expectedAgentsMd } = await generateExpectedIndex(repoRoot);
 
-  // Compare catalog.json ignoring generatedAt (it changes every build)
+  // Compare dist/catalog.json ignoring generatedAt (it changes every build)
   if (await fileExists(catalogPath)) {
     const actual = await readJson(catalogPath);
     const actualComparable = { schemaVersion: actual.schemaVersion, skills: actual.skills, agents: actual.agents };
     if (JSON.stringify(actualComparable) !== JSON.stringify(expectedCatalogObj)) {
-      errors.push("catalog.json is out of date (run `npm run build`)");
+      errors.push(`${MACHINE_CATALOG_PATH} is out of date (run \`npm run build\`)`);
     }
   }
 
   if ((await fileExists(skillsMdPath)) && (await fs.readFile(skillsMdPath, "utf8")) !== expectedSkillsMd) {
-    errors.push("SKILLS.md is out of date (run `npm run build`)");
+    errors.push(`${SKILLS_CATALOG_PATH} is out of date (run \`npm run build\`)`);
   }
 
   if ((await fileExists(agentsMdPath)) && (await fs.readFile(agentsMdPath, "utf8")) !== expectedAgentsMd) {
-    errors.push("AGENTS.md is out of date (run `npm run build`)");
+    errors.push(`${AGENTS_CATALOG_PATH} is out of date (run \`npm run build\`)`);
   }
 
   // Print warnings

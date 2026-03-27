@@ -1,7 +1,28 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-27T08:32:20.497Z",
+  "generatedAt": "2026-03-27T11:45:36.333Z",
   "skills": [
+    {
+      "name": "agent-lifecycle-manager",
+      "path": "skills/agent-lifecycle-manager",
+      "displayName": "Agent Lifecycle Manager",
+      "description": "Manage the lifecycle of sub-agents: create or update agent packages, validate cross-surface agent contracts, evaluate routing behavior, tighten invocation boundaries, tune Codex runtime defaults, install or publish agents, or audit an agent library. Use only when the request is explicitly about agents or agent libraries, not for ordinary coding, implementation, or general project planning.",
+      "version": "0.2.2",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "design",
+        "productivity"
+      ],
+      "tags": [
+        "agent-lifecycle",
+        "subagents",
+        "agent-authoring",
+        "agent-validation",
+        "agent-audit",
+        "codex-runtime-controls"
+      ]
+    },
     {
       "name": "brainstorming",
       "path": "skills/brainstorming",
@@ -112,6 +133,27 @@
       ]
     },
     {
+      "name": "git-worktree-workflows",
+      "path": "skills/git-worktree-workflows",
+      "displayName": "Git Worktree Workflows",
+      "description": "Guide and execute safe git worktree workflows for parallel branches, isolated review checkouts, comparison, cleanup, and repair without baking repo-specific bootstrap habits into the default path.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "git",
+        "workflow",
+        "coding"
+      ],
+      "tags": [
+        "git",
+        "worktree",
+        "parallel-development",
+        "branch-isolation",
+        "cleanup",
+        "repair"
+      ]
+    },
+    {
       "name": "prompt-engineering",
       "path": "skills/prompt-engineering",
       "displayName": "Prompt Engineering",
@@ -203,7 +245,7 @@
       "name": "skill-researcher",
       "path": "skills/skill-researcher",
       "displayName": "Skill Researcher",
-      "description": "Discover, collect, and analyze community skills across the agent skills ecosystem to produce structured fusion reports for creating high-quality custom skills.",
+      "description": "Survey community skills, require candidate confirmation before deeper analysis, and produce structured fusion reports as handoff artifacts for downstream skill creation.",
       "version": "0.1.0",
       "maturity": "experimental",
       "categories": [
@@ -225,7 +267,7 @@
       "path": "agents/debugger",
       "displayName": "Debugger",
       "description": "Systematic debugging agent that diagnoses bugs, test failures, and unexpected behavior through hypothesis-driven investigation.",
-      "version": "1.0.0",
+      "version": "1.0.2",
       "maturity": "experimental",
       "categories": [
         "debugging",
@@ -307,7 +349,7 @@
       "path": "agents/implementer",
       "displayName": "Implementer",
       "description": "Code implementation agent that writes, modifies, and refactors code based on plans, specs, or direct instructions.",
-      "version": "1.0.0",
+      "version": "1.0.2",
       "maturity": "experimental",
       "categories": [
         "coding",
@@ -336,7 +378,7 @@
       "path": "agents/planner",
       "displayName": "Planner",
       "description": "Architecture and implementation planning agent that designs step-by-step plans with trade-off analysis.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "maturity": "experimental",
       "categories": [
         "design",
@@ -367,7 +409,7 @@
       "path": "agents/researcher",
       "displayName": "Researcher",
       "description": "Web research agent for deep investigation, multi-source verification, and structured report generation.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "maturity": "experimental",
       "categories": [
         "research",
@@ -394,7 +436,7 @@
       "path": "agents/reviewer",
       "displayName": "Reviewer",
       "description": "Code review agent that performs structured, severity-graded reviews on PRs, diffs, and code changes.",
-      "version": "1.1.0",
+      "version": "1.1.2",
       "maturity": "experimental",
       "categories": [
         "review",
