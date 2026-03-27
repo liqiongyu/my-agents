@@ -1,15 +1,16 @@
 ---
 name: review
 description: >
-  Perform thorough, structured reviews on any type of change — code, documentation,
-  architecture designs, PRDs, API specs, database migrations, infrastructure config,
-  or mixed PRs containing all of the above. Use this skill whenever the user asks to
-  review a PR, diff, branch, commit, file, or document — even if they don't say "review"
-  explicitly. Also activate for "what do you think?", "anything wrong here?", "check
-  my changes", "look over this", "audit", "CR", or when someone pastes code/text and
-  asks for feedback. The skill auto-detects content types and applies the right review
-  dimensions for each.
-version: 0.4.1
+  Structured review skill for code, PRs, diffs, documentation, API specs, database
+  migrations, infrastructure config, and design documents. Activate when the user
+  explicitly asks to review, audit, or check a PR, branch, commit, diff, or specific
+  files — or uses "code review", "CR", "LGTM?", "security audit", "find bugs in",
+  or "review my changes". Auto-detects content types and applies dimension-appropriate
+  analysis with P0–P3 severity grading.
+  Do NOT activate for open-ended design discussions, brainstorming, or general
+  feedback requests where the user wants a conversation rather than a structured review.
+invocation_posture: hybrid
+version: 0.4.2
 ---
 
 # Review
@@ -18,11 +19,15 @@ Unified review skill. Auto-detects content types in a change set and applies the
 
 ## When to Activate
 
-- User asks to review a PR, diff, branch, commit, staged changes, or files
-- User asks "what do you think?" or "anything I'm missing?"
-- User requests a security audit, performance review, quality check, or document review
-- User pastes code or text and asks for feedback
-- User says "review", "check my changes", "look over this", "audit", "CR"
+**Invocation posture: hybrid** — auto-triggers on high-confidence review requests; use explicitly (`/review`) for ambiguous requests.
+
+Activate when the user:
+- Asks to review a PR, diff, branch, commit, staged changes, or specific files
+- Uses: "code review", "CR", "LGTM?", "security audit", "find bugs in", "review my changes", "check my PR"
+- Requests a performance review, quality check, or document review with clear scope
+- Pastes code/text and asks for a review (not a discussion)
+
+**Do not activate** for open-ended design discussions ("what do you think about this approach?"), brainstorming sessions, or requests where the user wants a conversation rather than a severity-graded report. Use the `brainstorming` skill instead.
 
 ## Review Modes
 
@@ -218,9 +223,9 @@ If findings >15, show top 10 and offer to expand.
 - Escalation flags (see below)
 
 ### Verdict logic
-- **✅ Approve**: No P0/P1
-- **⚠️ Approve with suggestions**: No P0, minor P1s, mostly P2/P3
-- **🔴 Request changes**: Any P0, or multiple P1
+- **✅ Approve**: No P0, no P1
+- **⚠️ Approve with suggestions**: No P0; exactly 1 P1 where the author is aware and has a clear fix path
+- **🔴 Request changes**: Any P0, or 2+ P1s, or any P1 without a clear fix
 
 ---
 

@@ -5,6 +5,15 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-03-27
+
+### Changed
+- **Invocation posture declared as `hybrid`**: added `invocation_posture: hybrid` to SKILL.md frontmatter; documented posture and negative cases in "When to Activate".
+- **Description tightened**: removed vague auto-trigger phrases ("what do you think?", "look over this", "anything wrong here?", standalone "audit") that caused false positives on design discussions. High-confidence explicit triggers retained.
+- **Verdict logic clarified**: removed ambiguous "minor P1s" wording. Now: ✅ = no P0/P1; ⚠️ = no P0, exactly 1 acknowledged P1 with a clear fix; 🔴 = any P0, 2+ P1s, or any unaddressed P1.
+- **`gh` added to tool requirements**: Phase 1a uses `gh pr diff`; it was missing from `skill.json`.
+- **`filesystemWrite` corrected to `true`**: Phase 4 applies code and doc fixes directly; `false` was misleading.
+
 ## [0.4.1] - 2026-03-25
 
 ### Fixed
