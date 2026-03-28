@@ -5,6 +5,11 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-03-28
+
+### Changed
+- Replaced the repo-local handoff to `writing-plans` with a narrower handoff to `implementation-planning` only for complexity-justified deep technical planning, leaving smaller follow-up work on the normal planning/execution path.
+
 ## [0.2.2] - 2026-03-28
 
 ### Changed

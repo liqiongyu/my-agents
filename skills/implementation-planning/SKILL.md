@@ -6,6 +6,8 @@ description: >
   migration, or architecture change after the direction is already chosen. Do not use for
   brainstorming, choosing between competing directions, requirements clarification, business
   planning, generic project management, or code execution.
+invocation_posture: manual-first
+version: 0.1.4
 ---
 
 # Implementation Planning
@@ -61,18 +63,14 @@ request just because the user used the word "plan".
 Even if the user explicitly names `implementation-planning`, that explicit invocation does **not**
 override the boundary above.
 
-## Platform Compatibility
+## Question Handling
 
-Use whatever question tool the platform provides:
+Use the platform's native user-input mechanism when one is available and appropriate for the
+current environment. If the surface does not expose a structured question tool, ask concise
+questions directly in chat and wait for the user's reply. Do not make the workflow depend on one
+specific tool name.
 
-| Platform | Question tool |
-|----------|---------------|
-| Claude Code | `AskUserQuestion` |
-| Codex | `request_user_input` |
-| Gemini | `ask_user` |
-| Other / chat-only surfaces | Present numbered options in chat and wait for the user's reply |
-
-**Language**: respond in the same language the user uses. User-facing output should match the
+**Language**: Respond in the same language the user uses. User-facing output should match the
 user's language even if internal workflow labels stay in English.
 
 ## Core Principles
@@ -186,6 +184,7 @@ Before handing off, verify that the plan:
 - starts from the real current state
 - includes a `What already exists` section
 - includes `Not in scope`
+- includes `Constraints` and `Success criteria`
 - exposes open decisions and assumptions
 - avoids speculative architecture that the current task does not need
 - gives clear verification for each meaningful phase
@@ -220,6 +219,8 @@ At minimum, every plan produced by this skill should include:
 - Scope
 - Not in scope
 - What already exists
+- Constraints
+- Success criteria
 - Assumptions
 - Open decisions
 - Phases

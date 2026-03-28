@@ -28,6 +28,6 @@ Use `brainstorming` when:
 
 ## Downstream Handoffs
 
-- Hand off to `writing-plans` when the clarified task still needs a structured implementation plan.
+- Hand off to `implementation-planning` when the clarified task is complex enough that a deep technical plan will reduce execution risk.
 - Hand off to `review` when the user wants existing work checked against the clarified criteria.
 - Hand off to `deep-research` when clarification reveals that the missing input is external knowledge, not project intent.

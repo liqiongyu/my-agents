@@ -8,7 +8,7 @@ description: >
   the build, or an explicit request to proceed with documented assumptions. Do not activate for
   open-ended direction-finding, brainstorming, or already-specific actionable tasks.
 invocation_posture: hybrid
-version: 1.2.0
+version: 1.2.1
 ---
 
 # Clarify
@@ -133,7 +133,7 @@ Summarize only what execution needs next:
 Then hand off appropriately:
 
 - proceed to implementation when scope is now clear
-- hand off to `writing-plans` if execution needs a more detailed plan
+- hand off to `implementation-planning` if the clarified task still needs a deep technical plan
 - hand off to `brainstorming` if the unresolved issue is choosing a direction
 - hand off to `deep-research` if clarification reveals a research-first problem
 - hand off to `review` if the user wants existing work evaluated against clarified criteria

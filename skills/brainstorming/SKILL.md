@@ -2,7 +2,7 @@
 name: brainstorming
 description: "Manual-first brainstorming workflow for turning ambiguous ideas or competing directions into an approved decision before planning or implementation. Activate when the user explicitly asks to brainstorm, explore options, compare approaches, or pressure-test a direction. Do not activate for clarification, review, detailed planning, or straightforward execution once a direction is already chosen."
 invocation_posture: manual-first
-version: 0.2.2
+version: 0.2.3
 ---
 
 # Brainstorming
@@ -21,7 +21,7 @@ Do NOT use this skill when the user is asking for:
 
 - **Clarification only** — missing facts, contradictions, or acceptance criteria that must be pinned down before action. Use `clarify`.
 - **Review of existing work** — code review, document critique, diff analysis, or bug-finding in something already written. Use `review`.
-- **Detailed execution planning** — implementation breakdowns, task sequencing, or delivery plans after the direction is already decided. Use `writing-plans` or proceed with execution.
+- **Detailed execution planning** — implementation breakdowns, task sequencing, or delivery plans after the direction is already decided. Use `implementation-planning` when the work is complex enough to justify a deep technical plan, or proceed with a lighter planning/execution flow.
 - **Straightforward execution** — the user already knows what they want built, changed, or written and just wants to start.
 
 If the request begins with ambiguity but quickly resolves into a concrete chosen direction, finish the brainstorm cleanly and hand off instead of dragging the user through more ideation.

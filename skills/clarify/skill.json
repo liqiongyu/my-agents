@@ -3,7 +3,7 @@
   "name": "clarify",
   "displayName": "Clarify",
   "description": "Hybrid workflow for turning ambiguous implementation requests into actionable scope before execution. Use explicitly for clarification/spec requests, or automatically for direct contradictions or missing acceptance criteria that would materially change the build. Not for open-ended brainstorming or already-specific tasks.",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "maturity": "experimental",
   "categories": ["workflow", "productivity"],
   "tags": [

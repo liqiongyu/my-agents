@@ -5,6 +5,18 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-03-29
+
+### Changed
+- Extended the durable eval suite and eval notes so the newly required `Success criteria` contract is scored alongside current-state grounding, verification, and rollback handling.
+
+## [0.1.3] - 2026-03-28
+
+### Changed
+- Added explicit `invocation_posture` and `version` frontmatter metadata so the canonical skill doc matches the repo's newer skill-package conventions.
+- Replaced the platform-specific question-tool table with platform-neutral question-handling guidance in the canonical core.
+- Aligned the planning contract, quality gate, and reusable deep-plan template around explicit `Constraints` and `Success criteria` sections.
+
 ## [0.1.2] - 2026-03-28
 
 ### Changed

@@ -5,6 +5,12 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-03-28
+
+### Changed
+- Removed the repo-local handoff to `writing-plans` and routed complex post-clarification execution planning to `implementation-planning` instead.
+- Tightened the handoff reference so clarify only escalates into deep planning when that extra planning weight is justified.
+
 ## [1.2.0] - 2026-03-28
 
 ### Added

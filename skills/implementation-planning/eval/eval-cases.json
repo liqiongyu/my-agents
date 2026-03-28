@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "skill": "implementation-planning",
   "description": "Evaluation suite for the implementation-planning skill. The suite checks whether the heavy planning protocol is used only when justified, routes back out when brainstorming or clarification should happen first, and produces plans grounded in current state, phased execution, verification, and rollback-aware risk handling.",
   "assertions": [
@@ -7,6 +7,7 @@
     "preconditions_checked",
     "scope_challenge_present",
     "what_exists_accounted_for",
+    "success_criteria_present",
     "verification_present",
     "rollback_present_for_risky_work",
     "routes_back_when_out_of_scope",
@@ -17,6 +18,7 @@
     "preconditions_checked": "The response checks that direction, context, and basic constraints are already known before drafting a deep plan.",
     "scope_challenge_present": "The response pressure-tests the task by checking whether the scope is too large, too risky, or can be split into safer slices.",
     "what_exists_accounted_for": "The plan is anchored in the current system or repository state instead of treating the work like greenfield design.",
+    "success_criteria_present": "The plan includes explicit success criteria or an equivalent completion contract, not just implementation steps and verification commands.",
     "verification_present": "The plan includes concrete verification for the major phases rather than only listing implementation steps.",
     "rollback_present_for_risky_work": "When the task has migration, compatibility, or production risk, the response includes rollback, fallback, or containment notes.",
     "routes_back_when_out_of_scope": "If the task should really go to brainstorming, clarify, or a lighter planner path, the response says so instead of forcing a deep plan.",
@@ -48,6 +50,9 @@
         },
         "what_exists_accounted_for": {
           "check": "The plan should include a current-state or `What already exists` section grounded in the existing auth system."
+        },
+        "success_criteria_present": {
+          "check": "The plan should include explicit success criteria or an equivalent completion contract for the migration."
         },
         "verification_present": {
           "check": "Each major phase should include how to verify the migration is working."

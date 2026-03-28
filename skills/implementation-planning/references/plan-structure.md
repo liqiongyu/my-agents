@@ -11,6 +11,7 @@ Every deep implementation plan should make these sections easy to find:
 - Not in scope
 - What already exists
 - Constraints
+- Success criteria
 - Assumptions
 - Open decisions
 - Phases
@@ -40,6 +41,9 @@ The plan should be grounded in real repository or system evidence, not hypotheti
 
 ## Constraints
 - [Timeline, compatibility, operational, or tooling constraints]
+
+## Success Criteria
+- [Observable conditions that show the work is complete]
 
 ## Assumptions
 - [Assumptions that materially affect sequencing]

@@ -20,4 +20,4 @@ The main questions are:
 
 - Does the skill engage only when the task truly needs heavy technical planning?
 - Does it route back out when brainstorming, clarification, or a lighter planner pass is the better move?
-- When it does engage, does the plan include scope challenge, current-state grounding, verification, and rollback thinking?
+- When it does engage, does the plan include scope challenge, current-state grounding, explicit success criteria, verification, and rollback thinking?
