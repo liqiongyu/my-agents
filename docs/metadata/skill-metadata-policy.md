@@ -18,6 +18,16 @@ This document defines how to use the `requirements` and `maturity` fields in ski
 - This document does not define automated promotion gates yet.
 - This document does not replace the behavioral contract in `SKILL.md`.
 
+## Package Boundary Rule
+
+Installable skills should remain self-contained after install.
+
+- A skill may reference or recommend another skill conceptually.
+- A skill must not require another skill package's private scripts by path as part of its normal documented workflow.
+- If the same helper is needed in multiple packages and there is no formal shared-runtime distribution mechanism, prefer package-local copies over hidden cross-package runtime dependencies.
+
+This rule applies even when the canonical monorepo makes cross-package calls convenient during authoring. Authoring convenience must not silently redefine the installable package boundary.
+
 ## Core Distinction
 
 Use `capabilities` and `requirements` for different questions:

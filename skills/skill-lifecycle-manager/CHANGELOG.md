@@ -5,6 +5,34 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed
+- Clarified that `run_unit_tests.py` is canonical-only for `skill-lifecycle-manager` and updated the packaged test runner to fail with an explicit self-validation message when projected runtime copies omit `tests/`.
+- Rewrote `eval-10` to describe a generic cross-package private-runtime dependency defect instead of hardcoding a repo state that could quickly go stale.
+- Added projection and eval-fixture regression coverage so runtime-surface docs and package-boundary cases stay aligned with the current package behavior.
+
+## [0.7.0] - 2026-03-28
+
+### Added
+- Added explicit package-boundary guidance so installable skills may reference other skills conceptually but must not depend on another skill package's private script paths.
+- Added eval coverage for self-contained installability so install/publish work now treats cross-skill private script dependencies as packaging defects that must be fixed before projection or install completes.
+
+### Changed
+- Removed the agent-specific validation and audit scripts from `skill-lifecycle-manager` so the package stays skills-only and no longer acts as a hidden runtime dependency for `agent-lifecycle-manager`.
+- Tightened the main workflow so the Discover-first gate is defined once in `Router First`, with later phases pointing back to that authority instead of restating the same gate criteria.
+- Expanded the install/publish and audit guidance to treat cross-package private runtime dependencies as portability issues, not acceptable authoring shortcuts.
+
+## [0.6.0] - 2026-03-28
+
+### Changed
+- Added a Discover-first gate for broad new-skill requests so general-purpose, domain-agnostic, comparison-heavy, or overlap-prone skill ideas must route through Discover before any package drafting starts.
+- Tightened the main workflow and lifecycle-mode reference so unresolved discovery depth, candidate confirmation, and separate research handoff checkpoints block `Create / Update` instead of being treated as optional follow-up work.
+- Expanded the failure-pattern and example-prompt guidance to explicitly call out the regression where a nearby local skill is mistaken for sufficient research on a broad new skill.
+
+### Added
+- Added eval coverage for broad new-skill routing so the suite now checks that a project-generic documentation-skill request stops at the discovery-depth gate instead of jumping straight into authoring.
+- Added a posture-suite regression case ensuring broad reusable skill requests can still route to the lifecycle manager while staying `manual-first` and Discover-first.
+- Added regression coverage for the bounded-scope exception and the "depth already specified" path so the new Discover-first gate is exercised on both its blocking and non-blocking branches.
+
 ## [0.5.3] - 2026-03-28
 
 ### Changed

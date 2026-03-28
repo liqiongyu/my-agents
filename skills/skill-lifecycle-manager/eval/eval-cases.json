@@ -1,16 +1,19 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "skill": "skill-lifecycle-manager",
-  "description": "Cross-platform evaluation suite for the skill-lifecycle-manager skill. The suite tests whether the skill can route lifecycle work correctly, preserve a shared canonical core, generate Codex and Claude Code projections, keep validation and trigger-optimization concerns explicit, and respect delegated research checkpoints before authoring.",
+  "description": "Cross-platform evaluation suite for the skill-lifecycle-manager skill. The suite tests whether the skill can route lifecycle work correctly, preserve a shared canonical core, generate Codex and Claude Code projections, keep installable package boundaries self-contained, keep validation and trigger-optimization concerns explicit, and respect delegated research checkpoints before authoring.",
   "assertions": [
     "stage_routing_correct",
     "canonical_core_created_or_preserved",
     "projection_strategy_explicit",
+    "package_boundary_respected",
     "codex_projection_present",
     "claude_projection_filtered",
     "validation_executed",
     "trigger_work_separated",
     "delegated_research_protocol_respected",
+    "bounded_scope_respected",
+    "depth_gate_respected",
     "candidate_pause_respected",
     "no_authoring_before_confirmation",
     "next_step_explicit"
@@ -19,11 +22,14 @@
     "stage_routing_correct": "The response chooses the smallest appropriate lifecycle route for the request instead of forcing every stage. Stages are named clearly and match the task.",
     "canonical_core_created_or_preserved": "The result treats the canonical skill package as the source of truth. It creates or updates `SKILL.md`, `skill.json`, and `CHANGELOG.md` when the task is authoring-oriented, or preserves the existing canonical package when the task is audit/optimization oriented.",
     "projection_strategy_explicit": "The response explains or applies the distinction between shared core content and platform-specific packaging or metadata. It does not silently collapse Codex and Claude Code into one undifferentiated surface.",
+    "package_boundary_respected": "When installability or portability matters, the response treats cross-package private script-path dependencies as packaging defects. A skill may reference another skill conceptually, but it should stay self-contained after install unless a shared runtime is explicitly shipped with it.",
     "codex_projection_present": "For tasks that require distribution, the result generates or validates a Codex projection under `.agents/skills/<name>/` and keeps the runtime-relevant package intact.",
     "claude_projection_filtered": "For tasks that require distribution, the result generates or validates a Claude Code projection under `.claude/skills/<name>/` and omits repo-only metadata such as `skill.json`, `CHANGELOG.md`, or unrelated build artifacts.",
     "validation_executed": "The response runs or names concrete validation commands appropriate to the task, such as `quick_validate.py`, `validate_projection.py`, or repo validation commands.",
     "trigger_work_separated": "When the task includes trigger optimization, the response treats description tuning as a distinct pass and does not unnecessarily rewrite the whole skill body.",
     "delegated_research_protocol_respected": "When Discover delegates to `skill-researcher`, the response treats that skill as a binding workflow with required checkpoints and separate handoff semantics rather than as informal inspiration.",
+    "bounded_scope_respected": "When the user supplies a bounded source set, platform set, or candidate set, the response keeps discovery intentionally narrow instead of widening the search by default.",
+    "depth_gate_respected": "The response applies the discovery-depth gate correctly: it stops to resolve Quick, Standard, or Deep only when broad discovery is required and depth is still unspecified, and it does not re-ask when depth is already provided or the comparison is intentionally bounded.",
     "candidate_pause_respected": "The response stops after candidate inventory when user confirmation is still required and clearly asks for that confirmation before deeper research continues.",
     "no_authoring_before_confirmation": "Before the candidate set is confirmed, the response does not start drafting `SKILL.md`, `skill.json`, `CHANGELOG.md`, or target-skill references as though authoring had already begun.",
     "next_step_explicit": "The response closes with a concrete next lifecycle step, especially when real-world evaluation or install/publish work remains."
@@ -49,6 +55,9 @@
         },
         "projection_strategy_explicit": {
           "check": "Explains or demonstrates that Codex and Claude Code projections are derived from the canonical package rather than separately hand-authored."
+        },
+        "package_boundary_respected": {
+          "check": "Keeps the new skill installable as a self-contained package instead of introducing runtime dependencies on another skill package's private scripts."
         },
         "codex_projection_present": {
           "check": "Produces or validates a `.agents/skills/<name>/` projection that keeps the runtime package intact."
@@ -96,8 +105,8 @@
     {
       "id": "eval-3",
       "name": "Audit cross-platform readiness of an existing skill library",
-      "description": "Tests Audit/Governance with cross-platform reasoning. The skill should identify duplicates, stale projections, and readiness gaps, then recommend the next lifecycle step instead of immediately rewriting everything.",
-      "prompt": "Audit our skill library for cross-platform readiness. I care about duplicate intent, stale or missing Codex and Claude projections, context bloat, and skills that claim to be portable but aren't actually validated. Prioritize the findings and tell me what should happen next.",
+      "description": "Tests Audit/Governance with cross-platform reasoning. The skill should identify duplicates, stale projections, readiness gaps, and hidden cross-package runtime dependencies, then recommend the next lifecycle step instead of immediately rewriting everything.",
+      "prompt": "Audit our skill library for cross-platform readiness. I care about duplicate intent, stale or missing Codex and Claude projections, context bloat, and skills that claim to be portable but only work because another skill package's private scripts happen to be present in the same repo. Prioritize the findings and tell me what should happen next.",
       "mode": "standard",
       "expected_stages": [
         "Audit/Governance",
@@ -109,6 +118,9 @@
         },
         "projection_strategy_explicit": {
           "check": "Evaluates readiness in terms of canonical source, projection drift, and target-surface expectations."
+        },
+        "package_boundary_respected": {
+          "check": "Flags cross-package private script-path dependencies as portability defects instead of treating them as acceptable shared tooling."
         },
         "codex_projection_present": {
           "check": "Checks whether Codex projections exist or are in sync when the audited skill claims Codex support."
@@ -144,6 +156,9 @@
         },
         "projection_strategy_explicit": {
           "check": "Still distinguishes shared canonical content from platform-specific projections even for an ordinary utility skill."
+        },
+        "package_boundary_respected": {
+          "check": "Keeps the new utility skill self-contained after install rather than assuming another skill package's private tooling is present."
         },
         "codex_projection_present": {
           "check": "Produces or validates a Codex projection for the new utility skill when distribution is requested."
@@ -213,6 +228,130 @@
         },
         "next_step_explicit": {
           "check": "Ends with the concrete next step of user confirmation of the candidate set."
+        }
+      }
+    },
+    {
+      "id": "eval-7",
+      "name": "Broad new documentation skill must route through Discover before authoring",
+      "description": "Tests the regression where a new project-generic, domain-generic skill is broad enough that external comparison and overlap analysis should happen before any package drafting. Because the prompt does not choose Quick, Standard, or Deep, the first pass should stop at the discovery-depth gate.",
+      "prompt": "We need a project-generic, domain-generic skill that can write repository documentation across many kinds of repos. Use skill-lifecycle-manager and do the right lifecycle stages in the right order.",
+      "mode": "standard",
+      "expected_stages": [
+        "Discover"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should begin with Discover rather than jumping straight to Create/Update or Validate, because the target skill is broad and overlap-prone."
+        },
+        "delegated_research_protocol_respected": {
+          "check": "The response should make the delegated `skill-researcher` path or equivalent Discover-first ecosystem handoff explicit instead of treating nearby local skills as sufficient by default."
+        },
+        "depth_gate_respected": {
+          "check": "Because broad discovery is required and the prompt does not choose Quick, Standard, or Deep, the response should stop to resolve discovery depth before broad search begins."
+        },
+        "no_authoring_before_confirmation": {
+          "check": "The response should not start drafting target-skill files or run validation on target-skill artifacts yet."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with the next step of choosing discovery depth, then producing a candidate inventory before any fusion or authoring."
+        }
+      }
+    },
+    {
+      "id": "eval-8",
+      "name": "Broad new skill with bounded sources should stay narrow instead of widening discovery",
+      "description": "Tests the bounded-scope exception. Even though the target skill is broad, the user has already constrained the source set, so the response should keep discovery narrow instead of forcing a wider ecosystem survey or a separate depth-choice pause.",
+      "prompt": "Create a project-generic, domain-generic documentation skill, but keep discovery constrained to our local `readme-craftsman` plus the official OpenAI and Anthropic skill examples. Do not widen the search beyond those sources. After that narrow comparison, draft the skill and validate it.",
+      "mode": "standard",
+      "expected_stages": [
+        "Discover",
+        "Create/Update",
+        "Validate"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should still begin with Discover because the target skill is broad, but it should remain a bounded Discover -> Create/Update -> Validate flow rather than an open-ended survey."
+        },
+        "bounded_scope_respected": {
+          "check": "The response should explicitly preserve the user-supplied local plus official source set and avoid widening the search."
+        },
+        "depth_gate_respected": {
+          "check": "Because the discovery scope is intentionally bounded, the response should not stop to ask for Quick, Standard, or Deep before proceeding."
+        },
+        "canonical_core_created_or_preserved": {
+          "check": "After the bounded comparison, the response should treat the canonical target skill package as the artifact to create."
+        },
+        "validation_executed": {
+          "check": "The flow should still include normal structural validation once authoring is complete."
+        },
+        "next_step_explicit": {
+          "check": "The answer should either complete the bounded route or close with the next concrete step after validation."
+        }
+      }
+    },
+    {
+      "id": "eval-9",
+      "name": "Specified discovery depth should not trigger a second depth gate",
+      "description": "Tests the happy path for the new gate. A broad new-skill request that already specifies Standard depth should proceed through Discover and pause at candidate inventory, not stop early to ask for discovery depth again.",
+      "prompt": "Before drafting a new project-generic documentation skill, do a Standard ecosystem survey first and stop after candidate inventory so I can confirm the set before any deeper analysis or drafting.",
+      "mode": "standard",
+      "expected_stages": [
+        "Discover"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should stay in Discover for this pass because the user explicitly wants the candidate inventory before drafting."
+        },
+        "delegated_research_protocol_respected": {
+          "check": "The response should make the delegated `skill-researcher` or equivalent ecosystem-discovery workflow explicit."
+        },
+        "depth_gate_respected": {
+          "check": "Because the prompt already specifies Standard depth, the response should not ask for Quick, Standard, or Deep again."
+        },
+        "candidate_pause_respected": {
+          "check": "The response should stop at candidate inventory and ask for confirmation before deeper analysis or authoring."
+        },
+        "no_authoring_before_confirmation": {
+          "check": "The response should not start drafting the target skill package yet."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with the next step of candidate confirmation, not a second depth-choice question."
+        }
+      }
+    },
+    {
+      "id": "eval-10",
+      "name": "Fix package-boundary defects before projection or install",
+      "description": "Tests the install/publish boundary. If a skill only works because it shells out to another skill package's private scripts, the response should treat that as a packaging defect, localize or otherwise ship the required runtime tooling, then validate before projection or install continues.",
+      "prompt": "Install `agent-lifecycle-manager` for both Codex and Claude Code, but first make sure it is actually portable. During review you discover that its validation and audit workflow only works because the package shells out to private scripts from another installable skill package instead of carrying or explicitly shipping the runtime helpers it needs. Use skill-lifecycle-manager and do the right lifecycle stages in the right order before you project or install anything.",
+      "mode": "standard",
+      "expected_stages": [
+        "Create/Update",
+        "Validate",
+        "Project/Install/Publish"
+      ],
+      "assertions": {
+        "stage_routing_correct": {
+          "check": "The route should repair the package boundary first, then validate, then project or install. It should not jump straight to install."
+        },
+        "canonical_core_created_or_preserved": {
+          "check": "Treats the canonical `agent-lifecycle-manager` package as the source of truth and updates that package rather than patching only projected runtime copies."
+        },
+        "package_boundary_respected": {
+          "check": "Treats the cross-skill private script-path dependency as a packaging defect and moves or duplicates the required runtime tooling into the installable package or an explicitly shipped distribution unit."
+        },
+        "codex_projection_present": {
+          "check": "Projects or validates the repaired package for Codex only after the boundary fix and validation pass."
+        },
+        "claude_projection_filtered": {
+          "check": "Projects or validates the repaired package for Claude Code only after the boundary fix and keeps runtime surfaces free of repo-only metadata."
+        },
+        "validation_executed": {
+          "check": "Runs or explicitly reports structural and projection validation after the package-boundary repair."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the concrete install or smoke-test step that follows the repaired, validated package."
         }
       }
     }

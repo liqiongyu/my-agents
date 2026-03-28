@@ -3,7 +3,7 @@
   "name": "agent-lifecycle-manager",
   "displayName": "Agent Lifecycle Manager",
   "description": "Manage the lifecycle of sub-agents: create or update agent packages, validate cross-surface agent contracts, evaluate routing behavior, tighten invocation boundaries, tune Codex runtime defaults, install or publish agents, or audit an agent library. Use only when the request is explicitly about agents or agent libraries, not for ordinary coding, implementation, or general project planning.",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "maturity": "experimental",
   "categories": ["workflow", "design", "productivity"],
   "tags": [

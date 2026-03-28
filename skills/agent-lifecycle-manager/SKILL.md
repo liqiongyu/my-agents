@@ -7,7 +7,7 @@ description: >
   an agent library. Use only when the request is explicitly about agents or
   agent libraries, not for ordinary coding, implementation, or general project
   planning.
-version: 0.3.1
+version: 0.4.0
 ---
 
 # Agent Lifecycle Manager
@@ -17,7 +17,7 @@ Manage agent work as a lifecycle, not as isolated edits to `agent.json`, `claude
 The design bias is:
 
 - Use **`skill-lifecycle-manager` discipline** for routing, validation-before-claims, and explicit next steps
-- Reuse **`skill-lifecycle-manager` tooling** for validation, projection, and eval harness work unless agent-specific behavior truly needs its own script path
+- Ship **package-local tooling** for validation, projection, and eval harness work so this skill stays self-contained after install
 - Use **repo-local agent conventions** for `agents/<name>/`, `agent.json`, `claude-code.md`, `codex.toml`, `CHANGELOG.md`, install targets, and generated catalogs
 - Use **manual-first posture** for meta agent-management requests unless a narrower posture is clearly better
 
@@ -63,24 +63,28 @@ Read [invocation-posture.md](references/invocation-posture.md) before writing or
 1. **Runtime defaults are part of the contract.** For Codex agents, decide whether `model`, `model_reasoning_effort`, `sandbox_mode`, and `web_search` should be explicit; do not rely on accidental parent-session inheritance when stable defaults matter.
 2. **Prefer existing repo mechanisms.** Reuse `npm run new -- --agent`, `npm run build`, `npm test`, and `npm run install-agent` instead of inventing parallel flows.
 3. **Research is an input, not silent permission to author.** If Discover delegates to `docs-researcher` or `researcher`, capture the handoff separately and resume `Create / Update` only after the open contract questions are grounded.
-4. **This skill is intentionally thin.** Keep agent-specific routing, references, and eval fixtures here, but reuse the shared `skills/skill-lifecycle-manager/scripts/` harness unless duplicating it would buy clear agent-specific behavior.
+4. **This skill is intentionally thin.** Keep agent-specific routing, references, eval fixtures, and the scripts this package documents inside this package. Do not depend on another skill package's private script paths.
 5. **Structure tracks `skill-lifecycle-manager`.** This skill's 9-phase / 7-stage workflow is intentionally derived from `skill-lifecycle-manager`. When the parent's workflow structure evolves, check whether this skill needs a matching update.
 
 ## Command Path Model
 
-The shell commands in this document use canonical repo paths. When reading this skill from a projected runtime copy, substitute the correct prefix:
+The shell commands in this document fall into two groups:
 
-- Canonical repo: `SLM_DIR=skills/skill-lifecycle-manager`
-- Codex projection: `SLM_DIR=.agents/skills/skill-lifecycle-manager`
-- Claude Code projection: `SLM_DIR=.claude/skills/skill-lifecycle-manager`
+- **Runtime-safe package-local scripts**: use `ALM_DIR` for the active copy of this skill package when the script itself is projected to that surface.
+- **Canonical self-validation of this skill package**: use `ALM_CANONICAL_DIR` for the canonical repo source plus an external `ALM_EVAL_FILE`.
 
-For the agent-lifecycle-manager's own canonical path, substitute similarly:
+For `ALM_DIR`, use the correct active prefix:
 
 - Canonical repo: `ALM_DIR=skills/agent-lifecycle-manager`
 - Codex projection: `ALM_DIR=.agents/skills/agent-lifecycle-manager`
 - Claude Code projection: `ALM_DIR=.claude/skills/agent-lifecycle-manager`
 
-Eval fixtures (`eval/`) are intentionally excluded from projection. Projected-surface users should point `--eval-file` at a canonical repo copy or use inline `--eval` prompts instead.
+For canonical self-validation of this skill package, always use:
+
+- `ALM_CANONICAL_DIR=skills/agent-lifecycle-manager`
+- `ALM_EVAL_FILE=skills/agent-lifecycle-manager/eval/eval-cases.json`
+
+Projected runtime copies intentionally exclude `eval/`, and Claude Code projections also exclude `skill.json` and `CHANGELOG.md`. That means the self-validation commands for this skill package are **canonical-only** even though the projected copies still ship the local helper scripts.
 
 ## Workflow
 
@@ -210,18 +214,20 @@ In this repo, run these checks in order:
 2. `npm run build`
 3. `npm test`
 4. For deeper agent-specific contract validation:
-   - `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$SLM_DIR/scripts/quick_validate_agent.py" agents/<name>`
+   - `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$ALM_DIR/scripts/quick_validate_agent.py" agents/<name>`
    - This checks cross-surface alignment, archetype-capability consistency, runtime defaults, and tools alignment
 5. If install or runtime copies are part of the request, run:
    - `npm run install-agent -- <name> --platform claude|codex|all --scope project`
    - then confirm the installed copies under `.claude/agents/` and/or `.codex/agents/`
 
-If you are revising this `agent-lifecycle-manager` skill package itself rather than a target agent, switch to the repo's skill validation flow before claiming success:
+If you are revising this `agent-lifecycle-manager` skill package itself rather than a target agent, switch to the repo's skill validation flow before claiming success. This block is **canonical repo source only**:
 
-- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$SLM_DIR/scripts/quick_validate.py" "$ALM_DIR"`
-- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$SLM_DIR/scripts/validate_eval_suite.py" "$ALM_DIR/eval/eval-cases.json"`
-- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$SLM_DIR/scripts/project_skill.py" "$ALM_DIR" --platform all --scope project`
-- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$SLM_DIR/scripts/validate_projection.py" "$ALM_DIR" --platform all --scope project`
+- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$ALM_CANONICAL_DIR/scripts/quick_validate.py" "$ALM_CANONICAL_DIR"`
+- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$ALM_CANONICAL_DIR/scripts/validate_eval_suite.py" "$ALM_EVAL_FILE"`
+- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$ALM_CANONICAL_DIR/scripts/project_skill.py" "$ALM_CANONICAL_DIR" --platform all --scope project`
+- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$ALM_CANONICAL_DIR/scripts/validate_projection.py" "$ALM_CANONICAL_DIR" --platform all --scope project`
+
+Do not point this self-validation block at `.agents/skills/...` or `.claude/skills/...`: those projected runtime copies intentionally omit authoring-only inputs needed by these checks.
 
 Use the results to inspect agent-specific failure modes:
 
@@ -247,7 +253,7 @@ Create a small prompt mix:
 - `should-not-handle`: adjacent work that belongs to another agent or to the main session
 - `near-miss`: a borderline request that tests boundary clarity
 
-When evaluating this skill itself, or another meta agent-management workflow, prefer at least one `with-skill` run and one `baseline` run when the comparison will answer whether the lifecycle manager adds clarity instead of churn. Use the reusable harness documented in [evaluation-loop.md](references/evaluation-loop.md) and the canonical eval suite under `$ALM_DIR/eval/` (see Command Path Model for the correct prefix).
+When evaluating this skill itself, or another meta agent-management workflow, prefer at least one `with-skill` run and one `baseline` run when the comparison will answer whether the lifecycle manager adds clarity instead of churn. Use the package-local harness documented in [evaluation-loop.md](references/evaluation-loop.md) and keep the eval fixture on a canonical/local path via `ALM_EVAL_FILE` instead of assuming the active runtime copy ships `eval/`.
 
 Evaluate more than file validity:
 
@@ -304,7 +310,7 @@ Then choose the least surprising path:
 
 Audit is for library health, not only one file. For automated inventory-wide audit:
 
-- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$SLM_DIR/scripts/audit_agent_inventory.py" --root agents`
+- `env UV_CACHE_DIR=/tmp/uv-cache-my-agents uv run python "$ALM_DIR/scripts/audit_agent_inventory.py" --root agents`
 
 Use the report as a starting point, then inspect for:
 

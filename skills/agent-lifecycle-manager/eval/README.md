@@ -7,21 +7,21 @@ This directory contains the canonical evaluation fixture for `agent-lifecycle-ma
 - does the skill route agent-lifecycle work correctly?
 - does the skill materially improve outcomes compared with a `baseline` run when that comparison matters?
 
-This skill reuses the eval harness shipped with `skill-lifecycle-manager`. For the commands below, set:
+This README is for the canonical authoring package. For the commands below, set:
 
-- `SLM_DIR=skills/skill-lifecycle-manager`
+- `ALM_CANONICAL_DIR=skills/agent-lifecycle-manager`
 - `ALM_EVAL_FILE=skills/agent-lifecycle-manager/eval/eval-cases.json`
 
-Projected runtime copies intentionally exclude `eval/`, so this README is for the canonical repo package.
+Projected runtime copies intentionally exclude `eval/`, and Claude Code projections also exclude `skill.json` and `CHANGELOG.md`. If you intentionally run a projected copy's helper script, keep the script path separate and still point `--eval-file` at a canonical/local fixture.
 
-That dependency is intentional: this skill owns the agent-specific cases and scoring language, while `skills/skill-lifecycle-manager/scripts/` provides the shared projection, workspace, and surface-runner machinery.
+The package boundary is intentional: this skill owns both the agent-specific cases and the local scripts it documents, so it remains self-contained after install.
 
 ## Fast Start
 
 Seed a workspace:
 
 ```bash
-uv run python "$SLM_DIR/scripts/seed_eval_workspace.py" \
+uv run python "$ALM_CANONICAL_DIR/scripts/seed_eval_workspace.py" \
   agent-lifecycle-manager \
   --eval-file "$ALM_EVAL_FILE"
 ```
@@ -29,7 +29,7 @@ uv run python "$SLM_DIR/scripts/seed_eval_workspace.py" \
 Run a `with-skill` pass on Codex:
 
 ```bash
-uv run python "$SLM_DIR/scripts/run_surface_eval.py" \
+uv run python "$ALM_CANONICAL_DIR/scripts/run_surface_eval.py" \
   codex \
   agent-lifecycle-manager \
   --eval-file "$ALM_EVAL_FILE" \
@@ -40,7 +40,7 @@ uv run python "$SLM_DIR/scripts/run_surface_eval.py" \
 Run the matching baseline:
 
 ```bash
-uv run python "$SLM_DIR/scripts/run_surface_eval.py" \
+uv run python "$ALM_CANONICAL_DIR/scripts/run_surface_eval.py" \
   codex \
   agent-lifecycle-manager \
   --eval-file "$ALM_EVAL_FILE" \
@@ -52,7 +52,7 @@ uv run python "$SLM_DIR/scripts/run_surface_eval.py" \
 Render the review panel:
 
 ```bash
-uv run python "$SLM_DIR/scripts/render_review_panel.py" \
+uv run python "$ALM_CANONICAL_DIR/scripts/render_review_panel.py" \
   workspaces/agent-lifecycle-manager/iteration-1
 ```
 

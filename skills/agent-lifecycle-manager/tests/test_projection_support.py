@@ -203,31 +203,24 @@ class ProjectionSupportTests(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertEqual(warnings, [])
 
-    def test_skill_lifecycle_manager_projection_keeps_runtime_docs_honest(self) -> None:
+    def test_agent_lifecycle_manager_projection_keeps_local_harness_and_runtime_safe_docs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             source_dir = Path(__file__).resolve().parents[1]
 
             for platform in ("codex", "claude-code"):
-                destination = Path(tmp) / platform / "skill-lifecycle-manager"
+                destination = Path(tmp) / platform / "agent-lifecycle-manager"
                 projection_support.copy_projection(source_dir, platform, destination)
 
-                self.assertFalse((destination / "scripts" / "quick_validate_agent.py").exists())
-                self.assertFalse((destination / "scripts" / "audit_agent_inventory.py").exists())
-                self.assertTrue((destination / "scripts" / "run_unit_tests.py").exists())
+                self.assertTrue((destination / "scripts" / "quick_validate_agent.py").exists())
+                self.assertTrue((destination / "scripts" / "audit_agent_inventory.py").exists())
                 self.assertFalse((destination / "eval").exists())
                 self.assertFalse((destination / "tests").exists())
 
                 projected_skill_doc = (destination / "SKILL.md").read_text(encoding="utf8")
-                self.assertIn("SLM_CANONICAL_DIR", projected_skill_doc)
-                self.assertIn("canonical-only", projected_skill_doc)
-                self.assertIn(
-                    'uv run python "$SLM_CANONICAL_DIR/scripts/run_unit_tests.py"',
-                    projected_skill_doc,
-                )
-                self.assertNotIn(
-                    'uv run python "$SLM_DIR/scripts/run_unit_tests.py"',
-                    projected_skill_doc,
-                )
+                self.assertIn("canonical repo source only", projected_skill_doc)
+                self.assertIn("ALM_EVAL_FILE", projected_skill_doc)
+                self.assertNotIn('"$ALM_DIR/eval/eval-cases.json"', projected_skill_doc)
+                self.assertNotIn("skill-lifecycle-manager/scripts/", projected_skill_doc)
 
 
 if __name__ == "__main__":

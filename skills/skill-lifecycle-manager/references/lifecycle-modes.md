@@ -26,7 +26,7 @@ This is not a lifecycle stage and not an execution depth. It is a design constra
 
 | Stage | Run it when | Primary output | Common stop condition |
 | --- | --- | --- | --- |
-| Discover | Need comparison, official references, upstream patterns | source inventory / fusion notes / delegated research handoff | enough signal to start writing, or a delegated research checkpoint requires user input |
+| Discover | Need comparison, official references, upstream patterns, or a research-first gate before broad new-skill authoring | source inventory / fusion notes / delegated research handoff | depth mode unresolved, candidate confirmation is pending, or bounded discovery is complete and no unresolved checkpoint still blocks authoring |
 | Create / Update | Need a new skill or a substantial revision | updated skill package | package exists and reflects current intent |
 | Validate | Need structural confidence before wider testing | pass/fail report | structure and metadata errors resolved |
 | Evaluate | Need behavioral confidence | iteration artifacts / review notes | the skill is good enough or failure mode is understood |
@@ -75,10 +75,12 @@ Use when:
 
 Behavior:
 
-- create or update the artifact
+- create or update the artifact when authoring is already in bounds
 - validate it
 - leave clear next steps if evaluation or installation is deferred
 - use references and scripts where they pay for themselves
+
+`Standard` does **not** override Discover-first routing. For a broad new skill, a Standard pass can still stop inside `Discover` if depth choice, candidate confirmation, or a research handoff is still outstanding.
 
 ### Deep
 
@@ -101,7 +103,8 @@ Use the smallest valid sequence:
 
 | Situation | Sequence |
 | --- | --- |
-| New domain, no pattern yet | Discover -> Create/Update -> Validate |
+| New broad / reusable / overlap-prone skill | Discover -> candidate confirmation or fusion handoff -> Create/Update -> Validate |
+| New narrow / local skill with a clear pattern already in hand | Create/Update -> Validate |
 | Existing skill needs improvement | Create/Update -> Validate -> Evaluate |
 | Trigger complaints only | Optimize Trigger -> Validate |
 | Distribution request after draft exists | Validate -> Project/Install/Publish |
@@ -110,6 +113,25 @@ Use the smallest valid sequence:
 | Cross-platform release | Create/Update -> Validate -> Project/Install/Publish |
 
 If `Discover` delegates to a specialist skill, do not move to `Create/Update` until that specialist skill's required checkpoints and handoff semantics have been satisfied.
+
+## Discover-First Gate For New Skills
+
+Before routing a **new** skill request straight to `Create/Update`, check for these signals:
+
+- the target skill is broad, general-purpose, project-generic, domain-agnostic, or intended for wide reuse
+- the user asks for comparison, best practices, external examples, or fusion
+- local and ecosystem overlap risk is high enough that the design could change after research
+- repo-local examples alone are not a sufficient design basis
+
+If any are true, start with `Discover`.
+
+If broad discovery is required and the user did not choose `Quick`, `Standard`, or `Deep`, stop and resolve the depth choice before searching.
+
+Do not draft the target skill package while the request is still blocked on:
+
+- unresolved discovery depth
+- candidate inventory confirmation
+- the separate research handoff or Fusion Report
 
 ## Discover And `skill-researcher`
 
@@ -176,6 +198,7 @@ Use projections when the same canonical skill should reach more than one platfor
 
 - Read [platform-surfaces.md](platform-surfaces.md) to separate shared core from platform-only behavior.
 - Read [projection-model.md](projection-model.md) for projection targets and commands.
+- Keep installable packages self-contained: a skill may reference another skill conceptually, but it should not depend on another package's private script paths unless the distribution unit explicitly ships that shared runtime with it.
 - Validate projections before claiming a skill is truly cross-platform.
 
 ## Exit Criteria
@@ -185,5 +208,6 @@ Before ending a lifecycle pass, confirm these questions:
 - Did I run only the stages the user actually needed?
 - Is the current artifact valid enough for the next stage?
 - If Discover delegated to a specialist workflow, did I stop at its required checkpoint instead of jumping ahead?
+- If the package will be installed elsewhere, does it stay self-contained after install instead of depending on another package's private script paths?
 - Did I explicitly call out what is not yet proven?
 - If work remains, is the next lifecycle step obvious?

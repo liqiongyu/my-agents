@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run skill-lifecycle-manager unit tests in a uv-managed pytest environment."""
+"""Run agent-lifecycle-manager unit tests in a uv-managed pytest environment."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def missing_tests_message(tests_path: Path) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Run skill-lifecycle-manager unit tests with an ephemeral pytest dependency."
+        description="Run agent-lifecycle-manager unit tests with an ephemeral pytest dependency."
     )
     parser.add_argument(
         "--tests-path",

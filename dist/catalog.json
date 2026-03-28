@@ -6,7 +6,7 @@
       "path": "skills/agent-lifecycle-manager",
       "displayName": "Agent Lifecycle Manager",
       "description": "Manage the lifecycle of sub-agents: create or update agent packages, validate cross-surface agent contracts, evaluate routing behavior, tighten invocation boundaries, tune Codex runtime defaults, install or publish agents, or audit an agent library. Use only when the request is explicitly about agents or agent libraries, not for ordinary coding, implementation, or general project planning.",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -27,7 +27,7 @@
       "path": "skills/brainstorming",
       "displayName": "Brainstorming",
       "description": "Manual-first brainstorming workflow for turning ambiguous ideas or competing directions into an approved decision before planning or implementation. Use when the user explicitly wants to brainstorm, explore options, compare approaches, or pressure-test a direction.",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "maturity": "experimental",
       "categories": [
         "design",
@@ -74,7 +74,7 @@
       "path": "skills/clarify",
       "displayName": "Clarify",
       "description": "Hybrid workflow for turning ambiguous implementation requests into actionable scope before execution. Use explicitly for clarification/spec requests, or automatically for direct contradictions or missing acceptance criteria that would materially change the build. Not for open-ended brainstorming or already-specific tasks.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -157,7 +157,7 @@
       "path": "skills/implementation-planning",
       "displayName": "Implementation Planning",
       "description": "Manual-first heavy planning protocol for complex technical implementation work. Use when the user or the planner agent explicitly needs a deep executable plan for a feature, refactor, migration, or architecture change after the direction is already chosen. Do not use for brainstorming, choosing between competing directions, requirements clarification, business planning, generic project management, or code execution.",
-      "version": "0.1.2",
+      "version": "0.1.4",
       "maturity": "experimental",
       "categories": [
         "coding",
@@ -247,7 +247,7 @@
       "path": "skills/skill-lifecycle-manager",
       "displayName": "Skill Lifecycle Manager",
       "description": "Manage the lifecycle of agent skills: discover patterns, create or update a skill, validate it, evaluate it, project or install it, or audit a skill library. Use only when the request is explicitly about skills or skill libraries, not for general code tasks or agent management.",
-      "version": "0.5.3",
+      "version": "0.7.0",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -518,5 +518,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-28T15:54:27.238Z"
+  "generatedAt": "2026-03-28T16:35:35.182Z"
 }

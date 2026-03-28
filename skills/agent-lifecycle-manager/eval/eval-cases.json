@@ -1,5 +1,5 @@
 {
-  "version": "0.3.1",
+  "version": "0.4.0",
   "skill": "agent-lifecycle-manager",
   "description": "Evaluation suite for the agent-lifecycle-manager skill. The suite tests whether the skill can route agent lifecycle work correctly, preserve a coherent multi-surface agent contract, manage Codex runtime defaults explicitly when needed, keep delegated Discover research separate from authoring, separate trigger tuning from body edits, and end with a clear next step.",
   "assertions": [
@@ -185,7 +185,7 @@
           "check": "Runs `quick_validate_agent.py` or equivalent automated validation, not just manual file reading."
         },
         "automated_tooling_used": {
-          "check": "Uses `quick_validate_agent.py` from the shared harness to validate the agent package."
+          "check": "Uses package-local `quick_validate_agent.py` to validate the agent package."
         },
         "surface_alignment_explicit": {
           "check": "Reports on cross-surface alignment findings from the validation output."
@@ -215,7 +215,7 @@
           "check": "Runs `audit_agent_inventory.py` or equivalent automated audit, not just manual inspection."
         },
         "automated_tooling_used": {
-          "check": "Uses `audit_agent_inventory.py` from the shared harness to produce the audit report."
+          "check": "Uses package-local `audit_agent_inventory.py` to produce the audit report."
         },
         "surface_alignment_explicit": {
           "check": "The audit report covers cross-surface alignment as one of its dimensions."
@@ -238,7 +238,7 @@
     "notes": "A case passes if it scores at least 75 percent of the applicable assertion points. The suite passes if every case passes individually."
   },
   "runner_instructions": {
-    "setup": "Use the reusable harness under `skills/skill-lifecycle-manager/scripts/`. The canonical eval fixture for this skill is `skills/agent-lifecycle-manager/eval/eval-cases.json`.",
+    "setup": "Use the package-local harness under `skills/agent-lifecycle-manager/scripts/`. The canonical eval fixture for this skill is `skills/agent-lifecycle-manager/eval/eval-cases.json`.",
     "execution": "Seed a workspace with `seed_eval_workspace.py`, then run one or more cases through `run_surface_eval.py` on the desired surface. Use `--stage baseline` when the comparison matters.",
     "evaluation": "Score route quality, research-handoff clarity when Discover is delegated, contract alignment, runtime-control reasoning, and next-step clarity. Use `result.json` timestamps as a lightweight timing proxy when comparing with-skill and baseline runs.",
     "environment": "Filesystem write access is required. Network access is optional unless the request explicitly exercises discovery against live sources. When the evaluated surface can edit files, prefer a disposable worktree or capture plus inspect `git status --short` before and after the run."

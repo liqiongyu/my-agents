@@ -5,6 +5,20 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed
+- Updated the packaged unit-test runner to fail with a clear canonical-only message when projected runtime copies omit `tests/`, instead of falling through to a confusing pytest path error.
+
+## [0.4.0] - 2026-03-28
+
+### Added
+- Added a package-local `scripts/` tree so `agent-lifecycle-manager` now ships the validation, projection, and eval harness helpers it documents instead of depending on another skill package's private script paths.
+- Added packaged Python unit tests for the local harness, including agent-specific validation and inventory-audit coverage.
+
+### Changed
+- Replaced every documented `"$SLM_DIR/scripts/..."` command with package-local `"$ALM_DIR/scripts/..."` usage so the skill remains self-contained after install.
+- Updated the eval README, eval fixture metadata, and evaluation-loop reference to describe a package-local harness rather than a shared harness dependency.
+- Clarified that self-validation of the `agent-lifecycle-manager` skill package itself is canonical-only: projected runtime copies can ship the helper scripts, but they do not ship the authoring-only `eval/` fixture set, and Claude Code projections also omit `skill.json` plus `CHANGELOG.md`.
+
 ## [0.3.1] - 2026-03-27
 
 ### Added

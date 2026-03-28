@@ -4,7 +4,9 @@ This note explains how the repository's tooling should stay organized as the com
 
 ## Public Surface
 
-Keep `package.json` scripts stable as the public operator surface. They should stay memorable and thin:
+Treat `npx my-agents ...` as the canonical runtime CLI surface for installs, project sync, external-asset authoring, and local reference repositories.
+
+Keep `package.json` scripts stable as repo-local aliases for high-frequency maintainer workflows. They should stay memorable and thin:
 
 - `build`
 - `validate`
@@ -13,7 +15,7 @@ Keep `package.json` scripts stable as the public operator surface. They should s
 - `sync-references`
 - authoring commands such as `new`
 
-If internal structure changes, keep these entrypoints unless there is a strong migration reason.
+If internal structure changes, keep the canonical `my-agents` subcommands stable and preserve the repo-local npm aliases unless there is a strong migration reason.
 
 ## Internal Structure
 
@@ -28,6 +30,8 @@ Use `scripts/lib/` for:
 - git helpers shared by multiple commands
 
 Avoid adding new one-off helpers to entrypoint files if the logic is likely to be reused elsewhere.
+
+This repo-level tooling layout is for canonical repository authoring. Do not assume installable skills or agents can rely on the repository's top-level `scripts/` directory after distribution. Installable packages should be self-contained unless a formal shared-runtime distribution mechanism or pack explicitly ships the shared tooling alongside them.
 
 ## Documentation Structure
 

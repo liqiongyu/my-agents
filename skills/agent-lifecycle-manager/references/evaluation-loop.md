@@ -2,10 +2,12 @@
 
 Use this reference when the lifecycle route includes `Evaluate` or `Optimize Invocation`. The goal is to test whether the target agent actually helps on realistic work, not merely whether its files pass validation.
 
-This skill reuses the eval harness shipped with `skill-lifecycle-manager`. For the command examples below, set:
+This reference assumes the canonical authoring package. For the command examples below, set:
 
-- `SLM_DIR=skills/skill-lifecycle-manager`
+- `ALM_CANONICAL_DIR=skills/agent-lifecycle-manager`
 - `ALM_EVAL_FILE=skills/agent-lifecycle-manager/eval/eval-cases.json`
+
+Projected runtime copies still ship the local helper scripts, but they intentionally do not ship `eval/`. Keep the fixture path external via `ALM_EVAL_FILE` instead of assuming the active runtime copy contains the suite.
 
 ## Core Principles
 
@@ -52,7 +54,7 @@ For each run, look beyond basic correctness:
 3. Seed a reusable workspace when the pass should leave reviewable artifacts:
 
 ```bash
-uv run python "$SLM_DIR/scripts/seed_eval_workspace.py" \
+uv run python "$ALM_CANONICAL_DIR/scripts/seed_eval_workspace.py" \
   agent-lifecycle-manager \
   --eval-file "$ALM_EVAL_FILE"
 ```
@@ -71,7 +73,7 @@ workspaces/agent-lifecycle-manager/iteration-<N>/
 4. Run the prompts in an environment where the agent or authored package is available. For direct surface evaluation, prefer the installed CLIs over a custom API harness:
 
 ```bash
-uv run python "$SLM_DIR/scripts/run_surface_eval.py" \
+uv run python "$ALM_CANONICAL_DIR/scripts/run_surface_eval.py" \
   codex \
   agent-lifecycle-manager \
   --eval-file "$ALM_EVAL_FILE" \
@@ -82,7 +84,7 @@ uv run python "$SLM_DIR/scripts/run_surface_eval.py" \
 When the comparison matters, run the matching baseline beside it:
 
 ```bash
-uv run python "$SLM_DIR/scripts/run_surface_eval.py" \
+uv run python "$ALM_CANONICAL_DIR/scripts/run_surface_eval.py" \
   codex \
   agent-lifecycle-manager \
   --eval-file "$ALM_EVAL_FILE" \
@@ -142,7 +144,7 @@ Compare `with-skill` versus `baseline` on:
 After one or more runs, render the review panel:
 
 ```bash
-uv run python "$SLM_DIR/scripts/render_review_panel.py" \
+uv run python "$ALM_CANONICAL_DIR/scripts/render_review_panel.py" \
   workspaces/agent-lifecycle-manager/iteration-1
 ```
 

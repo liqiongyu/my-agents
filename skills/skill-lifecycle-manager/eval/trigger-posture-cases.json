@@ -8,6 +8,7 @@
     "invocation_posture_explicit",
     "posture_matches_request",
     "stage_routing_correct",
+    "depth_gate_respected",
     "negative_boundary_respected",
     "next_step_explicit"
   ],
@@ -16,10 +17,73 @@
     "invocation_posture_explicit": "For routed skill requests, the response explicitly names the target skill's invocation posture as `manual-first`, `hybrid`, or `auto-first` before talking about description changes.",
     "posture_matches_request": "The chosen invocation posture matches the request. Heavy, risky, or governance-oriented skills should stay `manual-first`; mixed explicit/implicit use cases may be `hybrid`; narrow, low-cost utility skills can be `auto-first`. For a few boundary cases, a conservative `hybrid` answer can still pass if the reasoning explicitly limits automatic triggering to unmistakable in-scope requests.",
     "stage_routing_correct": "The response names the smallest sensible lifecycle stages for the request instead of defaulting to an oversized end-to-end plan.",
+    "depth_gate_respected": "The response applies the discovery-depth gate correctly: it makes the gate explicit when broad discovery is required and depth is unspecified, and it does not re-ask when depth is already provided or the comparison is intentionally bounded.",
     "negative_boundary_respected": "For requests that should not route to this skill, the response explains the boundary clearly instead of stretching the skill into general code work or agent management.",
     "next_step_explicit": "The response closes with a concrete next step such as draft, validate, run trigger evals, or use a different workflow."
   },
   "cases": [
+    {
+      "id": "tp-manual-broad-docs-skill",
+      "name": "Broad documentation skill should stay manual-first and start with Discover",
+      "description": "Explicit skill-authoring request, but the target skill is broad, reusable, and overlap-prone. The response should still route to skill-lifecycle-manager, choose a conservative posture, and begin with Discover rather than immediate drafting.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Discover"
+      ],
+      "prompt": "A user says: 'Create a project-generic, domain-generic skill that can write documentation across many repositories. I want it to be broadly reusable.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill, what invocation posture the new skill should have, and what the next lifecycle stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is explicitly about creating a skill, so it should route to skill-lifecycle-manager."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly choose a posture."
+        },
+        "posture_matches_request": {
+          "check": "Because the target skill is broad and expensive to trigger incorrectly, `manual-first` is the correct default posture."
+        },
+        "stage_routing_correct": {
+          "check": "The route should begin with Discover, likely including overlap comparison against existing documentation-oriented skills, rather than immediate Create/Update."
+        },
+        "depth_gate_respected": {
+          "check": "Because this broad request implies ecosystem discovery and does not specify Quick, Standard, or Deep, the answer should make the depth-choice gate explicit."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name a concrete next step such as choosing discovery depth, then producing a candidate inventory before any authoring."
+        }
+      }
+    },
+    {
+      "id": "tp-manual-broad-docs-standard-depth",
+      "name": "Broad documentation skill with explicit Standard depth should not re-ask for depth",
+      "description": "Explicit skill-authoring request for a broad reusable skill where the user has already chosen Standard discovery depth. The response should still stay manual-first and Discover-first, but it should not stop to ask for Quick, Standard, or Deep again.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Discover"
+      ],
+      "prompt": "A user says: 'Create a project-generic, domain-generic documentation skill. First do a Standard ecosystem survey, then stop at candidate inventory so I can confirm the set before any drafting.' Using skill-lifecycle-manager, answer in one short paragraph whether this should route to the skill, what invocation posture the new skill should have, and what the next lifecycle stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is explicitly about creating a skill, so it should route to skill-lifecycle-manager."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly say `manual-first`."
+        },
+        "posture_matches_request": {
+          "check": "Because the target skill is broad and expensive to trigger incorrectly, `manual-first` remains the correct posture."
+        },
+        "stage_routing_correct": {
+          "check": "The route should remain in Discover for this pass because the user wants candidate confirmation before authoring."
+        },
+        "depth_gate_respected": {
+          "check": "Because the prompt already says Standard, the answer should not ask for Quick, Standard, or Deep again."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name candidate inventory and user confirmation as the next step."
+        }
+      }
+    },
     {
       "id": "tp-manual-audit-skill",
       "name": "Create a heavy audit skill that should stay manual-first",

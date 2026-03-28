@@ -43,7 +43,18 @@ Do not use this skill when:
 
 ## Router First
 
-Do not force all seven lifecycle stages every time. Identify the current request, then run only the relevant stages in order. If the user asks for "audit this skill", do not start by scaffolding a new one. If they ask for "make a skill from this workflow", do not launch a full ecosystem survey unless the domain is novel or the user asks for comparison.
+Do not force all seven lifecycle stages every time. Identify the current request, then run only the relevant stages in order. If the user asks for "audit this skill", do not start by scaffolding a new one.
+
+However, do **not** treat every "make a skill from this workflow" request as a direct authoring task. Some new-skill requests are broad enough that they must begin with Discover before any package drafting starts.
+
+Run this **Discover-first gate** before choosing `Create / Update` for a new skill:
+
+- the target skill is meant to be general-purpose, project-generic, domain-agnostic, or broadly reusable
+- the request explicitly asks for research, comparison, best practices, existing skills, or fusion
+- overlap with existing local or ecosystem skills is plausible and would materially affect the design
+- the design is likely to borrow from external patterns rather than only local source material
+
+If any of those are true, start with `Discover`. Do not draft `SKILL.md`, `skill.json`, `CHANGELOG.md`, references, or eval files yet.
 
 Use this routing table first:
 
@@ -66,11 +77,13 @@ Read [invocation-posture.md](references/invocation-posture.md) before writing or
 2. **Keep the body lean.** Put heavy detail in references or scripts; keep `SKILL.md` actionable and navigable.
 3. **Separate body quality from trigger quality.** Improve instructions and trigger wording in separate passes when possible.
 4. **Prefer realistic eval prompts.** Evaluate against concrete user requests, not synthetic toy prompts.
-5. **Do not duplicate deep research inline.** If discovery becomes ecosystem research, delegate to `skill-researcher`.
-6. **Delegated checkpoints are binding.** If a lifecycle stage delegates to a specialist skill, inherit that skill's required pauses, confirmations, and deliverables before resuming downstream stages.
-7. **Do not merge create and install by default.** A well-authored skill and a correctly installed skill are different lifecycle concerns.
-8. **Audit for library health, not only single-skill correctness.** A skill can be individually valid but still harmful in the aggregate because it duplicates another skill, wastes context, or has stale metadata.
-9. **Decide invocation posture before tuning the trigger.** First choose whether the skill should be `manual-first`, `hybrid`, or `auto-first`; then write the description to match that posture.
+5. **Broad new skills are research-first.** If the target skill is general-purpose, overlap-prone, or explicitly asks for comparison or fusion, route to `Discover` before any authoring.
+6. **Do not duplicate deep research inline.** If discovery becomes ecosystem research, delegate to `skill-researcher`.
+7. **Delegated checkpoints are binding.** If a lifecycle stage delegates to a specialist skill, inherit that skill's required pauses, confirmations, and deliverables before resuming downstream stages.
+8. **Do not merge create and install by default.** A well-authored skill and a correctly installed skill are different lifecycle concerns.
+9. **Audit for library health, not only single-skill correctness.** A skill can be individually valid but still harmful in the aggregate because it duplicates another skill, wastes context, or has stale metadata.
+10. **Decide invocation posture before tuning the trigger.** First choose whether the skill should be `manual-first`, `hybrid`, or `auto-first`; then write the description to match that posture.
+11. **Keep installable packages self-contained.** A skill may reference another skill conceptually, but it must not depend on another skill package's private script paths. If no formal shared-runtime distribution exists, duplicate the required runtime tooling locally instead of shipping a hidden cross-package dependency.
 
 ## Command Path Model
 
@@ -81,6 +94,7 @@ When copying the shell commands below, treat `SLM_DIR` as the active skill direc
 - Claude Code projection: `SLM_DIR=.claude/skills/skill-lifecycle-manager`
 
 Examples that use reusable eval fixtures also need an `SLM_EVAL_FILE` path. In the canonical repo, that can be something like `skills/skill-lifecycle-manager/eval/eval-cases.json`. Projected runtime surfaces intentionally do **not** ship `eval/`, so projected-surface users should point `--eval-file` at a canonical/local copy of the fixture or use inline `--eval` prompts instead.
+If you are self-validating this skill package itself, also set `SLM_CANONICAL_DIR=skills/skill-lifecycle-manager`. That self-validation path is canonical-only: projected runtime copies intentionally exclude `tests/`, and Claude Code projections also exclude `skill.json` plus `CHANGELOG.md`.
 
 ## Workflow
 
@@ -109,11 +123,19 @@ Before authoring or trigger work, decide the target skill's **invocation posture
 
 If the user has not said otherwise, default to `manual-first`. Meta-skills, audit/governance skills, and risky workflow skills should usually stay there.
 
+Before entering `Create / Update` for a **new** skill, apply the Discover-first gate from `Router First` instead of re-deriving it here:
+
+- If the gate fires and the user did not specify `Quick`, `Standard`, or `Deep`, stop and resolve the depth choice before searching.
+- If the request already includes bounded sources, keep Discover intentionally narrow instead of widening it.
+- If delegated Discover still owes candidate confirmation or a research handoff, stay in `Discover` until that checkpoint is satisfied.
+
 Before proceeding, summarize the chosen route in one or two sentences so the user can correct course early.
 
 ### Phase 2: Discover
 
 Use Discover when the domain is unfamiliar, the user wants comparison, or you suspect an official/community pattern should be reused rather than reinvented.
+
+If the Discover-first gate in `Router First` fired, Discover is mandatory for this pass. Treat that gate as the authoritative rule instead of restating it here. When the gate is active, do not "just draft a first version" and plan to research later, and do not treat a nearby local skill as permission to skip broader overlap or source checks.
 
 Default behavior:
 
@@ -134,9 +156,18 @@ Default behavior:
    - reusable files/scripts to include
    - evaluation expectations
 
+Until the delegated Discover workflow has completed its required handoff, the following are out of bounds:
+
+- drafting the target skill package
+- creating target-skill references, scripts, or eval fixtures
+- claiming `Create / Update` is already underway
+- running validation on target-skill files that should not exist yet
+
 **Discover is similar to `skill-researcher`, but not identical.** `skill-researcher` is the deep external research specialist. This skill decides **when** that research is necessary and how it reconnects to the rest of the lifecycle. Once Discover delegates, the specialist workflow governs the pause points and outputs.
 
 ### Phase 3: Create Or Update
+
+Precondition: if the request triggered the Discover-first gate, do not enter this phase until the research handoff is complete and any required candidate confirmation has happened.
 
 When authoring or revising the skill, use OpenAI's structure discipline as the baseline:
 
@@ -166,6 +197,8 @@ When authoring or revising the skill, use OpenAI's structure discipline as the b
    - explicit about when to delegate
    - explicit about when not to use the skill
 
+If the skill is meant to be installable outside the canonical repo, keep the runtime helpers it needs inside that package or inside an explicitly shipped distribution unit. It may reference another skill conceptually, but it must not assume another skill package's private script path exists on the target surface.
+
 Use `scripts/init_skill.py` when you need a fresh repo-compatible scaffold. Add `--project-to codex,claude-code` when you want initial projections immediately. When updating an existing skill, preserve the name unless the rename is deliberate and accompanied by metadata/catalog updates.
 
 ### Phase 4: Validate
@@ -179,9 +212,10 @@ Run these checks in order:
    - `uv run python "$SLM_DIR/scripts/validate_projection.py" <skill-dir> --platform all`
 3. If the skill includes a structured eval suite, validate that too:
    - `uv run python "$SLM_DIR/scripts/validate_eval_suite.py" <eval-file>`
-4. If you changed validation, projection, or eval-runner code, run the packaged unit tests too:
-   - `uv run python "$SLM_DIR/scripts/run_unit_tests.py"`
+4. If you changed validation, projection, or eval-runner code in this skill package itself, run the packaged unit tests from the canonical repo copy:
+   - `uv run python "$SLM_CANONICAL_DIR/scripts/run_unit_tests.py"`
    - this script uses `uv run --with pytest ...`, so it does not rely on a pre-created virtualenv
+   - projected runtime copies intentionally exclude `tests/`, so this self-check is canonical-only
 5. Repo-local validation if relevant:
    - `npm run validate`
    - `npm run build` if indexes need refresh
@@ -272,6 +306,10 @@ Then choose the least surprising path:
 4. For local installation into supported agent surfaces, use the repo installer if appropriate:
    - `npm run install-skill -- <name>`
 5. For external install/publish flows, use the platform-native installer or publish mechanism rather than inventing a bespoke path inside this skill.
+6. Before calling the package install-ready, confirm the runtime boundary is portable:
+   - the package may reference another skill conceptually
+   - the package must not require another skill package's private script paths at runtime
+   - if shared tooling is truly required, ship it as part of the same package or an explicitly distributed pack instead of assuming the canonical repo layout exists on the target surface
 
 Do not promise publishing unless credentials, marketplace rules, and packaging expectations are actually satisfied.
 
@@ -297,6 +335,7 @@ Audit dimensions include:
 - context waste from bloated bodies
 - risky or undeclared script behavior
 - install/publish readiness gaps
+- cross-package private runtime dependencies that break portability after install
 
 ### Phase 9: Close The Loop
 
@@ -315,17 +354,21 @@ If the request paused inside Discover because a delegated workflow hit a require
 - Collapsing all lifecycle stages into one giant pass when the user only asked for one stage
 - Duplicating deep discovery inside this skill instead of delegating to `skill-researcher`
 - Treating `skill-researcher` as inspiration instead of a binding delegated workflow
+- Treating a broad new skill as a direct local-drafting task just because a nearby repo skill seems related
 - Treating `description` as documentation instead of activation logic
 - Running subjective evaluation with fake numeric precision
 - Mixing trigger optimization with body rewrites so heavily that you cannot tell what improved
+- Starting `Create / Update` for a broad new skill before resolving the Discover depth gate
 - Jumping from a deep research request straight into authoring before the delegated confirmation gate is satisfied
 - Baking Codex-only or Claude-only behavior into the canonical core without a good reason
+- Treating another skill package's private script path as an acceptable runtime dependency for an installable skill
 - Publishing or installing before the skill is structurally valid
 - Auditing only for broken files while missing duplicates, drift, or context waste
 
 ## Example Prompts
 
 - Research the best official and community patterns for this new skill idea, then draft it.
+- We need a project-generic, domain-generic documentation skill. Research outside skills first, give me the candidate inventory, wait for confirmation, then compare and fuse before any drafting.
 - Turn this repeated workflow into a new skill, validate it, and tell me the next lifecycle step.
 - Update our existing `skill-researcher` skill, then run a proper evaluation loop.
 - Tighten the trigger wording for this skill without rewriting the whole body.
