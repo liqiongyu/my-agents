@@ -92,6 +92,7 @@ A wrapper script can be the right answer for one repo, but a generic skill shoul
 ## Authoring takeaways
 
 - Keep the trigger explicit and conservative.
+- Put overlap boundaries with broader Git skills in the trigger language, not only in the runtime body.
 - Bias toward official commands and generic decision rules.
 - Mention repo-specific overlays as optional follow-up steps, not as part of the Git core path.
 - Make cleanup and recovery just as first-class as creation.

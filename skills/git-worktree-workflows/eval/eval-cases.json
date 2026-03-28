@@ -1,5 +1,5 @@
 {
-  "version": "0.1.2",
+  "version": "0.1.4",
   "skill": "git-worktree-workflows",
   "description": "Evaluation suite for the git-worktree-workflows skill. The suite tests whether the skill chooses the right worktree route, uses official command semantics, keeps destructive operations safety-gated, avoids overfitting repo-specific bootstrap habits, and ends with a clear next step.",
   "assertions": [
@@ -126,13 +126,133 @@
           "check": "The response should focus on compare and selective adoption rather than broad merge advice."
         },
         "official_command_model_used": {
-          "check": "The answer should recommend diff plus `git restore --source=...` or equivalent selective checkout/cherry-pick patterns."
+          "check": "The answer should recommend `git diff --no-index` for side-by-side file comparison plus `git restore --source=...`, or on older Git versions `git checkout <tree-ish> -- <path>`, for selective adoption."
         },
         "repo_specific_bootstrap_not_assumed": {
           "check": "The response should stay on compare-and-merge mechanics and not drift into unrelated worktree bootstrap steps."
         },
         "next_step_explicit": {
           "check": "Ends with the next step, such as reviewing the restored file and committing the selected change."
+        }
+      }
+    },
+    {
+      "id": "eval-6",
+      "name": "Repair metadata after manually moving a worktree",
+      "description": "Tests the repair-and-recover route for a worktree that was moved outside Git.",
+      "prompt": "I moved one of my worktree folders to a different drive with Finder, and now Git still points at the old path in `git worktree list`. What's the safest way to reconnect it?",
+      "mode": "standard",
+      "expected_stages": [
+        "Repair / Recover"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should stay in repair-and-recover mode rather than suggesting prune or remove for a worktree that still exists."
+        },
+        "official_command_model_used": {
+          "check": "The answer should recommend `git worktree repair` or `git worktree repair <new-path>` and distinguish manual moves from deleted paths."
+        },
+        "destructive_safety_explicit": {
+          "check": "The response should inspect or restate the moved-path context before suggesting any cleanup, and it should avoid forceful deletion advice."
+        },
+        "next_step_explicit": {
+          "check": "Ends with a follow-up such as rerunning `git worktree list` or checking the repaired worktree path."
+        }
+      }
+    },
+    {
+      "id": "eval-7",
+      "name": "Create a remote review worktree when the remote-tracking ref is missing locally",
+      "description": "Tests the remote-review path where the clone needs an explicit remote-tracking refspec before the worktree can track the branch safely.",
+      "prompt": "I want a clean review worktree for `feature/existing-branch`, but this clone only fetched `main` so `origin/feature/existing-branch` is missing locally. What's the safest workflow?",
+      "mode": "standard",
+      "expected_stages": [
+        "Create"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should stay in create-and-review mode rather than treating this as a generic fetch problem."
+        },
+        "official_command_model_used": {
+          "check": "The answer should fetch the branch with an explicit refspec such as `refs/heads/<branch>:refs/remotes/origin/<branch>` before using `git worktree add --track -b ... origin/<branch>`."
+        },
+        "repo_specific_bootstrap_not_assumed": {
+          "check": "The response should not attach repo bootstrap steps to the review checkout."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next step, such as entering the review worktree or checking its status."
+        }
+      }
+    },
+    {
+      "id": "eval-8",
+      "name": "Validate an in-repo candidate path before using it as a default worktree location",
+      "description": "Tests the generic candidate-path ignore check for repositories that keep linked checkouts inside a tracked tree.",
+      "prompt": "Our repo usually keeps extra checkouts under `.worktrees/`. Before I add `./.worktrees/review-auth`, what should I verify so that in-repo location is actually safe to use?",
+      "mode": "standard",
+      "expected_stages": [
+        "Create"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should stay in path-selection/create mode rather than jumping straight to `git worktree add`."
+        },
+        "official_command_model_used": {
+          "check": "The answer should check the candidate path itself with `git check-ignore -q -- <candidate-path>` or an equivalent candidate-path-specific ignore check, not assume `.worktrees` is always ignored."
+        },
+        "repo_specific_bootstrap_not_assumed": {
+          "check": "If the path is not ignored, the response should surface the risk or suggest a different location rather than silently editing ignore rules."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next step, such as adding the worktree only after the candidate path is confirmed ignored."
+        }
+      }
+    },
+    {
+      "id": "eval-9",
+      "name": "Lock a portable worktree that lives on removable storage",
+      "description": "Tests the repair-and-recover route for linked worktrees that should stay registered while their storage is temporarily offline.",
+      "prompt": "One of my linked worktrees lives on an external SSD that is not always mounted, and I do not want Git to prune its metadata when the drive is disconnected. What's the safest workflow?",
+      "mode": "standard",
+      "expected_stages": [
+        "Repair / Recover"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should stay in repair-and-recover mode rather than treating this as ordinary cleanup."
+        },
+        "official_command_model_used": {
+          "check": "The answer should recommend `git worktree lock --reason ...` for the portable worktree and mention `git worktree unlock` when the user wants to make it prunable again."
+        },
+        "destructive_safety_explicit": {
+          "check": "The response should avoid suggesting prune or remove just because the path is temporarily unavailable."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next step, such as locking the worktree and then rechecking `git worktree list`."
+        }
+      }
+    },
+    {
+      "id": "eval-10",
+      "name": "Move a linked worktree intentionally with Git",
+      "description": "Tests the repair-and-recover route for intentional relocation where Git should move the linked worktree itself.",
+      "prompt": "I want to relocate one of my linked worktrees from `../review-auth` to `../review-auth-archive` without breaking Git's bookkeeping. What's the cleanest workflow?",
+      "mode": "standard",
+      "expected_stages": [
+        "Repair / Recover"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should stay in repair-and-recover mode rather than treating this as a manual move followed by repair."
+        },
+        "official_command_model_used": {
+          "check": "The answer should recommend `git worktree move <old-path> <new-path>` and distinguish intentional Git-managed relocation from `repair` after a manual move."
+        },
+        "destructive_safety_explicit": {
+          "check": "The response should call out the official limitation that the main worktree, and linked worktrees containing submodules, cannot be moved with `git worktree move`."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next step, such as re-running `git worktree list` or entering the moved worktree at its new path."
         }
       }
     }

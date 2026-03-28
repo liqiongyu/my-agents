@@ -1,5 +1,5 @@
 {
-  "version": "0.1.2",
+  "version": "0.1.4",
   "skill": "git-worktree-workflows",
   "type": "trigger-posture",
   "description": "Posture-aware trigger suite for git-worktree-workflows. The suite checks whether the skill stays manual-first, routes only on explicit or unmistakable multi-checkout requests, declines adjacent general Git tasks, and keeps repo-specific bootstrap concerns outside the default worktree path.",
@@ -94,6 +94,102 @@
       }
     },
     {
+      "id": "tp-stale-worktree-cleanup",
+      "name": "Trigger on explicit stale worktree cleanup",
+      "description": "A first-class worktree maintenance request after a linked checkout was deleted outside Git.",
+      "expected_trigger": "should-trigger",
+      "expected_stages": [
+        "Cleanup"
+      ],
+      "prompt": "A user says: 'I deleted one of my worktree folders outside Git, and `git worktree list` still shows it. Should the git-worktree-workflows skill handle this, and what route applies?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the manual-first skill, what route applies, and the next step. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to git-worktree-workflows."
+        },
+        "manual_first_boundary_explicit": {
+          "check": "The answer should explain that explicit cleanup of stale worktree metadata is still inside the skill boundary."
+        },
+        "stage_routing_correct": {
+          "check": "The route should focus on Cleanup rather than create or compare."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with a cleanup step such as `git worktree prune --dry-run`."
+        }
+      }
+    },
+    {
+      "id": "tp-moved-worktree-repair",
+      "name": "Trigger on explicit moved-worktree repair",
+      "description": "A first-class repair request after a linked worktree was moved manually.",
+      "expected_trigger": "should-trigger",
+      "expected_stages": [
+        "Repair / Recover"
+      ],
+      "prompt": "A user says: 'I moved one of my worktree folders to another drive, and now Git still points at the old path. Should the git-worktree-workflows skill handle this, and what route applies?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the manual-first skill, what route applies, and the next step. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to git-worktree-workflows."
+        },
+        "manual_first_boundary_explicit": {
+          "check": "The answer should explain that explicit worktree repair is still inside the skill boundary."
+        },
+        "stage_routing_correct": {
+          "check": "The route should focus on Repair / Recover rather than prune or create."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with a repair step such as `git worktree repair` or rechecking `git worktree list`."
+        }
+      }
+    },
+    {
+      "id": "tp-portable-worktree-lock",
+      "name": "Trigger on explicit portable-worktree locking",
+      "description": "A first-class request to keep a linked worktree registered while its removable storage is temporarily offline.",
+      "expected_trigger": "should-trigger",
+      "expected_stages": [
+        "Repair / Recover"
+      ],
+      "prompt": "A user says: 'One of my linked worktrees lives on an external SSD that is not always mounted, and I do not want Git to prune it when the drive is disconnected. Should the git-worktree-workflows skill handle this, and what route applies?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the manual-first skill, what route applies, and the next step. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to git-worktree-workflows."
+        },
+        "manual_first_boundary_explicit": {
+          "check": "The answer should explain that explicit portable-worktree protection is still inside the skill boundary."
+        },
+        "stage_routing_correct": {
+          "check": "The route should focus on Repair / Recover rather than cleanup or create."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with a lock step such as `git worktree lock --reason ...`."
+        }
+      }
+    },
+    {
+      "id": "tp-intentional-worktree-move",
+      "name": "Trigger on explicit Git-managed worktree relocation",
+      "description": "A first-class request to relocate a linked worktree with Git rather than after a manual move.",
+      "expected_trigger": "should-trigger",
+      "expected_stages": [
+        "Repair / Recover"
+      ],
+      "prompt": "A user says: 'I want Git to move one of my linked worktrees from ../review-auth to ../review-auth-archive without breaking its bookkeeping. Should the git-worktree-workflows skill handle this, and what route applies?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the manual-first skill, what route applies, and the next step. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to git-worktree-workflows."
+        },
+        "manual_first_boundary_explicit": {
+          "check": "The answer should explain that explicit Git-managed relocation is still inside the skill boundary."
+        },
+        "stage_routing_correct": {
+          "check": "The route should focus on Repair / Recover and recommend move rather than repair-after-manual-move."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with a move step such as `git worktree move <old-path> <new-path>`."
+        }
+      }
+    },
+    {
       "id": "tn-general-branch-switch",
       "name": "Do not trigger for an ordinary branch switch",
       "description": "A clean, routine Git task with no multi-checkout need.",
@@ -149,6 +245,60 @@
           "check": "The answer should point to project docs or a repo-specific setup workflow."
         }
       }
+    },
+    {
+      "id": "tn-git-subtree-choice",
+      "name": "Do not trigger for a subtree vs submodule decision",
+      "description": "A Git composition question that may sound adjacent but is not a worktree workflow.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Should I use git subtree or submodule to share code between repos?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to the worktree skill."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should explain that subtree and submodule decisions are adjacent Git topics, not worktree workflows."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to broader Git guidance or the more relevant topic directly."
+        }
+      }
+    },
+    {
+      "id": "tn-submodule-checkout-behavior",
+      "name": "Do not trigger for submodule behavior across checkouts",
+      "description": "The user asks about submodule behavior in multiple checkouts rather than about worktree operations themselves.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'How do submodules behave if I have two checkouts open and one of them changes the submodule pointer?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route as a first-class worktree workflow."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should explain that this is mainly a submodule question even if multiple checkouts are involved."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to submodule-specific guidance or the relevant broader Git workflow."
+        }
+      }
+    },
+    {
+      "id": "tn-cherry-pick-session",
+      "name": "Do not trigger when worktrees are incidental to a cherry-pick session",
+      "description": "A broader advanced-Git task where worktrees are optional support, not the primary need.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'I need to cherry-pick a hotfix across two release branches, and I might open another checkout if it helps. Should the worktree skill be the main path here?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to git-worktree-workflows as the primary skill."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should explain that this is mainly a broader advanced-Git workflow unless worktree operations become the main task."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to the broader Git workflow as the next step."
+        }
+      }
     }
   ],
   "scoring": {
@@ -160,7 +310,7 @@
     "case_max_strategy": "count-applicable-assertions",
     "total_max_strategy": "sum-applicable-assertions",
     "pass_threshold": 0.75,
-    "notes": "Use this suite as a manual trigger-boundary review. The goal is to confirm that the skill stays manual-first, routes only on clear worktree signals, and declines adjacent Git tasks that do not really need a worktree workflow."
+  "notes": "Use this suite as a manual trigger-boundary review. The goal is to confirm that the skill stays manual-first, routes only on clear worktree signals, and declines adjacent Git tasks that do not really need a worktree workflow."
   },
   "runner_instructions": {
     "setup": "Ensure the canonical skill package is discoverable. These prompts are classification-only and should be run without editing files.",

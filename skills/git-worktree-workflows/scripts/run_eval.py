@@ -7,10 +7,12 @@ the developer can run each prompt manually in a session with the skill active
 and record results.
 
 Score mode: reads a JSON results file and outputs a pass/fail summary against
-the 75% threshold defined in eval-cases.json.
+the selected suite's 75% threshold.
 
 Usage:
     uv run python scripts/run_eval.py
+    uv run python scripts/run_eval.py --suite trigger
+    uv run python scripts/run_eval.py --suite all
     uv run python scripts/run_eval.py --eval-file eval/eval-cases.json
     uv run python scripts/run_eval.py --case eval-2
     uv run python scripts/run_eval.py --score path/to/results.json
@@ -31,6 +33,10 @@ from typing import Dict, Optional
 
 
 SCORE_VALUES = {"pass": 1.0, "partial": 0.5, "fail": 0.0}
+SUITE_FILES = {
+    "behavior": Path(__file__).parent.parent / "eval" / "eval-cases.json",
+    "trigger": Path(__file__).parent.parent / "eval" / "trigger-posture-cases.json",
+}
 
 
 def load_json(path: Path) -> dict:
@@ -42,13 +48,20 @@ def print_separator(char: str = "=", width: int = 60) -> None:
     print(char * width)
 
 
-def list_cases(suite: dict, case_filter: Optional[str] = None) -> None:
+def load_suites(eval_file: Optional[Path], suite_name: str) -> list[dict]:
+    if eval_file is not None:
+        return [load_json(eval_file)]
+    if suite_name == "all":
+        return [load_json(path) for path in SUITE_FILES.values()]
+    return [load_json(SUITE_FILES[suite_name])]
+
+
+def list_cases(suite: dict, case_filter: Optional[str] = None) -> bool:
     cases = suite.get("cases", [])
     if case_filter:
         cases = [c for c in cases if c["id"] == case_filter]
         if not cases:
-            print(f"No case found with id '{case_filter}'", file=sys.stderr)
-            sys.exit(1)
+            return False
 
     scoring = suite.get("scoring", {})
     threshold = scoring.get("pass_threshold", 0.75)
@@ -75,26 +88,29 @@ def list_cases(suite: dict, case_filter: Optional[str] = None) -> None:
         print(f"{'Execute'}: {runner.get('execution', '')}")
         print(f"{'Evaluate'}: {runner.get('evaluation', '')}")
 
-    print(f"\nRecord results as: {{\"eval-N\": {{\"assertion_key\": \"pass|partial|fail\", ...}}}}")
+    print(f"\nRecord results as: {{\"case-id\": {{\"assertion_key\": \"pass|partial|fail\", ...}}}}")
     print(f"Then run: uv run python scripts/run_eval.py --score <results.json>")
+    return True
 
 
-def score_cases(suite: dict, score_file: Path) -> None:
-    results: Dict[str, Dict[str, str]] = load_json(score_file)
+def score_cases(suite: dict, results: Dict[str, Dict[str, str]]) -> tuple[bool, set[str]]:
     cases = {c["id"]: c for c in suite.get("cases", [])}
     threshold = suite.get("scoring", {}).get("pass_threshold", 0.75)
+    matched_ids = set(cases) & set(results)
 
     print_separator()
     print(f"Scoring: {suite['skill']} v{suite['version']}")
     print_separator()
 
-    all_passed = True
-    for case_id, case_scores in results.items():
-        case = cases.get(case_id)
-        if not case:
-            print(f"Warning: unknown case id '{case_id}'", file=sys.stderr)
-            continue
+    if not matched_ids:
+        print("Result: INCOMPLETE — no scored cases matched this suite")
+        print_separator()
+        return False, matched_ids
 
+    all_passed = True
+    for case_id in sorted(matched_ids):
+        case = cases[case_id]
+        case_scores = results[case_id]
         applicable = case.get("assertions", {})
         total = len(applicable)
         if total == 0:
@@ -120,20 +136,23 @@ def score_cases(suite: dict, score_file: Path) -> None:
     else:
         print("Result: FAIL — one or more cases did not meet the threshold")
     print_separator()
-    sys.exit(0 if all_passed else 1)
+    return all_passed, matched_ids
 
 
 def main() -> None:
-    default_eval = Path(__file__).parent.parent / "eval" / "eval-cases.json"
-
     parser = argparse.ArgumentParser(
         description="List or score eval cases for git-worktree-workflows"
     )
     parser.add_argument(
+        "--suite",
+        choices=["behavior", "trigger", "all"],
+        default="behavior",
+        help="Eval suite to use when --eval-file is not provided (default: behavior)",
+    )
+    parser.add_argument(
         "--eval-file",
         type=Path,
-        default=default_eval,
-        help=f"Path to eval-cases.json (default: {default_eval})",
+        help="Path to a specific eval suite JSON file. Overrides --suite.",
     )
     parser.add_argument("--case", metavar="ID", help="Show only a single case by id")
     parser.add_argument(
@@ -144,19 +163,40 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not args.eval_file.exists():
+    if args.eval_file is not None and not args.eval_file.exists():
         print(f"Eval file not found: {args.eval_file}", file=sys.stderr)
         sys.exit(1)
 
-    suite = load_json(args.eval_file)
+    suites = load_suites(args.eval_file, args.suite)
 
     if args.score:
         if not args.score.exists():
             print(f"Score file not found: {args.score}", file=sys.stderr)
             sys.exit(1)
-        score_cases(suite, args.score)
-    else:
-        list_cases(suite, args.case)
+        results: Dict[str, Dict[str, str]] = load_json(args.score)
+        overall_passed = True
+        matched_ids: set[str] = set()
+        for suite in suites:
+            suite_passed, suite_ids = score_cases(suite, results)
+            overall_passed = overall_passed and suite_passed
+            matched_ids.update(suite_ids)
+
+        if not matched_ids:
+            print("No scored cases matched the selected suite(s).", file=sys.stderr)
+            sys.exit(1)
+
+        unknown_ids = sorted(set(results) - matched_ids)
+        for case_id in unknown_ids:
+            print(f"Warning: unknown case id '{case_id}'", file=sys.stderr)
+        sys.exit(0 if overall_passed else 1)
+
+    found_case = False
+    for suite in suites:
+        found_case = list_cases(suite, args.case) or found_case
+
+    if args.case and not found_case:
+        print(f"No case found with id '{args.case}'", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

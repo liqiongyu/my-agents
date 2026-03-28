@@ -1,13 +1,13 @@
 ---
 name: git-worktree-workflows
 description: >
-  Use when the user explicitly asks about `git worktree`, wants parallel
-  checkouts or isolated branch work without stashing or recloning, needs help
-  resolving a branch that is already checked out elsewhere, or wants to create,
-  inspect, compare, move, lock, remove, prune, or repair worktrees safely. Do
-  not use for ordinary single-branch Git help unless worktrees are part of the
-  task.
-version: 0.1.2
+  Use when the user explicitly asks about `git worktree`, wants a parallel
+  checkout or isolated branch work without stashing or recloning, needs help
+  resolving a branch that is already checked out elsewhere, or wants to
+  inspect, compare, clean up, or repair worktrees safely. Do not use for
+  ordinary single-branch Git help, repo bootstrap tasks, or broader
+  advanced-Git sessions where worktrees are only incidental.
+version: 0.1.4
 ---
 
 # Git Worktree Workflows
@@ -37,7 +37,7 @@ Do not use this skill when:
 - The request is really about repo bootstrap, such as copying `.env*`, linking `.venv`, installing dependencies, or trusting local tool configs, unless the repository already documents those as project conventions
 - The user only needs general Git advice and has not asked about worktrees or parallel checkouts
 - Worktree use would add more overhead than value, such as a tiny one-file change on a clean branch with no context-switching pressure
-- Worktrees are a minor part of a broader advanced Git session that also involves rebasing, bisect, or reflog; in that case defer to the broader Git skill unless worktree operations become the primary concern
+- Worktrees are a minor part of a broader advanced Git session that also involves rebasing, bisect, or reflog; in that case treat the request as broader advanced Git guidance unless worktree operations become the primary concern
 
 ## Route First
 
@@ -112,7 +112,7 @@ Before creating anything, respect repo conventions in this order:
 If the location is inside the repository, verify that it is ignored before treating it as a default:
 
 ```bash
-git check-ignore -q .worktrees
+git check-ignore -q -- <candidate-path>
 ```
 
 If the directory is not ignored, do not silently commit ignore changes. Explain the risk and either ask permission to update ignore rules or choose a location outside the tracked tree.
@@ -158,7 +158,7 @@ git worktree add ../myrepo-review feature/existing-branch
 **Remote branch review**
 
 ```bash
-git fetch origin feature/existing-branch
+git fetch origin refs/heads/feature/existing-branch:refs/remotes/origin/feature/existing-branch
 git worktree add --track -b feature/existing-branch ../myrepo-review origin/feature/existing-branch
 ```
 
@@ -193,7 +193,7 @@ For side-by-side comparison:
 
 ```bash
 git diff main..feature-branch -- path/to/file
-diff ../worktree-a/path/to/file ../worktree-b/path/to/file
+git diff --no-index -- ../worktree-a/path/to/file ../worktree-b/path/to/file
 ```
 
 For selective file adoption:
@@ -211,6 +211,13 @@ git cherry-pick --no-commit <commit>
 ```
 
 Prefer `git restore` or targeted cherry-picks when the user wants a subset of changes rather than a full branch merge.
+
+If the user's Git is older than 2.23, replace the `restore` commands with:
+
+```bash
+git checkout feature-branch -- path/to/file
+git checkout -p feature-branch -- path/to/file
+```
 
 #### Route: Cleanup
 

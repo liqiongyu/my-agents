@@ -17,6 +17,7 @@ The skill should avoid claiming version-specific behavior that depends on a newe
 - `git worktree add <path> <branch>` checks out an existing branch in a new worktree.
 - `git worktree add --detach <path> <commit-ish>` is the official detached-head workflow for temporary experiments or inspection.
 - If a remote-tracking branch matches uniquely, Git can treat `git worktree add <path> <branch>` like `--track -b <branch> <path> <remote>/<branch>`.
+- `git diff --no-index <path-a> <path-b>` keeps side-by-side file comparison inside Git's diff engine instead of assuming a separate system `diff` binary.
 
 ## Command responsibilities
 
@@ -37,12 +38,17 @@ The skill should avoid claiming version-specific behavior that depends on a newe
 If no branch is specified and neither `-b` nor `-B` nor `--detach` is used, Git normally creates a new branch from `HEAD`. When `worktree.guessRemote=true`, Git first tries to match a unique remote-tracking branch of the same name and attach the new worktree to that.
 
 Use this as a caveat, not as a required workflow. The skill should still recommend explicit remote refs for clarity when the user is reviewing or resurrecting a known remote branch.
+In narrow or single-branch clones, fetching `origin <branch>` may still leave `origin/<branch>` unavailable as a remote-tracking ref. When the next step depends on that ref existing, prefer an explicit refspec such as `refs/heads/<branch>:refs/remotes/origin/<branch>`.
 
 ### `worktree.useRelativePaths`
 
 When `true`, Git links worktrees using relative paths rather than absolute paths. This can help if the repo and linked worktrees move together, but it implies `extensions.relativeWorktrees`, which makes the repository incompatible with older Git versions.
 
 The skill should mention this only when path portability matters.
+
+### `git restore`
+
+`git restore` is the clearest modern way to adopt a file from another branch or commit, but it was introduced in Git 2.23. When users are on older Git versions, the skill should call that out and fall back to `git checkout <tree-ish> -- <path>` rather than pretending `restore` is always available.
 
 ## Safety-sensitive distinctions
 

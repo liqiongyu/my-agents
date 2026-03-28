@@ -136,7 +136,7 @@
       "path": "skills/git-worktree-workflows",
       "displayName": "Git Worktree Workflows",
       "description": "Guide safe git worktree workflows for explicit worktree tasks, including inspect, compare, cleanup, and repair, plus high-confidence parallel checkout requests while deferring repo bootstrap and broader advanced-Git sessions where worktrees are incidental.",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "maturity": "experimental",
       "categories": [
         "git",
@@ -518,5 +518,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-28T14:46:51.329Z"
+  "generatedAt": "2026-03-28T15:54:27.238Z"
 }
