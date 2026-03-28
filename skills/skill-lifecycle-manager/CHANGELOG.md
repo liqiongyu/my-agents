@@ -5,6 +5,13 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-03-28
+
+### Changed
+- Taught projection support to rewrite projected `skill.json` entrypoints so platform-excluded files like `CHANGELOG.md` do not remain advertised on runtime surfaces.
+- Hardened projection validation so a projected `skill.json` now fails when it points at a file that does not exist on that surface.
+- Added regression tests covering entrypoint filtering and missing projected entrypoint detection.
+
 ## [0.5.2] - 2026-03-28
 
 ### Changed

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-03-28
+
+### Added
+
+- Added `references/section-guide.md` so the large section matrices, Markdown examples, and formatting reminders can stay available without bloating the main runtime workflow
+- Added a dedicated eval guide in `eval/README.md`
+- Added `eval/quality-cases.json` with lightweight qualitative review cases for OSS library, docs, dataset, and community README work
+- Expanded `eval/trigger-cases.json` with near-miss and overlap-sensitive review prompts so the `manual-first` trigger boundary is exercised more realistically
+
+### Changed
+
+- Slimmed the main `SKILL.md` by moving the Section Matrix and Section Writing Guide into the new section guide reference while keeping the create/update/review workflow in the core file
+- Removed low-value runtime prose from the main skill body so the projected surfaces stay focused on actionable README guidance
+
+### Fixed
+
+- Repaired the nested Markdown fence in the installation example by moving the example into the new section guide with a valid outer fence
+- Aligned the Codex projection metadata with the projected file set so excluded entrypoints like `CHANGELOG.md` no longer survive in projected `skill.json`
+
 ## [1.1.3] - 2026-03-28
 
 ### Added

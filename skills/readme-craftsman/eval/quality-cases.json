@@ -1,0 +1,82 @@
+{
+  "version": "0.1.0",
+  "skill": "readme-craftsman",
+  "type": "qualitative-output",
+  "description": "Lightweight qualitative output suite for README Craftsman. These cases are meant for human review after running the skill on representative repository archetypes. The assertions derive from the skill's own Quality Checklist and focus on whether the resulting README is accurate, project-type-aware, and genuinely useful.",
+  "assertions": [
+    "project_type_fit",
+    "opening_value_clear",
+    "getting_started_or_navigation_present",
+    "concrete_example_or_core_content_present",
+    "claims_grounded_and_non_placeholder",
+    "repo_files_respected"
+  ],
+  "assertion_definitions": {
+    "project_type_fit": "The README structure fits the repository archetype instead of forcing a generic software-project template onto the result.",
+    "opening_value_clear": "The opening section makes it clear what the project is, who it is for, and why a reader should care.",
+    "getting_started_or_navigation_present": "The README gives the reader a concrete way to start: install, run, read, browse, or navigate, depending on the project type.",
+    "concrete_example_or_core_content_present": "The README includes a concrete example, content overview, schema summary, learning path, or similarly tangible core section rather than staying abstract.",
+    "claims_grounded_and_non_placeholder": "The README avoids placeholder text, unsupported hype, and copy-pasted generic filler.",
+    "repo_files_respected": "The README links to or summarizes existing repo files appropriately without duplicating whole policy documents or inventing files that do not exist."
+  },
+  "cases": [
+    {
+      "id": "quality-oss-library-create",
+      "name": "Create a README for an OSS library",
+      "repo_archetype": "OSS library",
+      "task_mode": "Create",
+      "prompt": "Write a README for this library repository.",
+      "success_criteria": [
+        "Uses a library-appropriate structure such as installation, quick start, API overview, testing, and contribution links.",
+        "Shows a real usage example instead of only describing features abstractly.",
+        "Links to policy files like CONTRIBUTING or LICENSE instead of copying them wholesale."
+      ]
+    },
+    {
+      "id": "quality-docs-site-create",
+      "name": "Create a README for a docs or knowledge-base repository",
+      "repo_archetype": "Documentation site / knowledge base",
+      "task_mode": "Create",
+      "prompt": "Create a README for this documentation repository.",
+      "success_criteria": [
+        "Prioritizes quick navigation and a clear start-here path over install-heavy software sections.",
+        "Includes local preview instructions only if the repo actually supports them.",
+        "Helps first-time readers find the right docs entry points quickly."
+      ]
+    },
+    {
+      "id": "quality-dataset-update",
+      "name": "Update a dataset README after schema changes",
+      "repo_archetype": "Dataset / research repository",
+      "task_mode": "Update",
+      "prompt": "We added a new data file and changed several columns. Refresh the README without rewriting accurate sections.",
+      "success_criteria": [
+        "Updates file inventory, schema, or loading guidance where the dataset actually changed.",
+        "Keeps the existing README voice where sections remain accurate.",
+        "Surfaces provenance, limitations, or citation guidance when those details matter to dataset users."
+      ]
+    },
+    {
+      "id": "quality-awesome-list-review",
+      "name": "Review an awesome-list README for accuracy",
+      "repo_archetype": "Community / awesome list",
+      "task_mode": "Review",
+      "prompt": "Review this README and tell me whether it still matches the repository.",
+      "success_criteria": [
+        "Checks README claims against the current repository rather than giving generic writing feedback.",
+        "Assesses navigation, contribution flow, and category clarity in a community-repo context.",
+        "Reports findings with clear severity or priority rather than rewriting the README unprompted."
+      ]
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  }
+}

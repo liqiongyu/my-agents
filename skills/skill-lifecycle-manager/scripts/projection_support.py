@@ -127,6 +127,63 @@ def should_skip_relative(relative_path: Path, platform: str, root_excludes: set[
     return False
 
 
+def _entrypoint_is_projected(entrypoint_path: object, root_excludes: set[str]) -> bool:
+    if not isinstance(entrypoint_path, str):
+        return True
+    normalized = entrypoint_path.strip().strip("/")
+    if not normalized:
+        return True
+    return Path(normalized).parts[0] not in root_excludes
+
+
+def _projected_skill_json_bytes(source_path: Path, root_excludes: set[str]) -> bytes:
+    payload = json.loads(source_path.read_text(encoding="utf8"))
+    if isinstance(payload, dict):
+        entrypoints = payload.get("entrypoints")
+        if isinstance(entrypoints, dict):
+            filtered = {
+                key: value
+                for key, value in entrypoints.items()
+                if _entrypoint_is_projected(value, root_excludes)
+            }
+            if filtered:
+                payload["entrypoints"] = filtered
+            else:
+                payload.pop("entrypoints", None)
+    return (json.dumps(payload, indent=2) + "\n").encode("utf8")
+
+
+def projected_file_bytes(skill_dir: Path, relative: Path, platform: str) -> bytes:
+    source_path = skill_dir / relative
+    root_excludes = excluded_roots(skill_dir, platform)
+    if relative == Path("skill.json"):
+        return _projected_skill_json_bytes(source_path, root_excludes)
+    return source_path.read_bytes()
+
+
+def _validate_projected_skill_json(destination: Path) -> list[str]:
+    skill_json_path = destination / "skill.json"
+    if not skill_json_path.exists():
+        return []
+
+    payload = json.loads(skill_json_path.read_text(encoding="utf8"))
+    if not isinstance(payload, dict):
+        return []
+
+    entrypoints = payload.get("entrypoints")
+    if not isinstance(entrypoints, dict):
+        return []
+
+    errors: list[str] = []
+    for key, value in entrypoints.items():
+        if not isinstance(value, str) or not value.strip():
+            continue
+        entrypoint_path = destination / Path(value)
+        if not entrypoint_path.exists():
+            errors.append(f"projected skill.json entrypoint missing on surface: {key} -> {value}")
+    return errors
+
+
 def expected_files(skill_dir: Path, platform: str) -> list[Path]:
     root_excludes = excluded_roots(skill_dir, platform)
     files: list[Path] = []
@@ -151,10 +208,9 @@ def copy_projection(skill_dir: Path, platform: str, destination: Path) -> list[P
         staging_root.mkdir(parents=True, exist_ok=True)
 
         for relative in expected_files(skill_dir, platform):
-            src = skill_dir / relative
             dest = staging_root / relative
             dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dest)
+            dest.write_bytes(projected_file_bytes(skill_dir, relative, platform))
             copied.append(relative)
 
         if destination.exists():
@@ -175,12 +231,11 @@ def compare_projection(skill_dir: Path, platform: str, destination: Path) -> tup
     expected_set = {path.as_posix() for path in expected}
 
     for relative in expected:
-        source_path = skill_dir / relative
         dest_path = destination / relative
         if not dest_path.exists():
             errors.append(f"missing projected file: {relative.as_posix()}")
             continue
-        if source_path.read_bytes() != dest_path.read_bytes():
+        if projected_file_bytes(skill_dir, relative, platform) != dest_path.read_bytes():
             errors.append(f"projected file differs from source: {relative.as_posix()}")
 
     for dest_path in sorted(destination.rglob("*")):
@@ -191,5 +246,7 @@ def compare_projection(skill_dir: Path, platform: str, destination: Path) -> tup
             continue
         if relative.as_posix() not in expected_set:
             warnings.append(f"unexpected projected file: {relative.as_posix()}")
+
+    errors.extend(_validate_projected_skill_json(destination))
 
     return errors, warnings

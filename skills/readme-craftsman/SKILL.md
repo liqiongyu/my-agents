@@ -179,7 +179,7 @@ After drafting, ask: **"Anything I missed or got wrong?"**
 
 ### Create Mode
 
-Select sections from the **Section Matrix** below. For each included section, follow the guidance in the **Section Writing Guide**. For full templates, read the reference file indicated by the project type in Step 3:
+Select sections using [references/section-guide.md](references/section-guide.md). It contains the project-type section matrix, the section writing guide, and a compact GitHub Markdown feature reference. For full templates, read the reference file indicated by the project type in Step 3:
 - Software projects → `references/templates.md`
 - Content & education → `references/templates-content.md`
 - Data & research → `references/templates-research.md`
@@ -224,7 +224,7 @@ Select sections from the **Section Matrix** below. For each included section, fo
 
 1. **Reality-check every claim** — Do install commands work? Are listed features current? Are file paths valid?
 2. **Flag staleness** — Version numbers, screenshots, API examples, dependency lists that may be outdated
-3. **Assess completeness** — Compare against the Section Matrix for this project type
+3. **Assess completeness** — Compare against the section matrix for this project type in `references/section-guide.md`
 4. **Check quality** — Run the Anti-Pattern checklist
 5. **Deliver a report** with findings categorized as:
    - **Critical** — Incorrect information (broken install, wrong API)
@@ -233,141 +233,14 @@ Select sections from the **Section Matrix** below. For each included section, fo
 
 ---
 
-## Section Matrix
+## Section Guide
 
-### Always Required (All Types)
+Use [references/section-guide.md](references/section-guide.md) whenever you need:
 
-1. **Title + Description** — Project name + one-liner (what it does, for whom)
-2. **Getting Started** — How to use, read, install, or navigate (varies by type). For community projects like awesome lists and org profiles, this may be a "How to navigate" or "How to contribute" section rather than an install guide — or may be omitted entirely if the README itself is the destination.
-3. **Core content** — Usage example, content overview, data description, or curriculum (varies by type)
-
-### Software Projects
-
-| Section | OSS Lib | Web Svc | CLI | Personal | Internal | Monorepo | Config |
-|---------|:-------:|:-------:|:---:|:--------:|:--------:|:--------:|:------:|
-| Badges | Yes | Yes | Yes | Opt | No | Yes | No |
-| Visual (screenshot/GIF) | Opt | Yes | Yes | Yes | Opt | Opt | No |
-| Features | Yes | Yes | Yes | Opt | No | Opt | No |
-| Quick Start / Usage | Yes | Yes | Yes | Yes | Yes | Per-pkg | Brief |
-| API Reference | Yes | If public | No | No | If needed | Per-pkg | No |
-| Config / Env Vars | If needed | Yes | Yes | No | Yes | Per-pkg | Yes |
-| Architecture | Opt | Yes | Opt | Opt | Yes | Yes | No |
-| What's Here (dir map) | No | No | No | No | No | Yes | Yes |
-| Deployment | No | Yes | No | No | Yes | Opt | No |
-| Testing | Yes | Yes | Opt | No | Yes | Yes | No |
-| Contributing | Yes | Opt | Yes | No | Yes | Yes | No |
-| Roadmap | Opt | Opt | Opt | Opt | No | Opt | No |
-| FAQ | Opt | Opt | Opt | No | No | Opt | No |
-| Troubleshooting | Opt | Yes | Yes | No | Yes | Opt | Yes |
-| What I Learned | No | No | No | Yes | No | No | No |
-| Gotchas | No | No | No | No | Yes | Opt | Yes |
-| License | Yes | Yes | Yes | Opt | No | Yes | No |
-
-### Content, Research & Community Projects
-
-| Section | Docs/KB | Tutorial | Blog | Dataset | Academic | Community |
-|---------|:-------:|:--------:|:----:|:-------:|:--------:|:---------:|
-| Badges | Opt | Opt | Opt | Yes | Opt | Yes |
-| Visual (screenshot/preview) | Opt | Yes | Opt | Opt | Yes | No |
-| Table of Contents | Yes | Yes | Opt | Opt | Opt | Yes |
-| Content Overview / What's Inside | Yes | Yes | Yes | Yes | Yes | Yes |
-| How to Navigate / Read | Yes | Yes | Opt | No | Opt | Yes |
-| Prerequisites (knowledge) | Opt | Yes | No | Yes | Yes | No |
-| Getting Started / Setup | Yes | Opt | Opt | Yes | Yes | No |
-| Data Description / Schema | No | No | No | Yes | Opt | No |
-| Methodology / Approach | No | No | No | Opt | Yes | No |
-| Curriculum / Learning Path | No | Yes | No | No | No | No |
-| Citation / How to Cite | No | No | No | Yes | Yes | No |
-| Results / Findings | No | No | No | Opt | Yes | No |
-| How to Contribute | Yes | Opt | Yes | Opt | Opt | Yes |
-| Contribution Guidelines | Opt | Opt | Yes | No | No | Yes |
-| Related Resources | Opt | Yes | Opt | Yes | Yes | Opt |
-| License / Data License | Yes | Opt | Opt | Yes | Yes | Opt |
-| Acknowledgments | Opt | Opt | Opt | Yes | Yes | Opt |
-
-**Opt** = include if the project has relevant content; omit otherwise.
-
----
-
-## Section Writing Guide
-
-**Title + Badges:**
-```markdown
-# Project Name
-
-Brief one-liner: what it does and who it's for.
-
-[![CI](https://img.shields.io/github/actions/workflow/status/USER/REPO/ci.yml?branch=main)](link)
-[![npm](https://img.shields.io/npm/v/PACKAGE)](link)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-```
-Use 3-5 meaningful badges max. CI status, version, and license are the most useful. Avoid badge clutter.
-
-**Visual Element:**
-A screenshot, terminal recording, or demo GIF right after the description. For CLI tools, consider VHS or Asciinema terminal recordings. One good visual replaces paragraphs of description.
-
-**Installation:**
-```markdown
-## Installation
-
-```bash
-npm install my-package
-```
-
-### Prerequisites
-- Node.js >= 18
-- PostgreSQL 15+
-```
-List prerequisites with specific versions. Never assume setup is obvious. Include multiple package managers if relevant (npm, yarn, pnpm).
-
-**Usage:**
-Show the simplest working example first, then add complexity. The reader should copy-paste and see results.
-
-**Architecture (when included):**
-Use Mermaid diagrams — GitHub renders them natively. They're versionable, searchable, and diff-friendly:
-
-````markdown
-```mermaid
-graph LR
-    A[Client] --> B[API Gateway]
-    B --> C[Auth Service]
-    B --> D[Core Service]
-    D --> E[(Database)]
-```
-````
-
-**Environment Variables (when included):**
-
-| Variable | Description | Required | Default |
-|----------|-------------|:--------:|---------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes | — |
-| `PORT` | Server port | No | `3000` |
-
-**FAQ (when included):**
-Use collapsible sections to keep the README scannable:
-```markdown
-<details>
-<summary>How do I configure X?</summary>
-
-Answer with code examples.
-
-</details>
-```
-
----
-
-## GitHub Markdown Features
-
-Use these where appropriate — they all render natively on GitHub:
-
-| Feature | Syntax | Best For |
-|---------|--------|----------|
-| **Mermaid diagrams** | ` ```mermaid ` code block | Architecture, data flow, sequences |
-| **Admonitions** | `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]` | Callouts, warnings, prerequisites |
-| **Collapsible sections** | `<details><summary>Title</summary>` | Long examples, FAQ, verbose output |
-| **Task lists** | `- [ ] item` | Roadmaps |
-| **Footnotes** | `text[^1]` with `[^1]: detail` | Attribution, clarifications |
-| **Dark/light images** | `img.png#gh-dark-mode-only` | Logos, diagrams |
+- the full section matrix by project type
+- concrete section-order guidance
+- copy-pasteable Markdown examples for installation, Mermaid, FAQ, and similar sections
+- a quick reminder of GitHub-native Markdown features that improve scannability
 
 ---
 
@@ -489,5 +362,4 @@ User: "Create a README for this dataset repo"
 - **Screenshots require files to exist.** If images don't exist yet, recommend what to capture and where to store them, rather than referencing phantom files.
 - **This skill writes READMEs, not full docs.** For standalone API docs, architecture docs, or user guides, suggest separate documentation tools.
 - **Non-code repos need different instincts.** For datasets, focus on schema and provenance over install steps. For tutorials, focus on prerequisites and learning path. For community repos, focus on contribution flow and navigation. Let the project type guide which sections matter.
-- **Compatibility:** This skill works with any agent that can read project files and write Markdown (Claude Code, Codex, etc.). No special tools required beyond filesystem access.
 - **When in doubt, ask.** Project type, audience, and tone are judgment calls. Confirm with the user rather than guessing.

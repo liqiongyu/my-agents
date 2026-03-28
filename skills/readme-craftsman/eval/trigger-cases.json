@@ -2,7 +2,7 @@
   "version": "0.1.0",
   "skill": "readme-craftsman",
   "type": "trigger-boundary",
-  "description": "Lightweight trigger-boundary suite for README Craftsman. The suite checks that explicit README authoring, update, and review requests route to the skill, while adjacent documentation tasks that do not specifically target a README stay out of scope.",
+  "description": "Lightweight trigger-boundary suite for README Craftsman. The suite checks that explicit README authoring, update, and review requests route to the skill, while adjacent documentation tasks and near-miss prompts that do not specifically target a README stay out of scope.",
   "assertions": [
     "routing_verdict_correct",
     "mode_or_boundary_correct",
@@ -55,6 +55,7 @@
       "name": "Audit README accuracy",
       "expected_trigger": "should-trigger",
       "expected_mode": "Review",
+      "case_type": "in-scope",
       "prompt": "Audit this README and tell me whether it still matches the repository.",
       "assertions": {
         "routing_verdict_correct": {
@@ -69,9 +70,29 @@
       }
     },
     {
+      "id": "trigger-readme-review-overlap",
+      "name": "README-specific review should stay in README scope",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Review",
+      "case_type": "overlap-sensitive",
+      "prompt": "Review README.md for accuracy against the current repository and call out any stale sections.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is still explicit README work and should route to readme-craftsman rather than falling back to a generic documentation or review workflow."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should keep the task in Review mode and make the README-vs-repository comparison explicit."
+        },
+        "next_step_explicit": {
+          "check": "The response should mention checking README claims, links, or sections against the current repo before reporting findings."
+        }
+      }
+    },
+    {
       "id": "boundary-api-docs",
       "name": "Do not route a general API documentation request",
       "expected_trigger": "should-not-trigger",
+      "case_type": "out-of-scope",
       "prompt": "Write API docs for this service.",
       "assertions": {
         "routing_verdict_correct": {
@@ -89,6 +110,7 @@
       "id": "boundary-architecture-doc",
       "name": "Do not route an architecture document request",
       "expected_trigger": "should-not-trigger",
+      "case_type": "out-of-scope",
       "prompt": "Draft an architecture doc for onboarding engineers.",
       "assertions": {
         "routing_verdict_correct": {
@@ -106,6 +128,7 @@
       "id": "boundary-docs-site-nav",
       "name": "Do not route a docs-site navigation request",
       "expected_trigger": "should-not-trigger",
+      "case_type": "out-of-scope",
       "prompt": "Improve the docs site navigation and reorganize the docs pages.",
       "assertions": {
         "routing_verdict_correct": {
@@ -116,6 +139,42 @@
         },
         "next_step_explicit": {
           "check": "The response should direct the request toward a docs-site or broader documentation workflow."
+        }
+      }
+    },
+    {
+      "id": "near-miss-project-documentation",
+      "name": "Near miss: improve project documentation",
+      "expected_trigger": "should-not-trigger",
+      "case_type": "near-miss",
+      "prompt": "Help me improve the project documentation.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is adjacent to README work but still too broad to route automatically to readme-craftsman."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should explain that README work is only one possible documentation artifact and avoid assuming that README is the target."
+        },
+        "next_step_explicit": {
+          "check": "The response should ask the user which documentation artifact they mean or point to a broader documentation workflow."
+        }
+      }
+    },
+    {
+      "id": "near-miss-repo-description",
+      "name": "Near miss: add a repo description",
+      "expected_trigger": "should-not-trigger",
+      "case_type": "near-miss",
+      "prompt": "Add a description to the repo.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This could refer to the GitHub repository description, a README opening line, or some other project metadata, so it should not auto-route to readme-craftsman."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should keep the README boundary explicit and avoid assuming the user meant README work."
+        },
+        "next_step_explicit": {
+          "check": "The response should ask whether the user means the GitHub repo description, a README summary, or another artifact."
         }
       }
     }
