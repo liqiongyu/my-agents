@@ -58,6 +58,14 @@ Use Conventional Commits such as `feat(skills): add skill lifecycle manager work
 - Schema `$id` values under `schemas/` point at GitHub raw URLs; update them if the repo is renamed or transferred.
 - Keep root guidance concise and push package-specific operating details into the relevant `SKILL.md`, `claude-code.md`, `codex.toml`, pack `README.md`, or changelog.
 
+## Problem Framing And Execution
+
+Start from the user's real goal rather than mechanically following the surface request.
+First determine the right workflow for the task, such as direction exploration, requirements clarification, review, research, planning, or direct execution.
+When the proposed path is not the shortest, lowest-cost, or most reversible option, say so and recommend a better alternative with reasons.
+Pause only when unresolved uncertainty would materially change the outcome; otherwise, record reasonable assumptions and keep moving.
+Prefer the lightest workflow and tool that can solve the problem well, and avoid adding complexity just to follow an established path.
+
 ## Observable Completion
 
 After completing work, include an `Execution Summary` using this canonical format by default:
