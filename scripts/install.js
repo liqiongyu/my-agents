@@ -137,7 +137,7 @@ async function runAddCommand(addUrl, manifestPath) {
   );
 }
 
-async function main() {
+async function runInstallCli(argv = process.argv) {
   const {
     command,
     type,
@@ -151,7 +151,7 @@ async function main() {
     prune,
     manifestPath,
     showHelp
-  } = parseArgs(process.argv);
+  } = parseArgs(argv);
 
   if (showHelp) {
     console.log(USAGE);
@@ -185,12 +185,12 @@ async function main() {
 
   if (type === "project") {
     if (all) {
-      console.error("`sync-project` does not support --all.");
+      console.error("`project sync` does not support --all.");
       process.exitCode = 2;
       return;
     }
     if (isUninstall) {
-      console.error("`sync-project` does not support --uninstall.");
+      console.error("`project sync` does not support --uninstall.");
       process.exitCode = 2;
       return;
     }
@@ -210,7 +210,15 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  runInstallCli().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  parseArgs,
+  runAddCommand,
+  runInstallCli
+};

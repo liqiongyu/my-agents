@@ -24,30 +24,39 @@ function difference(previousValues, nextValues) {
 }
 
 const USAGE = `Usage:
-  npx my-agents add <github-url> [options]           Add an external official asset
-  npm run install-skill   -- <name> [options]    Install a skill
-  npm run install-agent   -- <name> [options]    Install an agent
-  npm run install-pack    -- <name> [options]    Install a pack
-  npm run sync-project    -- [options]           Sync a project manifest into project scope
-  npm run uninstall-skill -- <name> [options]    Uninstall a skill
-  npm run uninstall-agent -- <name> [options]    Uninstall an agent
-  npm run uninstall-pack  -- <name> [options]    Uninstall a pack
+  npx my-agents add <github-url> [options]
+  npx my-agents install <skill|agent|pack> <name> [options]
+  npx my-agents install <skill|agent|pack> --all [options]
+  npx my-agents uninstall <skill|agent|pack> <name> [options]
+  npx my-agents uninstall <skill|agent|pack> --all [options]
+  npx my-agents project sync [options]
+  npx my-agents references <command> [options]
 
 Options:
   --all                    Install/uninstall all packages of the selected type
   --manifest <path>        Project manifest path (default: my-agents.project.json)
   --platform, -p <list>    Platforms: claude, codex, or all (default: all)
-  --prune                  When used with sync-project, remove previously managed items no longer desired
+  --prune                  When used with project sync, remove previously managed items no longer desired
   --scope <scope>          Scope: user or project (default: project)
 
 Examples:
   npx my-agents add https://github.com/affaan-m/everything-claude-code/tree/main/skills/agentic-engineering
-  npm run install-skill -- clarify
-  npm run install-agent -- explorer --platform codex --scope project
-  npm run install-pack -- product-manager --platform codex --scope project
-  npm run sync-project -- --manifest docs/examples/my-agents.project.example.json
-  npm run sync-project -- --prune
-  npm run uninstall-pack -- product-manager --platform claude`;
+  npx my-agents install skill clarify
+  npx my-agents install agent explorer --platform codex --scope project
+  npx my-agents install pack product-manager --platform codex --scope project
+  npx my-agents project sync --manifest docs/examples/my-agents.project.example.json
+  npx my-agents project sync --prune
+  npx my-agents references add https://github.com/example/agent-reference-repo
+
+Compatibility aliases:
+  npm run install-skill -- <name>
+  npm run install-agent -- <name>
+  npm run install-pack -- <name>
+  npm run sync-project -- [options]
+  npm run uninstall-skill -- <name>
+  npm run uninstall-agent -- <name>
+  npm run uninstall-pack -- <name>
+  npm run sync-references -- <command> [options]`;
 
 module.exports = {
   ALL_PLATFORMS,

@@ -18,6 +18,23 @@ const {
 } = require("./lib/reference-repos");
 
 const DEFAULT_CLONE_DEPTH = 1;
+const REFERENCES_USAGE = `Usage:
+  npx my-agents references <command> [options]
+
+Commands:
+  list
+  add <repository-url> [--purpose <text>] [--tags <a,b>] [--path <relative-path>] [--no-sync] [--depth <n>]
+  sync [--depth <n>]
+  remove <repository-url|owner/repo|owner__repo|path> [--delete-working-copy]
+
+Compatibility alias:
+  npm run sync-references -- <command> [options]
+
+Manifest path: ${MANIFEST_PATH}
+Clone root: ${REFERENCES_ROOT}
+
+See also:
+  npx my-agents --help`;
 
 function readOptionValue(args, index, label) {
   const value = args[index + 1];
@@ -44,23 +61,6 @@ function parseDepth(rawValue) {
     throw new Error(`invalid clone depth: ${rawValue}`);
   }
   return depth;
-}
-
-function printUsage() {
-  console.log(
-    [
-      "Usage: npm run sync-references -- <command> [options]",
-      "",
-      "Commands:",
-      "  list",
-      "  add <repository-url> [--purpose <text>] [--tags <a,b>] [--path <relative-path>] [--no-sync] [--depth <n>]",
-      "  sync [--depth <n>]",
-      "  remove <repository-url|owner/repo|owner__repo|path> [--delete-working-copy]",
-      "",
-      `Manifest path: ${MANIFEST_PATH}`,
-      `Clone root: ${REFERENCES_ROOT}`
-    ].join("\n")
-  );
 }
 
 async function handleList() {
@@ -221,11 +221,11 @@ async function handleRemove(args) {
   }
 }
 
-async function main() {
-  const [, , command, ...args] = process.argv;
+async function runReferencesCli(rawArgs = process.argv.slice(2), usageText = REFERENCES_USAGE) {
+  const [command, ...args] = rawArgs;
 
   if (!command || command === "help" || command === "--help" || command === "-h") {
-    printUsage();
+    console.log(usageText);
     return;
   }
 
@@ -252,7 +252,14 @@ async function main() {
   throw new Error(`unknown command: ${command}`);
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  runReferencesCli().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  REFERENCES_USAGE,
+  runReferencesCli
+};

@@ -106,7 +106,7 @@ The CLI authoring flow should create these object entries from a precise GitHub 
 
 Resolution order:
 
-1. CLI `--platform` passed to `npm run sync-project`
+1. CLI `--platform` passed to `npx my-agents project sync`
 2. manifest `platforms`
 3. default to all supported platforms
 
@@ -116,7 +116,7 @@ For external object entries, `platform` is part of the entry itself. The selecte
 
 ## Sync State And Pruning
 
-`sync-project` keeps a local runtime state file at `.my-agents/project-sync-state.json`.
+`project sync` keeps a local runtime state file at `.my-agents/project-sync-state.json`.
 
 This file is:
 
@@ -126,8 +126,8 @@ This file is:
 
 Why it exists:
 
-- plain `sync-project` installs missing desired items but does not remove previously managed ones
-- `sync-project -- --prune` uses the state file to determine which skills and agents were previously managed and are now safe to remove
+- plain `project sync` installs missing desired items but does not remove previously managed ones
+- `project sync --prune` uses the state file to determine which skills and agents were previously managed and are now safe to remove
 
 The tool only prunes members it previously managed. It should not remove unrelated installs that were never recorded in the sync state.
 

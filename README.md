@@ -43,6 +43,7 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 
 - [schemas/skill.schema.json](schemas/skill.schema.json), [schemas/agent.schema.json](schemas/agent.schema.json), [schemas/pack.schema.json](schemas/pack.schema.json), [schemas/project-manifest.schema.json](schemas/project-manifest.schema.json), and [schemas/catalog.schema.json](schemas/catalog.schema.json) define the machine-readable metadata contracts.
 - [docs/metadata/skill-metadata-policy.md](docs/metadata/skill-metadata-policy.md) explains how to use `requirements`, `capabilities`, and `maturity` consistently across skill packages.
+- Installable skills and agents are expected to stay self-contained after install. Avoid private cross-package runtime script dependencies; if no shared runtime distribution exists yet, prefer package-local copies.
 - [docs/metadata/pack-metadata-policy.md](docs/metadata/pack-metadata-policy.md) explains how to model pack membership, `packType`, and `persona` consistently.
 - [docs/metadata/project-manifest-policy.md](docs/metadata/project-manifest-policy.md) explains how to use `my-agents.project.json` for repository bootstrap.
 - [docs/cli/README.md](docs/cli/README.md) is the operator-facing command reference index.
@@ -61,7 +62,7 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 | `skills/<name>/`           | Canonical source packages for reusable skills (`skill.json`, `SKILL.md`, `CHANGELOG.md`)                               |
 | `agents/<name>/`           | Canonical source packages for reusable agents (`agent.json`, `claude-code.md`, `codex.toml`, `CHANGELOG.md`)           |
 | `packs/<name>/`            | Canonical source packages for installable compositions of skills and agents (`pack.json`, `README.md`, `CHANGELOG.md`) |
-| `my-agents.project.json`   | Optional project bootstrap manifest consumed by `npm run sync-project`                                                 |
+| `my-agents.project.json`   | Optional project bootstrap manifest consumed by `npx my-agents project sync`                                           |
 | `instructions/root/`       | Canonical source fragments used to generate root `AGENTS.md` and `CLAUDE.md`                                           |
 | `scripts/`                 | Scaffolding, install, catalog build, and validation tooling                                                            |
 | `schemas/`                 | JSON Schemas for skill, agent, and catalog metadata                                                                    |
@@ -107,17 +108,18 @@ This scaffolds `packs/product-manager/` with `pack.json`, `README.md`, and `CHAN
 ```bash
 npx my-agents --help
 npx my-agents add https://github.com/affaan-m/everything-claude-code/tree/main/skills/agentic-engineering
-npm run install-skill -- clarify
-npm run sync-project -- --prune
+npx my-agents install skill clarify
+npx my-agents project sync --prune
 npm run sync-instructions
-npm run sync-references -- sync
+npx my-agents references sync
 ```
 
-The root README keeps only the highest-frequency entrypoints. Use `npx my-agents --help` when you need the full CLI surface, including `--platform`, `--scope`, `--manifest`, `--all`, `--uninstall`, and `--prune`. For the full command reference, examples, and behavior notes, see [docs/cli/runtime-and-sync-commands.md](docs/cli/runtime-and-sync-commands.md).
+The root README keeps only the highest-frequency entrypoints. Treat `npx my-agents ...` as the canonical runtime CLI surface; the `npm run ...` commands remain available as repo-local compatibility aliases. Use `npx my-agents --help` when you need the full CLI surface, including `install`, `uninstall`, `project sync`, `references`, `--platform`, `--scope`, `--manifest`, `--all`, and `--prune`. For the full command reference, examples, and behavior notes, see [docs/cli/runtime-and-sync-commands.md](docs/cli/runtime-and-sync-commands.md).
+Unless you pass `--scope user` or narrow `--platform`, install and uninstall flows default to project scope across all supported platforms.
 
 If you are bootstrapping a project manifest from scratch, start from [docs/examples/my-agents.project.example.json](docs/examples/my-agents.project.example.json).
 
-Project manifests can now mix local package names with external official GitHub-backed assets. The `add <url>` flow resolves the URL to a structured manifest entry with an immutable commit SHA so `sync-project` stays reproducible.
+Project manifests can now mix local package names with external official GitHub-backed assets. The `add <url>` flow resolves the URL to a structured manifest entry with an immutable commit SHA so `project sync` stays reproducible.
 
 ### Lint and format the repo
 
@@ -153,7 +155,7 @@ ESLint covers the repo's JavaScript tooling and Prettier covers supported reposi
 - When metadata semantics change, update the canonical package, any relevant policy docs, then rerun `npm run build`, `npm run sync-instructions`, and `npm test` before committing.
 - GitHub Actions runs validation on every push and pull request via `.github/workflows/validate.yml`.
 - Dependabot keeps npm and GitHub Actions dependencies fresh via `.github/dependabot.yml`.
-- Tagging `v*` triggers `.github/workflows/release.yml`, which assembles GitHub Release notes from per-skill, per-agent, and per-pack changelogs.
+- Tagging `v*` triggers `.github/workflows/release.yml`, which currently assembles GitHub Release notes from per-skill and per-agent changelogs.
 
 ## Contributing
 

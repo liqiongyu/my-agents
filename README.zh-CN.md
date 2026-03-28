@@ -43,6 +43,7 @@ npm test
 
 - [schemas/skill.schema.json](schemas/skill.schema.json)、[schemas/agent.schema.json](schemas/agent.schema.json)、[schemas/pack.schema.json](schemas/pack.schema.json)、[schemas/project-manifest.schema.json](schemas/project-manifest.schema.json) 和 [schemas/catalog.schema.json](schemas/catalog.schema.json) 定义了机器可读的元数据契约。
 - [docs/metadata/skill-metadata-policy.md](docs/metadata/skill-metadata-policy.md) 说明了如何一致地使用 `requirements`、`capabilities` 和 `maturity` 等字段。
+- 可安装的 skill 和 agent 在安装后应保持自包含。不要依赖其他包的私有运行时脚本路径；如果还没有正式的共享运行时分发机制，优先使用包内副本。
 - [docs/metadata/pack-metadata-policy.md](docs/metadata/pack-metadata-policy.md) 说明了 pack 的成员编排方式以及 `packType`、`persona` 等字段约定。
 - [docs/metadata/project-manifest-policy.md](docs/metadata/project-manifest-policy.md) 说明了如何使用 `my-agents.project.json` 做项目级引导。
 - [docs/cli/README.md](docs/cli/README.md) 是面向操作方的命令参考索引。
@@ -61,7 +62,7 @@ npm test
 | `skills/<name>/`           | Skills 的标准源码包，包含 `skill.json`、`SKILL.md`、`CHANGELOG.md`                     |
 | `agents/<name>/`           | Agents 的标准源码包，包含 `agent.json`、`claude-code.md`、`codex.toml`、`CHANGELOG.md` |
 | `packs/<name>/`            | Pack 的标准源码包，包含 `pack.json`、`README.md`、`CHANGELOG.md`                       |
-| `my-agents.project.json`   | 可选的项目引导清单，供 `npm run sync-project` 使用                                     |
+| `my-agents.project.json`   | 可选的项目引导清单，供 `npx my-agents project sync` 使用                               |
 | `instructions/root/`       | 用来生成根目录 `AGENTS.md` 与 `CLAUDE.md` 的标准源文件                                 |
 | `scripts/`                 | 脚手架、安装、目录构建与校验脚本                                                       |
 | `schemas/`                 | Skill、Agent、Catalog 元数据对应的 JSON Schema                                         |
@@ -107,17 +108,18 @@ npm test
 ```bash
 npx my-agents --help
 npx my-agents add https://github.com/affaan-m/everything-claude-code/tree/main/skills/agentic-engineering
-npm run install-skill -- clarify
-npm run sync-project -- --prune
+npx my-agents install skill clarify
+npx my-agents project sync --prune
 npm run sync-instructions
-npm run sync-references -- sync
+npx my-agents references sync
 ```
 
-根 README 只保留最高频的入口命令。需要查看完整 CLI 能力时，可以先运行 `npx my-agents --help`；其中会列出 `--platform`、`--scope`、`--manifest`、`--all`、`--uninstall` 和 `--prune` 等常用参数。完整的命令参考、示例和行为说明集中放在 [docs/cli/runtime-and-sync-commands.md](docs/cli/runtime-and-sync-commands.md)。
+根 README 只保留最高频的入口命令。运行时相关的规范主接口现在是 `npx my-agents ...`；`npm run ...` 仍然保留，作为仓库内的兼容别名。需要查看完整 CLI 能力时，可以先运行 `npx my-agents --help`；其中会列出 `install`、`uninstall`、`project sync`、`references`、`--platform`、`--scope`、`--manifest`、`--all` 和 `--prune` 等常用参数。完整的命令参考、示例和行为说明集中放在 [docs/cli/runtime-and-sync-commands.md](docs/cli/runtime-and-sync-commands.md)。
+除非显式传入 `--scope user` 或进一步收窄 `--platform`，安装与卸载流程默认都会作用在 project scope 的全部受支持平台上。
 
 如果你要从零开始写项目清单，可以先参考 [docs/examples/my-agents.project.example.json](docs/examples/my-agents.project.example.json)。
 
-项目清单现在可以同时包含本地包名和外部官方 GitHub 资产。`add <url>` 会把 URL 解析成结构化 manifest entry，并锁定到不可变的 commit SHA，这样 `sync-project` 仍然可以稳定复现。
+项目清单现在可以同时包含本地包名和外部官方 GitHub 资产。`add <url>` 会把 URL 解析成结构化 manifest entry，并锁定到不可变的 commit SHA，这样 `project sync` 仍然可以稳定复现。
 
 ### Lint 与格式化
 
@@ -153,7 +155,7 @@ ESLint 负责仓库里的 JavaScript 工具脚本，Prettier 负责 Markdown、J
 - 如果调整了元数据语义或仓库策略，应该先更新标准源码包、相关策略文档或 `instructions/root/`，再执行 `npm run build`、`npm run sync-instructions` 和 `npm test`。
 - GitHub Actions 会在每次 push 和 pull request 时运行 `.github/workflows/validate.yml`。
 - Dependabot 会通过 `.github/dependabot.yml` 定期更新 npm 与 GitHub Actions 依赖。
-- 打上 `v*` 标签后会触发 `.github/workflows/release.yml`，从各个 skill、agent 和 pack 的 changelog 中汇总 GitHub Release 说明。
+- 打上 `v*` 标签后会触发 `.github/workflows/release.yml`，当前会从各个 skill 和 agent 的 changelog 中汇总 GitHub Release 说明。
 
 ## 贡献
 

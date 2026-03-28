@@ -36,13 +36,13 @@ V1 rejected URL shapes:
 Use these commands when you want tracked skills, agents, or packs projected into the local runtime surfaces:
 
 ```bash
-npm run install-skill -- clarify
-npm run install-skill -- clarify --platform codex
-npm run install-skill -- clarify --scope user
-npm run install-agent -- explorer
-npm run install-agent -- explorer --platform codex
-npm run install-pack -- product-manager
-npm run install-pack -- product-manager --platform codex
+npx my-agents install skill clarify
+npx my-agents install skill clarify --platform codex
+npx my-agents install skill clarify --scope user
+npx my-agents install agent explorer
+npx my-agents install agent explorer --platform codex
+npx my-agents install pack product-manager
+npx my-agents install pack product-manager --platform codex
 ```
 
 The install tool also supports:
@@ -50,26 +50,39 @@ The install tool also supports:
 - `--all`
 - `--platform claude|codex|all`
 - `--scope user|project`
-- matching `npm run uninstall-skill`, `npm run uninstall-agent`, and `npm run uninstall-pack`
+- matching `npx my-agents uninstall skill|agent|pack`
 
 By default, installs go to project scope across all supported platforms.
 
+Repo-local compatibility aliases remain available:
+
+- `npm run install-skill -- <name>`
+- `npm run install-agent -- <name>`
+- `npm run install-pack -- <name>`
+- `npm run uninstall-skill -- <name>`
+- `npm run uninstall-agent -- <name>`
+- `npm run uninstall-pack -- <name>`
+
 ## Sync A Project Manifest
 
-Use `sync-project` when the repository has a `my-agents.project.json` file that defines the desired project-scope baseline:
+Use `project sync` when the repository has a `my-agents.project.json` file that defines the desired project-scope baseline:
 
 ```bash
 cp docs/examples/my-agents.project.example.json my-agents.project.json
-npm run sync-project
-npm run sync-project -- --platform codex
-npm run sync-project -- --prune
+npx my-agents project sync
+npx my-agents project sync --platform codex
+npx my-agents project sync --prune
 ```
 
-`sync-project` installs the declared packs, extra skills, and extra agents into project scope. CLI `--platform` overrides the manifest's default `platforms`.
+`project sync` installs the declared packs, extra skills, and extra agents into project scope. CLI `--platform` overrides the manifest's default `platforms`.
 
-Project manifests can mix local strings and external object entries. External entries install only to their declared platform and `sync-project` fails clearly if the selected effective platforms do not include that platform.
+Project manifests can mix local strings and external object entries. External entries install only to their declared platform and `project sync` fails clearly if the selected effective platforms do not include that platform.
 
 The command records managed state in `.my-agents/project-sync-state.json` so `--prune` only removes members it previously managed.
+
+Repo-local compatibility alias:
+
+- `npm run sync-project -- [options]`
 
 ## Sync Root Instruction Files
 
@@ -84,13 +97,17 @@ npm run sync-instructions -- --check
 
 ## Manage Local Reference Repositories
 
-Use `sync-references` for local-only external reference repos that should stay out of version control:
+Use `references` for local-only external reference repos that should stay out of version control:
 
 ```bash
-npm run sync-references -- list
-npm run sync-references -- add https://github.com/example/agent-reference-repo
-npm run sync-references -- sync
-npm run sync-references -- remove example__agent-reference-repo
+npx my-agents references list
+npx my-agents references add https://github.com/example/agent-reference-repo
+npx my-agents references sync
+npx my-agents references remove example__agent-reference-repo
 ```
 
 The command reads `.my-agents/reference-repos.json` and clones repos into `workspaces/references/`. The manifest and cloned repos stay ignored, but the tracked repository instructions can still point agents at the manifest path as a discovery entrypoint.
+
+Repo-local compatibility alias:
+
+- `npm run sync-references -- <command> [options]`
