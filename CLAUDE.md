@@ -32,7 +32,7 @@ Use Node.js 18+ and install `uv` when running Python-backed skill checks.
 - `npm run new -- my-skill`, `npm run new -- --agent my-agent`, and `npm run new -- --pack my-pack` scaffold canonical packages.
 - `npm run build` regenerates `dist/catalog.json`, `docs/catalog/skills.md`, `docs/catalog/agents.md`, and `docs/catalog/packs.md`.
 - `npm test` runs repository validation, including packaged Python unit tests that are wired into the shared validation path through `uv`.
-- `npm run install-skill -- <name>`, `npm run install-agent -- <name>`, `npm run install-pack -- <name>`, and `npm run sync-project` manage runtime installs. Install commands support `--platform claude|codex|all`, `--scope user|project`, and `--manifest <path>` where relevant.
+- `npx my-agents install <skill|agent|pack> <name>`, `npx my-agents uninstall <skill|agent|pack> <name>`, `npx my-agents project sync`, and `npx my-agents references <command>` are the canonical runtime commands. Repo-local `npm run install-*`, `npm run uninstall-*`, `npm run sync-project`, and `npm run sync-references` aliases remain available for compatibility. Runtime commands support `--platform claude|codex|all`, `--scope user|project`, and `--manifest <path>` where relevant.
 
 ## Coding Style & Naming Conventions
 

@@ -1,33 +1,43 @@
 ---
 name: review
 description: >
-  Structured review skill for code, PRs, diffs, documentation, API specs, database
-  migrations, infrastructure config, and design documents. Activate when the user
-  explicitly asks to review, audit, or check a PR, branch, commit, diff, or specific
-  files — or uses "code review", "CR", "LGTM?", "security audit", "find bugs in",
-  or "review my changes". Auto-detects content types and applies dimension-appropriate
-  analysis with P0–P3 severity grading.
-  Do NOT activate for open-ended design discussions, brainstorming, or general
-  feedback requests where the user wants a conversation rather than a structured review.
+  Structured review skill for PRs, diffs, commits, staged changes, code,
+  documentation, API specs, database migrations, infrastructure config, and design
+  documents. Activate for explicit, artifact-scoped review requests such as reviewing
+  a PR, diff, commit, branch, staged changes, or named files, or phrases like
+  "code review", "review my changes", "find bugs in", or "security review".
+  Produces severity-graded findings with content-aware analysis, behavioral-change
+  checks, and actionable fix directions.
+  Do NOT activate for brainstorming, open-ended design feedback, governance/library
+  audits, or general conversations about whether an approach seems good.
 invocation_posture: hybrid
-version: 0.4.2
+version: 0.5.0
 ---
 
 # Review
 
-Unified review skill. Auto-detects content types in a change set and applies the appropriate review dimensions, then delivers severity-graded findings with actionable fixes.
+Unified review skill for agent-performed reviews. Auto-detects content types in a change set, applies the appropriate review dimensions, and delivers severity-graded findings with actionable fixes.
 
 ## When to Activate
 
-**Invocation posture: hybrid** — auto-triggers on high-confidence review requests; use explicitly (`/review`) for ambiguous requests.
+**Invocation posture: hybrid** — auto-trigger only on unmistakable, artifact-scoped review requests. For ambiguous requests, explicit invocation is preferred.
 
 Activate when the user:
 - Asks to review a PR, diff, branch, commit, staged changes, or specific files
-- Uses: "code review", "CR", "LGTM?", "security audit", "find bugs in", "review my changes", "check my PR"
-- Requests a performance review, quality check, or document review with clear scope
+- Uses: "code review", "CR", "LGTM?", "security review", "find bugs in", "review my changes", "check my PR"
+- Names a concrete artifact and asks for bug finding, breaking-change checks, migration risk review, API/doc correctness, or config/infrastructure review
 - Pastes code/text and asks for a review (not a discussion)
 
-**Do not activate** for open-ended design discussions ("what do you think about this approach?"), brainstorming sessions, or requests where the user wants a conversation rather than a severity-graded report. Use the `brainstorming` skill instead.
+## When Not To Activate
+
+Do not activate for:
+- Open-ended design or architecture discussions ("what do you think about this approach?")
+- Brainstorming, option comparison, or solution ideation
+- Governance or library-audit requests about skills, agents, or repository hygiene
+- Requests to teach review culture, reviewer communication, or mentoring practices
+- General quality feedback without a concrete artifact or change set to inspect
+
+Use `brainstorming`, `skill-lifecycle-manager`, or a general design discussion instead when the user wants exploration rather than a structured review protocol.
 
 ## Review Modes
 
@@ -110,6 +120,15 @@ Beyond the per-type checklists, always check these regardless of content type:
 - **Missing companions**: New API endpoint with no tests? New feature with no docs? Schema change with no migration?
 - **Changelog**: User-facing changes should have a changelog entry (if the project uses one).
 
+### Non-findings
+
+Do not spend review budget on noise:
+
+- Formatting, import ordering, or linter-only issues already covered by project automation
+- Pure style preferences with no behavioral, maintainability, or policy consequence
+- Untouched pre-existing issues unless the current change makes them worse
+- Alternate designs that do not identify a concrete risk in the submitted change
+
 ### Behavioral change analysis
 
 Checklist-driven code review tends to focus on code-level patterns (injection, N+1, naming) and can miss *behavioral* changes — places where the system does something different than before, even if the code looks clean. This matters most in refactoring PRs where the intent is "same behavior, better structure." For any PR that modifies or replaces existing logic, explicitly check:
@@ -140,7 +159,7 @@ A good review doesn't just find problems — it also surfaces things the reviewe
 - Design intent that isn't documented (e.g., "Is the `--apply` flag in `command_path` intentional per the envelope spec, or should it be normalized to `apply`?")
 - Missing context about contracts, consumers, or deployment (e.g., "Are there schema-level contract tests validating these envelope fields?")
 
-Don't manufacture questions for completeness — only include ones where the answer genuinely matters. These go in a dedicated "Questions" section in the output.
+Use a question only when the missing answer would materially change severity, correctness, or whether something is a finding at all. Do not soften a clear bug, contract break, or migration risk into a question. These go in a dedicated "Questions" section in the output.
 
 ### Impact analysis (Deep mode only)
 
@@ -163,6 +182,17 @@ For changes to exported functions, public APIs, schemas, or shared interfaces:
 | **P3** | 🟢 Nit | Optional | Style preference, minor wording that doesn't cause confusion |
 | — | 💡 Suggestion | — | Alternative approach, learning opportunity |
 | — | 🎉 Praise | — | Good pattern, clean code, thorough docs |
+
+### Finding protocol
+
+Every `P0`, `P1`, and `P2` finding must include:
+
+- **Issue**: what is wrong
+- **Consequence**: why it matters
+- **Evidence**: file path, line, schema field, config key, or diff hunk
+- **Fix direction**: the expected repair direction, not just "please fix"
+
+Questions supplement findings; they do not replace clear findings. Do not report formatter noise, import ordering, or lint-only issues unless they reveal a real behavioral or policy risk.
 
 ### Output by mode
 
@@ -231,6 +261,8 @@ If findings >15, show top 10 and offer to expand.
 
 ## Phase 4 — Act
 
+Review before repair. Present findings first. Only apply changes when the user explicitly asks for fixes or chooses one of the next-step options below.
+
 After presenting the review, offer next steps based on content type:
 
 **Code / Tests / Frontend / Infrastructure / Configuration:**
@@ -252,11 +284,12 @@ These content types reflect design decisions that belong to the author. Provide 
 
 ## Tone
 
-Review is a conversation, not a verdict:
+Review is an execution protocol, not a conversation style guide:
+- **Be direct, evidence-based, and severity-calibrated.**
 - **Explain consequences**, not just rules. "This is vulnerable to injection *because*..." not just "use parameterized queries."
-- **Ask before asserting** when uncertain. "Have you considered...?" respects that the author may know something you don't.
-- **Praise explicitly.** Reviews that only find fault discourage good engineering.
-- **Separate opinion from requirement.** Style preferences are P3. Don't block for style when linters exist.
+- **Use questions only when missing context blocks confidence.** Do not turn a clear correctness or security issue into a suggestion.
+- **Keep praise brief and selective.** Use it only when it helps preserve a strong pattern worth keeping.
+- **Separate opinion from requirement.** Style preferences are P3 at most, and often omitted if automation already covers them.
 - **Show, don't just tell.** Every non-trivial finding gets a concrete before/after — diff for code, rewritten text for docs.
 
 ## Escalation Triggers
@@ -268,10 +301,19 @@ Flag for senior review instead of resolving yourself:
 - Infrastructure changes affecting production
 - Architecture decisions with long-term consequences
 
+## Validation And Evaluation
+
+Authoring note for maintainers of the canonical skill package:
+
+- Validate structural changes with local authoring tooling before release.
+- Evaluate trigger boundaries with the canonical `eval/trigger-posture-cases.json` suite.
+- Evaluate realistic review behavior with the canonical `eval/eval-cases.json` suite.
+- Keep authoring-only assets such as `eval/` out of runtime projections.
+
 ## Caveats
 
 - Reviews changes for quality — does not execute tests or run the app
 - Large diffs (>50 files) split across multiple passes
 - Domain detection is heuristic — tell the reviewer your stack if it gets it wrong
 - Read-only by default; fixes in Phase 4 need write permission
-- Assesses *document quality*, not design decision merits — that's a brainstorming discussion
+- Assesses artifact quality and change risk, not open-ended solution ideation — that belongs in brainstorming or design discussion

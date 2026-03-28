@@ -5,6 +5,32 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed
+- Clarified that validation and eval guidance in `SKILL.md` is for maintainers of the canonical package, not a runtime requirement for projected installs on other repositories.
+- Expanded metadata description scope so `skill.json` matches the broader review surface documented in `SKILL.md`.
+
+### Added
+- Expanded eval coverage to check two new protocol contracts:
+  - clear findings should not be softened into open questions
+  - review should happen before repair, even when a follow-up fix may be appropriate
+
+## [0.5.0] - 2026-03-28
+
+### Changed
+- **Positioned the skill for agent review of artifacts**: reframed the core description and opening summary around agent-performed, artifact-scoped review rather than reviewer coaching or general feedback conversations.
+- **Tightened trigger boundaries**: removed `audit` and broad quality-language from the primary trigger path, added an explicit `## When Not To Activate` section, and made explicit invocation guidance platform-neutral.
+- **Strengthened finding protocol**: P0/P1/P2 findings now require issue, consequence, evidence, and fix direction; clear bugs should no longer be softened into open-ended questions.
+- **Reduced low-value review noise**: added explicit non-findings guidance for formatter noise, import ordering, lint-only issues, and style-only feedback without real consequence.
+- **Made Phase 4 explicitly review-first**: findings must be presented before edits; fixes happen only after the user asks for them or chooses a next-step option.
+- **Reworked tone for agent review**: shifted from conversation-oriented reviewer guidance toward direct, evidence-based, severity-calibrated output with brief, selective praise.
+
+### Added
+- **Validation and evaluation guidance** in `SKILL.md`, including concrete `quick_validate.py`, `validate_projection.py`, and `validate_eval_suite.py` commands.
+- **Structured eval assets** under `eval/`:
+  - `eval/trigger-posture-cases.json` for trigger-boundary and mode-selection checks
+  - `eval/eval-cases.json` for realistic end-to-end review quality checks
+- **`projection.json`** so author-only roots like `eval/` stay out of runtime projections.
+
 ## [0.4.2] - 2026-03-27
 
 ### Changed

@@ -1,0 +1,151 @@
+{
+  "version": "0.1.0",
+  "skill": "review",
+  "description": "Realistic manual eval suite for the review skill. The suite checks whether the skill finds behavioral changes, upgrade-risk issues, and documentation/configuration problems while staying scoped to the submitted artifact.",
+  "assertions": [
+    "finds_primary_risk",
+    "severity_calibrated",
+    "evidence_cited",
+    "fix_direction_actionable",
+    "finding_structure_complete",
+    "clear_findings_not_questions",
+    "stays_scoped_to_change",
+    "filters_low_value_noise"
+  ],
+  "assertion_definitions": {
+    "finds_primary_risk": "The response surfaces the most important correctness, compatibility, migration, or security risk in the artifact instead of leading with stylistic comments.",
+    "severity_calibrated": "The response assigns an appropriate severity based on impact rather than wording intensity.",
+    "evidence_cited": "Findings cite file paths, diff lines, config keys, or concrete snippets from the artifact.",
+    "fix_direction_actionable": "Findings include a repair direction or next corrective action, not just a statement that something is wrong.",
+    "finding_structure_complete": "At least one primary finding contains the full contract: issue, consequence, evidence, and fix direction.",
+    "clear_findings_not_questions": "When the artifact shows a clear bug or contract break, the response states it as a finding rather than softening it into an open question.",
+    "stays_scoped_to_change": "The response comments on submitted content rather than wandering into untouched code or generic architecture advice.",
+    "filters_low_value_noise": "The response avoids formatter, lint, and cosmetic observations unless they indicate a real risk."
+  },
+  "cases": [
+    {
+      "id": "behavioral-refactor-state-loss",
+      "name": "Catch a behavioral regression in a refactor diff",
+      "description": "The review should identify that the refactor silently drops a valid state and changes behavior, not just comment on style.",
+      "prompt": "Review this diff for correctness and behavioral regressions.\n\n```diff\n--- a/src/user_status.py\n+++ b/src/user_status.py\n@@\n-class UserStatus(Enum):\n-    ACTIVE = \"active\"\n-    PENDING = \"pending\"\n-    SUSPENDED = \"suspended\"\n+class UserStatus(Enum):\n+    ACTIVE = \"active\"\n+    PENDING = \"pending\"\n@@\n def can_login(status: UserStatus) -> bool:\n-    if status == UserStatus.SUSPENDED:\n-        return False\n     return status == UserStatus.ACTIVE\n@@\n def status_badge(status: UserStatus) -> str:\n-    if status == UserStatus.SUSPENDED:\n-        return \"Suspended\"\n     if status == UserStatus.PENDING:\n         return \"Pending activation\"\n     return \"Active\"\n```\n\nThe PR description says: 'Pure refactor, no behavior change intended.'",
+      "assertions": {
+        "finds_primary_risk": {
+          "check": "The response should identify that the `SUSPENDED` state was removed and behavior changed despite the refactor claim."
+        },
+        "severity_calibrated": {
+          "check": "This should be treated as at least a high-severity correctness or behavioral-change issue."
+        },
+        "evidence_cited": {
+          "check": "The response should cite the removed enum variant and the changed logic in `can_login` and/or `status_badge`."
+        },
+        "finding_structure_complete": {
+          "check": "The response should spell out the behavior change, its consequence for suspended users, the diff evidence, and the repair direction."
+        },
+        "clear_findings_not_questions": {
+          "check": "Because the bug is explicit in the diff and the PR claims no behavior change, the response should state this as a finding, not as a speculative question."
+        },
+        "fix_direction_actionable": {
+          "check": "The response should recommend restoring the state handling or explicitly documenting and coordinating the behavior change."
+        }
+      }
+    },
+    {
+      "id": "migration-no-rollback",
+      "name": "Catch a risky migration with no rollback path",
+      "description": "The review should focus on migration safety and compatibility, not generic SQL style.",
+      "prompt": "Review this migration for production safety.\n\n```sql\n-- migrations/20260328_drop_customer_tier.sql\nALTER TABLE customers DROP COLUMN tier;\nUPDATE invoices SET customer_tier = 'standard' WHERE customer_tier IS NULL;\n```\n\nNotes from the author: 'This column is unused now. No app changes in this PR.'",
+      "assertions": {
+        "finds_primary_risk": {
+          "check": "The response should flag the unsafe drop and compatibility risk, especially because the note says no app changes are included."
+        },
+        "severity_calibrated": {
+          "check": "This should be treated as a high-severity migration or rollback issue."
+        },
+        "evidence_cited": {
+          "check": "The response should cite the `DROP COLUMN tier` statement and the lack of rollback/app coordination."
+        },
+        "finding_structure_complete": {
+          "check": "The response should tie the unsafe drop to the production consequence, cite the migration statements, and recommend a safer rollout or rollback plan."
+        },
+        "fix_direction_actionable": {
+          "check": "The response should recommend coordinated app changes, a safer rollout, and/or a rollback/backfill plan."
+        },
+        "filters_low_value_noise": {
+          "check": "The response should not get distracted by SQL formatting."
+        }
+      }
+    },
+    {
+      "id": "docs-api-drift",
+      "name": "Catch documentation drift against an API contract change",
+      "description": "The review should catch that the docs still describe a removed field and should cite the drift explicitly.",
+      "prompt": "Review this API spec and documentation update.\n\n```diff\n--- a/openapi.yaml\n+++ b/openapi.yaml\n@@\n   /search:\n     get:\n       responses:\n         '200':\n           content:\n             application/json:\n               schema:\n                 type: object\n                 properties:\n                   items:\n                     type: array\n                     items:\n                       $ref: '#/components/schemas/Result'\n-                  nextCursor:\n-                    type: string\n }\n--- a/docs/search.md\n+++ b/docs/search.md\n@@\n-The response includes `items` and `nextCursor`. Pass `nextCursor` into the next request to continue pagination.\n+The response includes `items`.\n```\n\nThe release note draft still says: 'Search pagination remains unchanged.'",
+      "assertions": {
+        "finds_primary_risk": {
+          "check": "The response should identify a breaking API contract or pagination behavior change."
+        },
+        "severity_calibrated": {
+          "check": "This should be treated as a high-severity contract/documentation issue, not a nit."
+        },
+        "evidence_cited": {
+          "check": "The response should cite the removal of `nextCursor` from the spec and the release note mismatch."
+        },
+        "finding_structure_complete": {
+          "check": "The response should connect the removed field to downstream pagination breakage, cite the spec/docs drift, and recommend restoring or versioning the change."
+        },
+        "clear_findings_not_questions": {
+          "check": "Because the contract break is explicit, the response should state it directly rather than phrase it only as a question."
+        },
+        "fix_direction_actionable": {
+          "check": "The response should recommend either restoring compatibility or documenting/versioning the breaking change clearly."
+        },
+        "stays_scoped_to_change": {
+          "check": "The response should stay focused on the contract and documentation drift in this artifact."
+        }
+      }
+    },
+    {
+      "id": "explicit-bug-no-question-softening",
+      "name": "Do not soften an obvious correctness bug into a question",
+      "description": "The review should call out an explicit bug directly and still provide evidence and a repair direction.",
+      "prompt": "Review this diff for correctness.\n\n```diff\n--- a/src/permissions.py\n+++ b/src/permissions.py\n@@\n def can_delete_account(user):\n-    return user.is_admin\n+    return True\n```\n\nThe PR description says: 'Minor cleanup in permissions helper.'",
+      "assertions": {
+        "finds_primary_risk": {
+          "check": "The response should flag that the helper now grants delete permission to every user."
+        },
+        "severity_calibrated": {
+          "check": "This should be treated as a high-severity authorization or correctness issue."
+        },
+        "evidence_cited": {
+          "check": "The response should cite the unconditional `return True` change in `can_delete_account`."
+        },
+        "finding_structure_complete": {
+          "check": "The response should identify the issue, explain the authorization consequence, cite the diff, and suggest restoring the permission check."
+        },
+        "clear_findings_not_questions": {
+          "check": "The response should not phrase this only as 'Is this intentional?' or another question-first framing."
+        },
+        "fix_direction_actionable": {
+          "check": "The response should recommend restoring the admin guard or equivalent authorization logic."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this suite as a manual quality check for the review skill. The goal is to confirm that findings prioritize primary risk, cite evidence, and stay scoped to the submitted artifact."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical review skill package is discoverable. These prompts are self-contained and should not require external files.",
+    "execution": "Run each prompt through Codex or Claude Code with the review skill available. The response should perform a review rather than edit files.",
+    "evaluation": "Score whether the output finds the main risk, calibrates severity correctly, cites evidence, and avoids low-value noise.",
+    "environment": "Read access is sufficient for these prompts because all artifacts are inline."
+  }
+}

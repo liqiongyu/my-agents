@@ -135,8 +135,8 @@
       "name": "git-worktree-workflows",
       "path": "skills/git-worktree-workflows",
       "displayName": "Git Worktree Workflows",
-      "description": "Guide and execute safe git worktree workflows for parallel branches, isolated review checkouts, comparison, cleanup, and repair without baking repo-specific bootstrap habits into the default path.",
-      "version": "0.1.2",
+      "description": "Guide safe git worktree workflows for explicit worktree tasks, including inspect, compare, cleanup, and repair, plus high-confidence parallel checkout requests while deferring repo bootstrap and broader advanced-Git sessions where worktrees are incidental.",
+      "version": "0.1.3",
       "maturity": "experimental",
       "categories": [
         "git",
@@ -224,8 +224,8 @@
       "name": "review",
       "path": "skills/review",
       "displayName": "Review",
-      "description": "Perform thorough, structured reviews on PRs, diffs, code, documentation, architecture designs, PRDs, API specs, and configuration changes with severity-graded findings and actionable suggestions.",
-      "version": "0.4.2",
+      "description": "Perform structured, agent-oriented reviews of PRs, diffs, commits, code, tests, frontend, docs, API specs, design docs, migrations, and infrastructure/config changes with severity-graded findings, behavioral-change checks, and actionable fix directions.",
+      "version": "0.5.0",
       "maturity": "experimental",
       "categories": [
         "review",
@@ -518,5 +518,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-28T13:02:20.260Z"
+  "generatedAt": "2026-03-28T14:46:51.329Z"
 }

@@ -1,0 +1,207 @@
+{
+  "version": "0.1.0",
+  "skill": "review",
+  "type": "trigger-posture",
+  "description": "Trigger and mode-selection suite for the review skill. The suite checks whether the skill activates only on artifact-scoped review requests, stays quiet on brainstorming and governance work, and chooses a sensible review mode for the requested scope and risk.",
+  "assertions": [
+    "routing_verdict_correct",
+    "invocation_posture_respected",
+    "negative_boundary_respected",
+    "mode_selection_reasonable",
+    "artifact_scope_identified",
+    "review_before_repair_respected",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response makes the right top-level call: activate the review skill for structured artifact review requests, and decline or redirect adjacent non-review requests.",
+    "invocation_posture_respected": "The response treats the skill as a `hybrid` review skill: auto-trigger only for unmistakable artifact-scoped review requests, with explicit invocation preferred for ambiguous prompts.",
+    "negative_boundary_respected": "For requests that should not route here, the response explains the boundary clearly instead of stretching the skill into brainstorming, governance, or mentoring work.",
+    "mode_selection_reasonable": "When the skill should activate, the response names a sensible review mode (`Quick`, `Standard`, or `Deep`) based on file count, risk, and user intent.",
+    "artifact_scope_identified": "The response identifies the concrete artifact or change-set scope that makes this a review task, or points out that no concrete artifact was supplied.",
+    "review_before_repair_respected": "When the user also wants fixes, the response still sequences the work as review first, then repair as a follow-up step rather than jumping straight to implementation.",
+    "next_step_explicit": "The response ends with a concrete next step such as gathering the diff, reviewing the files, or redirecting to a more appropriate workflow."
+  },
+  "cases": [
+    {
+      "id": "tp-explicit-pr-review",
+      "name": "Route an explicit pull request review request",
+      "description": "Classic in-scope review request with a concrete artifact. The skill should activate and default to `Standard` unless the diff size or risk says otherwise.",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Standard",
+      "prompt": "A user says: 'Review PR #184 for bugs, breaking changes, and test gaps.' Using the review skill, answer in one short paragraph whether the skill should activate, which review mode applies, and what the next step is. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should activate the review skill."
+        },
+        "invocation_posture_respected": {
+          "check": "This is an unmistakable artifact-scoped review request, so hybrid posture should allow activation."
+        },
+        "mode_selection_reasonable": {
+          "check": "Without a tiny scope or explicit 'quick look', `Standard` is the correct default."
+        },
+        "artifact_scope_identified": {
+          "check": "The response should identify PR #184 as the review artifact."
+        },
+        "next_step_explicit": {
+          "check": "The response should say to gather the PR diff and context before analyzing."
+        }
+      }
+    },
+    {
+      "id": "tp-high-risk-migration",
+      "name": "Route a single-file migration review with risk override",
+      "description": "Even a small change should use `Standard` because database migrations are high risk.",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Standard",
+      "prompt": "A user says: 'Quickly check this migration file for rollback risk and production safety.' Using the review skill, answer in one short paragraph whether the skill should activate, which review mode applies, and what the next step is. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should activate the review skill."
+        },
+        "mode_selection_reasonable": {
+          "check": "Because database migrations are high risk, `Standard` is appropriate even if the user frames it as quick."
+        },
+        "artifact_scope_identified": {
+          "check": "The response should identify the migration file as the artifact."
+        },
+        "next_step_explicit": {
+          "check": "The response should say to inspect the migration for rollback, locking, and compatibility risks."
+        }
+      }
+    },
+    {
+      "id": "tp-small-test-quick",
+      "name": "Use quick mode for a tiny low-risk test review",
+      "description": "A very small and low-risk review request can stay in `Quick` mode.",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Quick",
+      "prompt": "A user says: 'Give these two unit test files a quick look for obvious issues only.' Using the review skill, answer in one short paragraph whether the skill should activate, which review mode applies, and what the next step is. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should activate the review skill."
+        },
+        "mode_selection_reasonable": {
+          "check": "Because the request is explicitly a quick look at two low-risk files, `Quick` is reasonable."
+        },
+        "artifact_scope_identified": {
+          "check": "The response should identify the two test files as the artifact."
+        }
+      }
+    },
+    {
+      "id": "tp-large-refactor-deep",
+      "name": "Use deep mode for a large refactor review",
+      "description": "Large refactor review should route to `Deep` with behavioral-change analysis.",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Deep",
+      "prompt": "A user says: 'Do a thorough review of this 30-file refactor diff and look for accidental behavior changes.' Using the review skill, answer in one short paragraph whether the skill should activate, which review mode applies, and what the next step is. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should activate the review skill."
+        },
+        "mode_selection_reasonable": {
+          "check": "Because the scope is large and the user explicitly asks for thorough review, `Deep` is correct."
+        },
+        "next_step_explicit": {
+          "check": "The response should mention chunking the diff and checking behavioral changes."
+        }
+      }
+    },
+    {
+      "id": "tp-review-and-fix-sequencing",
+      "name": "Review before repair when the user also asks for fixes",
+      "description": "Even if the user wants fixes, the review skill should sequence the work as findings first and repair second.",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Standard",
+      "prompt": "A user says: 'Review this API diff for breaking changes and then fix anything serious you find.' Using the review skill, answer in one short paragraph whether the skill should activate, which review mode applies, and what the next step is. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should activate the review skill."
+        },
+        "mode_selection_reasonable": {
+          "check": "Without a tiny scope or an explicitly huge diff, `Standard` is a sensible default."
+        },
+        "review_before_repair_respected": {
+          "check": "The response should say to review and present findings first, then fix serious issues as a follow-up step."
+        },
+        "next_step_explicit": {
+          "check": "The next step should be gathering and reviewing the diff rather than jumping directly into implementation."
+        }
+      }
+    },
+    {
+      "id": "tn-architecture-brainstorming",
+      "name": "Do not route an architecture brainstorming request",
+      "description": "Open-ended design discussion should stay out of the review skill.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'What do you think about this architecture approach? We have not written the diff yet.' Using the review skill, answer in one short paragraph whether the skill should activate and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not activate the review skill."
+        },
+        "negative_boundary_respected": {
+          "check": "The response should say this is design discussion or brainstorming, not structured review."
+        },
+        "artifact_scope_identified": {
+          "check": "The response should note that no concrete artifact or change set exists yet."
+        },
+        "next_step_explicit": {
+          "check": "The response should redirect to brainstorming or design discussion."
+        }
+      }
+    },
+    {
+      "id": "tn-skill-library-audit",
+      "name": "Do not route a skill-library governance audit",
+      "description": "Governance work may use 'audit' language but does not belong to the review skill.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Audit our skill library for overlap, stale metadata, and projection drift.' Using the review skill, answer in one short paragraph whether the skill should activate and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not activate the review skill."
+        },
+        "negative_boundary_respected": {
+          "check": "The response should explain that this is governance or lifecycle audit work, not artifact review."
+        },
+        "next_step_explicit": {
+          "check": "The response should redirect to skill-lifecycle-manager or another audit workflow."
+        }
+      }
+    },
+    {
+      "id": "tn-reviewer-coaching",
+      "name": "Do not route reviewer training or mentoring work",
+      "description": "Review coaching is adjacent but not the same as artifact review.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Teach me how to give kinder code review feedback to junior engineers.' Using the review skill, answer in one short paragraph whether the skill should activate and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not activate the review skill."
+        },
+        "negative_boundary_respected": {
+          "check": "The response should explain that this is mentoring or communication guidance rather than artifact review."
+        },
+        "next_step_explicit": {
+          "check": "The response should redirect to a coaching or communication-oriented workflow."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this as a manual trigger-and-mode review, not a hard automation gate. Score after reading the response and checking whether the review skill activates only when the request is artifact-scoped and whether the chosen mode matches the scope and risk."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical review skill package is discoverable. These prompts are classification-only and should be run without editing files.",
+    "execution": "Run each prompt through Codex or Claude Code with the review skill available. The response should classify routing and choose a review mode when activation is appropriate.",
+    "evaluation": "Use the review panel to score routing, boundary clarity, and mode selection.",
+    "environment": "Filesystem write access is useful for output artifacts, but the prompts themselves should not require edits."
+  }
+}
