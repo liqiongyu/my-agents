@@ -179,10 +179,13 @@ Run these checks in order:
    - `uv run python "$SLM_DIR/scripts/validate_projection.py" <skill-dir> --platform all`
 3. If the skill includes a structured eval suite, validate that too:
    - `uv run python "$SLM_DIR/scripts/validate_eval_suite.py" <eval-file>`
-4. Repo-local validation if relevant:
+4. If you changed validation, projection, or eval-runner code, run the packaged unit tests too:
+   - `uv run python "$SLM_DIR/scripts/run_unit_tests.py"`
+   - this script uses `uv run --with pytest ...`, so it does not rely on a pre-created virtualenv
+5. Repo-local validation if relevant:
    - `npm run validate`
    - `npm run build` if indexes need refresh
-5. Fix structural issues first:
+6. Fix structural issues first:
    - missing files
    - name mismatches
    - category drift
@@ -218,6 +221,7 @@ Use Anthropic's evaluation discipline here. The core loop is:
    - `uv run python "$SLM_DIR/scripts/render_review_panel.py" <iteration-dir>`
 
 For direct CLI runs, `run_surface_eval.py --stage baseline` now automates the project-local baseline path by temporarily hiding the active surface projection when it exists. Use that stage only when the comparison is meaningful and you want the baseline artifact to sit next to the corresponding `with-skill` run in the same iteration.
+Those direct surface evals require the relevant platform CLI for the surface you are exercising, but that is not a prerequisite for basic structure validation or the packaged Python unit tests.
 
 Use qualitative review by default for ambiguous or creative skills. Use quantitative assertions for transformations, extraction, formatting, deterministic workflows, or code-generation patterns with objective expectations.
 

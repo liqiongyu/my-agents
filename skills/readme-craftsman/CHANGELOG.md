@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-03-28
+
+### Added
+
+- Added `eval/trigger-cases.json` with lightweight trigger-boundary cases covering explicit README requests and adjacent non-README documentation tasks
+
+### Changed
+
+- Repositioned the skill as `manual-first` by tightening the frontmatter and `skill.json` descriptions around explicit README work only
+- Added a dedicated `When Not To Use` section plus a stronger Step 1 negative boundary for non-README documentation requests
+- Expanded create-mode interview prompts to cover documentation sites, blogs/content collections, and community/resource hubs
+- Updated `projection.json` to keep the new author-only `eval/` fixtures out of runtime projections
+- Compressed the four runtime template reference files from long example-heavy drafts into compact section-order guides so the projected skill carries less context while preserving project-type coverage
+
+### Fixed
+
+- Reconciled the main README exclusion guidance with the template references so brief navigational links to `LICENSE`, `CONTRIBUTING.md`, and similar files are allowed without duplicating full policy text
+- Reworded community template guidance so contribution rules stay link-first instead of asking the README to duplicate the full guideline file
+- Renamed the dataset template's inline change history section to `Dataset Version Notes` so it does not conflict with repositories that already have a dedicated changelog
+
+## [1.1.2] - 2026-03-27
+
+### Added
+
+- `projection.json` to exclude `CHANGELOG.md` from runtime surface projections
+
+### Fixed
+
+- SKILL.md frontmatter description rewritten to `hybrid` invocation posture (was `auto-first`); removed "even if they don't explicitly say README" language and long synonym list
+- `skill.json` description was stale (v1.0 wording, missing 6 non-code project types added in v1.1.0); kept comprehensive for catalog discovery
+- `.agents/` projection had stale `skill.json` (v1.1.1) and an unnecessary `CHANGELOG.md`; both corrected
+- Interview step (Step 4) was software-project-centric; added type-specific questions for datasets, academic repos, and tutorials
+- Community project type in Step 3 now distinguishes three sub-types (Awesome List, Organization Profile, Resource Hub) with signals for choosing between them
+- "Always Required" in Section Matrix clarified: "Getting Started" may be omitted or adapted for community repos like awesome lists
+- Update mode "show a diff" guidance expanded with concrete before/after vs. change-summary options
+- Step 1 now explicitly handles placeholder README edge case (treat as Create mode, not Update)
+
 ## [1.1.1] - 2026-03-26
 
 ### Changed

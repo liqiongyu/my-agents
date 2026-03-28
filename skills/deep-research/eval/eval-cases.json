@@ -187,8 +187,8 @@
       "partial": 0.5,
       "fail": 0
     },
-    "per_case_max": 9,
-    "total_max": 27,
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
     "pass_threshold": 0.75,
     "notes": "A case passes if it scores >= 75% of possible assertion points. The suite passes if all 3 cases pass individually."
   },

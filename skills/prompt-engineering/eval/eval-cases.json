@@ -1,0 +1,105 @@
+{
+  "version": "0.1.0",
+  "skill": "prompt-engineering",
+  "description": "Workflow-oriented evaluation suite for the prompt-engineering skill. The suite checks whether the skill scopes prompt work correctly, recommends the lightest effective intervention, calibrates to target models, and keeps validation and safety explicit.",
+  "assertions": [
+    "success_criteria_defined",
+    "smallest_effective_change",
+    "model_specifics_calibrated",
+    "realistic_eval_plan",
+    "security_or_boundary_handled",
+    "production_tradeoffs_explicit"
+  ],
+  "assertion_definitions": {
+    "success_criteria_defined": "The response defines what good output looks like before rewriting the prompt and names representative inputs or acceptance criteria.",
+    "smallest_effective_change": "The response starts with the minimum prompt intervention likely to fix the failure instead of jumping directly to heavyweight chains or exotic techniques.",
+    "model_specifics_calibrated": "The response adjusts advice to the target model or runtime and does not pretend that model-specific prompt behavior is universally portable.",
+    "realistic_eval_plan": "The response proposes a believable test plan with happy-path, edge, or adversarial cases instead of vague encouragement to test later.",
+    "security_or_boundary_handled": "When the task includes unsafe input, tool use, or instruction hierarchy risk, the response explicitly addresses prompt isolation, boundaries, or output validation.",
+    "production_tradeoffs_explicit": "When the task is headed for repeated or user-facing use, the response calls out versioning, observability, latency, cost, or rollback concerns."
+  },
+  "cases": [
+    {
+      "id": "pe-design-system-prompt",
+      "name": "Design a customer-support system prompt from requirements",
+      "prompt": "We need a system prompt for classifying B2B support tickets into five labels for a triage queue. It must return strict JSON, keep false positives low for billing issues, and stay under a tight latency budget. Draft the prompt and explain how you would test it before rollout.",
+      "assertions": {
+        "success_criteria_defined": {
+          "check": "The response should define label quality, JSON shape, and latency as explicit success criteria before or while drafting."
+        },
+        "smallest_effective_change": {
+          "check": "The response should not jump straight to a multi-step chain when a structured single prompt may suffice."
+        },
+        "realistic_eval_plan": {
+          "check": "The response should include representative tickets, including edge cases such as ambiguous billing-related requests."
+        },
+        "production_tradeoffs_explicit": {
+          "check": "The response should mention latency, determinism, or schema enforcement as production concerns."
+        }
+      }
+    },
+    {
+      "id": "pe-debug-json-drift",
+      "name": "Debug a prompt that keeps returning malformed JSON",
+      "prompt": "Our extraction prompt works on easy cases but often returns malformed JSON when the input document is noisy. We do not want a total rewrite unless necessary. Diagnose likely failure modes and propose the smallest changes that would improve reliability.",
+      "assertions": {
+        "smallest_effective_change": {
+          "check": "The response should start with output-format tightening, examples, or API-level schema enforcement before suggesting a full prompt chain."
+        },
+        "realistic_eval_plan": {
+          "check": "The response should propose re-running the same noisy documents plus at least one clean baseline input."
+        },
+        "production_tradeoffs_explicit": {
+          "check": "The response should mention parsing reliability or downstream failure cost."
+        }
+      }
+    },
+    {
+      "id": "pe-migrate-cross-model",
+      "name": "Migrate a Claude-tuned prompt to a GPT deployment",
+      "prompt": "We have a Claude-tuned prompt that uses XML delimiters and assistant prefilling for JSON output. We now need equivalent behavior on a GPT deployment with schema-enforced JSON responses. Explain what to change, what not to carry over, and how to verify that the migrated prompt still behaves correctly.",
+      "assertions": {
+        "model_specifics_calibrated": {
+          "check": "The response should explicitly remove Claude-specific prompt tactics and replace them with GPT-appropriate structure or API features."
+        },
+        "realistic_eval_plan": {
+          "check": "The response should call for re-testing the migrated prompt on the target deployment rather than assuming parity."
+        },
+        "production_tradeoffs_explicit": {
+          "check": "The response should mention schema enforcement, reliability, or rollout verification."
+        }
+      }
+    },
+    {
+      "id": "pe-harden-agent-prompt",
+      "name": "Harden a retrieval agent prompt against injection",
+      "prompt": "We have a retrieval-based agent that reads external documents and can trigger downstream actions. Tighten the prompt against prompt injection and output misuse. I care more about safe boundaries than about clever prompting tricks.",
+      "assertions": {
+        "security_or_boundary_handled": {
+          "check": "The response should address input isolation, instruction hierarchy, output validation, and sensitive-action boundaries."
+        },
+        "smallest_effective_change": {
+          "check": "The response should focus on prompt architecture and validation layers, not on irrelevant creativity techniques."
+        },
+        "production_tradeoffs_explicit": {
+          "check": "The response should mention ongoing monitoring, defense in depth, or rollback/approval controls."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  },
+  "runner_instructions": {
+    "setup": "Make the prompt-engineering skill available on the surface under test. Use realistic prompt-work requests rather than synthetic classification-only probes.",
+    "execution": "Run each case as a real user prompt. Capture the response text and any changed prompt artifacts if the skill edits files.",
+    "evaluation": "Score each applicable assertion as pass, partial, or fail. Note whether the response stayed workflow-first and whether safety and evaluation concerns were explicit."
+  }
+}

@@ -16,6 +16,12 @@ except ImportError:  # pragma: no cover - fallback stays covered by unit tests
 
 
 MIN_DOC_LENGTH = 200
+NEGATIVE_BOUNDARY_HEADINGS = (
+    "when not to use",
+    "when not to activate",
+    "do not use",
+    "do not activate",
+)
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
@@ -95,6 +101,13 @@ def changelog_has_version(changelog_text: str, version: str) -> bool:
     )
 
 
+def has_negative_boundary(skill_md: str) -> bool:
+    for heading in NEGATIVE_BOUNDARY_HEADINGS:
+        if re.search(rf"^##+\s+{re.escape(heading)}\b", skill_md, re.MULTILINE | re.IGNORECASE):
+            return True
+    return False
+
+
 def validate_skill(skill_dir: Path) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -151,7 +164,7 @@ def validate_skill(skill_dir: Path) -> tuple[list[str], list[str]]:
         if allowed_categories and category not in allowed_categories:
             errors.append(f"unknown category '{category}' (not present in categories.json)")
 
-    if "When Not To Use" not in skill_md and "When not to use" not in skill_md:
+    if not has_negative_boundary(skill_md):
         warnings.append("SKILL.md does not clearly define a negative boundary")
 
     return errors, warnings

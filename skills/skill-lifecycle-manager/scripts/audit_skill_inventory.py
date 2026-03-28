@@ -11,7 +11,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from projection_support import compare_projection, projection_dir
-from quick_validate import find_repo_root, parse_frontmatter, validate_skill
+from quick_validate import find_repo_root, has_negative_boundary, parse_frontmatter, validate_skill
 
 
 SEVERITY_ORDER = ("critical", "high", "medium", "low")
@@ -105,11 +105,7 @@ def audit_trigger_and_boundary(report: dict, entry: dict, frontmatter: dict[str,
             "Trigger quality",
             "frontmatter description may describe the skill without clearly signaling when it should trigger",
         )
-    if (
-        "When Not To Use" not in skill_md
-        and "When not to use" not in skill_md
-        and not has_dimension_finding(entry, "Boundary clarity")
-    ):
+    if not has_negative_boundary(skill_md) and not has_dimension_finding(entry, "Boundary clarity"):
         add_finding(
             report,
             entry,

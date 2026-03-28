@@ -1,6 +1,6 @@
 ---
 name: readme-craftsman
-description: "Generate, update, or review README.md files with deep project analysis, type-aware templates, and quality validation. Use this skill whenever the user wants to create a README, improve an existing README, update documentation after changes, review a README for accuracy, or document a repository. Also trigger when the user mentions 'readme', 'project docs', 'write docs for this project', 'document this repo', or any variation of wanting to generate, refresh, audit, or improve a README file — even if they don't explicitly say 'README'. Covers ALL repository types on GitHub: software projects (libraries, services, CLI tools, monorepos), documentation sites and knowledge bases, datasets, academic research, tutorials and courses, community repos (awesome lists, org profiles), blogs and content collections, and more."
+description: "Create, update, or review a repository README when the user explicitly asks for README work. Use it to draft a new README, refresh an existing README after project changes, or audit a README against the current repository. Do not use it for general documentation, API docs, architecture docs, or documentation tasks that do not specifically target a README file."
 ---
 
 # README Craftsman
@@ -13,6 +13,20 @@ Create, update, or review README files by analyzing the actual repository and ta
 Detect Mode → Analyze Project → Classify Type → [Interview if Creating] → Generate/Update/Review → Quality Check → Deliver
 ```
 
+**Invocation posture:** `manual-first`
+
+---
+
+## When Not To Use
+
+Do not use this skill for:
+
+- General documentation work that does not specifically target a `README.md`
+- API references, architecture docs, runbooks, docs-site pages, or standalone user guides
+- Generic writing requests where the user has not asked for README creation, README updates, or README review
+
+If the repository needs broader documentation work, use a documentation or writing workflow that matches that artifact instead of stretching this skill beyond README scope.
+
 ---
 
 ## Step 1: Detect Task Mode
@@ -23,7 +37,11 @@ Detect Mode → Analyze Project → Classify Type → [Interview if Creating] �
 | **Update** | README exists and code has changed, or user says "update / refresh / sync the README" | Targeted section updates, preserving existing voice |
 | **Review** | User says "review / check / audit the README" | Compare README against actual project state, report findings |
 
-If the mode is ambiguous, ask.
+**Edge case — placeholder README:** If a README exists but contains only a title, one line of description, or obvious auto-generated stub content, treat it as Create mode (full generation) rather than Update mode. The existing content is not worth preserving.
+
+If the mode is still ambiguous after applying the above, ask.
+
+Generic requests like "write docs", "document the API", "improve the docs site", or "write architecture documentation" are out of scope unless the user specifically wants README work.
 
 ## Step 2: Deep Project Analysis
 
@@ -110,20 +128,52 @@ Classification drives section selection, tone, and which template reference to r
 
 | Type | Typical Signals | Primary Audience | Tone |
 |------|----------------|-----------------|------|
-| **Community / Organization** | awesome-*.md, curated link lists, .github org repo, community templates, topic collections | Community members browsing, contributors adding | Welcoming, clear contribution guidelines, well-organized |
+| **Awesome List** | `awesome-*.md` filename, curated link lists organized by category, Awesome badge | Community members browsing, contributors adding | Welcoming, scannable, contribution-focused |
+| **Organization Profile** | `.github` repo at org level, `profile/README.md`, org-wide community health files | GitHub visitors, potential contributors | Mission-driven, project showcase |
+| **Resource Hub** | Topic collection without strict awesome-list format, roadmaps, cheat sheets, study guides | Learners or practitioners in the topic area | Educational, navigation-first |
+
+`references/templates-community.md` contains a template for each of these sub-types — read the matching one.
 
 If uncertain, confirm with the user.
 
 ## Step 4: Interview (Create Mode)
 
-When creating from scratch, ask only what the codebase can't tell you:
+When creating from scratch, ask only what the codebase can't tell you. Keep this brief — skip questions already answered by the analysis.
 
-1. **What problem does this solve?** — Becomes the opening description
-2. **Who is the primary audience?** — Confirms project type
-3. **Key differentiators?** — What sets this apart from alternatives
-4. **Anything to exclude?** — Sections that don't apply
+**All project types:**
+1. **What's the one-line pitch?** — If the repo has no description, ask. This becomes the opening line.
+2. **Anything to exclude?** — Sections that don't apply or content to keep private
 
-Keep this brief. Skip questions already answered by the analysis. After drafting, ask: **"Anything I missed or got wrong?"**
+**Software projects** — also ask if not inferable:
+3. **Who is the primary audience?** — Confirms project type (e.g., external developers vs. internal team)
+4. **Key differentiators?** — What sets this apart from alternatives
+
+**Datasets** — also ask if not inferable:
+3. **How was the data collected or generated?** — Methodology for the Data Collection section
+4. **Known limitations or biases?** — Goes in the Known Limitations section
+5. **Preferred citation format?** — DOI, BibTeX, or plain text
+
+**Academic research** — also ask if not inferable:
+3. **Which paper does this accompany?** — Title, venue, and link (arXiv, DOI, or publisher)
+4. **What are the hardware/environment requirements to reproduce the results?**
+
+**Tutorials / courses** — also ask if not inferable:
+3. **What's the target skill level?** — Beginner / intermediate / advanced, and prerequisite knowledge
+4. **Is this self-paced or used in a structured course?** — Affects tone and pacing guidance
+
+**Documentation / knowledge bases** — also ask if not inferable:
+3. **Who is the primary reader?** — New users, contributors, operators, or a mixed audience
+4. **Where should a first-time reader start?** — Entry point, reading order, or top task
+
+**Blogs / content collections** — also ask if not inferable:
+3. **Who is the intended audience?** — Practitioners, learners, customers, or a general audience
+4. **Is this an actively published collection or a curated archive?** — Affects navigation and freshness cues
+
+**Community / resource hubs** — also ask if not inferable:
+3. **What belongs in the collection and what is out of scope?** — Clarifies curation boundaries
+4. **How should contributions be reviewed or maintained?** — Sets expectations for contribution guidance and freshness notes
+
+After drafting, ask: **"Anything I missed or got wrong?"**
 
 ## Step 5: Generate, Update, or Review
 
@@ -165,7 +215,9 @@ Select sections from the **Section Matrix** below. For each included section, fo
 | Paper revision (academic) | Abstract, Results, Citation |
 
 3. **Preserve existing voice** — Match the current style, tone, and formatting. Don't rewrite accurate sections.
-4. **Show a diff** — Present proposed changes to the user before applying.
+4. **Show changes before applying** — Present proposed changes in one of these forms, then wait for confirmation:
+   - For small edits (1-3 sections): show the before/after for each changed section inline
+   - For larger changes: list what will be added, removed, or modified with a brief rationale for each
 5. **Validate cross-references** — Links, file paths, and version numbers must remain valid.
 
 ### Review Mode
@@ -186,7 +238,7 @@ Select sections from the **Section Matrix** below. For each included section, fo
 ### Always Required (All Types)
 
 1. **Title + Description** — Project name + one-liner (what it does, for whom)
-2. **Getting Started** — How to use, read, install, or navigate (varies by type)
+2. **Getting Started** — How to use, read, install, or navigate (varies by type). For community projects like awesome lists and org profiles, this may be a "How to navigate" or "How to contribute" section rather than an install guide — or may be omitted entirely if the README itself is the destination.
 3. **Core content** — Usage example, content overview, data description, or curriculum (varies by type)
 
 ### Software Projects
@@ -363,7 +415,9 @@ Run this before delivering:
 
 ## Exclusion Rules
 
-Do NOT include the following as full sections — they have dedicated files:
+Do not duplicate the full contents of dedicated repo files inside the README. Brief, navigational sections that point readers to these files are acceptable when they help orientation, but do not copy the full policy text.
+
+These files usually deserve a short link or summary, not a pasted duplicate:
 
 - LICENSE → link to `LICENSE` file
 - CONTRIBUTING → link to `CONTRIBUTING.md`
@@ -371,7 +425,7 @@ Do NOT include the following as full sections — they have dedicated files:
 - CODE_OF_CONDUCT → link to `CODE_OF_CONDUCT.md`
 - SECURITY → link to `SECURITY.md`
 
-If these files exist, reference them with a one-line link. If they don't exist, don't create the section.
+If these files exist, link to them or add a very short navigational summary. If they don't exist, don't invent them inside the README.
 
 ---
 

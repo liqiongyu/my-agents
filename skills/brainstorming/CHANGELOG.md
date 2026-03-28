@@ -5,6 +5,23 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-03-28
+
+### Changed
+- **Invocation posture**: tightened from a cautious hybrid toward explicit `manual-first` use. The frontmatter now says this skill is for intentional brainstorming, comparison, and direction-setting before planning or implementation.
+- **Negative boundary**: added a dedicated `When Not To Use` section that routes clarification-only work to `clarify`, reviews to `review`, and post-decision execution planning to `writing-plans` or direct execution.
+- **Platform neutrality**: replaced the tool-name table with platform-neutral question-handling guidance so the canonical core does not depend on a single surface exposing a specific input tool.
+- **Evaluation guidance**: added a lightweight trigger-evaluation section so future posture changes can be checked against should-trigger, should-not-trigger, and adjacent handoff prompts.
+
+## [0.2.1] - 2026-03-28
+
+### Fixed
+- **Trigger posture**: changed from auto-first to hybrid — description now requires explicit exploration signals ('let's brainstorm', 'help me decide between X and Y') and adds a negative case for clear implementation requests. Removes "proactively when about to commit" language that caused excessive false positives.
+- **Description length**: reduced from ~130 words to ~70 words; removed keyword-dump patterns.
+
+### Added
+- **`projection.json`**: excludes `CHANGELOG.md` from runtime surface projections, following repo projection model.
+
 ## [0.2.0] - 2026-03-18
 
 ### Changed

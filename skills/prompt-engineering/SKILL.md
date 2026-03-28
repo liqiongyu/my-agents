@@ -1,384 +1,211 @@
 ---
 name: prompt-engineering
-description: "Comprehensive prompt engineering and context engineering skill for designing, debugging, optimizing, and securing prompts for any LLM. Make sure to use this skill whenever the user wants to write or improve a prompt, rewrite a system prompt, add few-shot examples, build chain-of-thought reasoning scaffolds, enforce structured JSON output from LLMs, design agent instructions (CLAUDE.md, system prompts, codex.md), harden prompts against injection attacks, migrate prompts between models (Claude/GPT/Gemini), set up prompt A/B testing or evaluation, optimize token costs, build prompt chains or pipelines, or get more consistent and reliable outputs from any AI model. Also trigger when the user mentions hallucination reduction, output formatting issues, prompt templates, RAG prompt design, few-shot learning, prompt versioning, or anything related to making LLMs behave more predictably — even if they frame it as 'the AI keeps giving bad results' or 'my chatbot is inconsistent' without explicitly saying 'prompt engineering'. This skill covers the FULL prompt lifecycle from drafting to production hardening, and should be preferred over generic advice whenever prompt quality or LLM output reliability is the core concern."
-version: 0.1.0
+description: >
+  Manual-first workflow skill for redesigning, debugging, hardening, or
+  productionizing LLM prompts and system prompts. Use when the user needs
+  end-to-end prompt work such as stabilizing behavior, migrating across
+  models, or preparing a prompt for production. Do not use for quick
+  technique lookup or for general LLM-powered coding tasks.
+invocation_posture: manual-first
+version: 0.2.1
 ---
 
 # Prompt Engineering
 
-Design, optimize, and harden prompts that reliably produce the outputs you need — across models, across use cases, from prototype to production.
+Use this skill when prompt work needs an actual workflow: define success, draft
+or repair the prompt, test it on real inputs, and harden it for the target
+model and operating environment.
 
-This skill covers the full prompt lifecycle: drafting, testing, optimizing, securing, and scaling. It is model-agnostic and works with any LLM-powered environment (Claude Code, Codex, Cursor, API integrations, or chat interfaces).
+This skill is intentionally workflow-first. It is for prompt jobs with real
+tradeoffs, failure modes, or rollout concerns. It is not meant to be a general
+prompt encyclopedia.
 
-## When to Activate
+**Invocation posture:** `manual-first`. This skill is broad and relatively
+heavy, so false positives are more harmful than occasional misses.
 
-- Writing or improving a prompt for any LLM
-- Designing system prompts for agents, assistants, or chatbots
-- Building few-shot examples or reasoning scaffolds
-- Creating reusable prompt templates or chains
-- Optimizing prompt performance (accuracy, consistency, cost, latency)
-- Debugging prompts that produce inconsistent or incorrect outputs
-- Hardening prompts against injection or misuse
-- Migrating prompts between models (Claude <-> GPT <-> Gemini)
+## When Not To Use
+
+- Quick technique lookup such as "what is chain-of-thought?" or "show me a
+  few-shot template"
+- Explaining an existing prompt line by line without redesigning or validating
+  it
+- General coding, product, or research work that only happens to involve an LLM
+  somewhere in the stack
+- Tiny one-off prompt tweaks where no real evaluation, migration, or hardening
+  decision is needed
+
+## When To Activate
+
+- Drafting a new prompt or system prompt from requirements
+- Debugging a prompt that is inconsistent, verbose, unsafe, or hard to steer
+- Migrating prompt behavior between Claude, GPT, Gemini, or open-source models
+- Hardening an agent prompt against injection, tool misuse, or output drift
+- Turning an ad hoc prompt into a reusable template, chain, or production asset
+- Setting up a realistic evaluation plan for prompt quality, format adherence,
+  latency, or cost
+
+## Outputs
+
+Depending on the request, produce one or more of:
+
+- a revised prompt or system prompt
+- a failure-mode diagnosis with targeted fixes
+- a cross-model migration checklist
+- a prompt evaluation plan with representative test cases
+- a production hardening checklist for output control, safety, and monitoring
 
 ## Reference Files
 
-This SKILL.md covers the core workflow and essential techniques. For deeper dives, read the targeted reference files:
+Keep the main workflow lean. Read deeper references only when the task needs
+them.
 
 | Reference | When to read |
-|-----------|-------------|
-| `references/advanced-reasoning.md` | Implementing CoT, ToT, ReAct, self-consistency, or multi-step reasoning |
-| `references/cross-model-guide.md` | Writing prompts that work across Claude, GPT, Gemini, or open-source models |
-| `references/production-patterns.md` | Versioning, testing, evaluating, caching, or scaling prompts in production |
-| `references/security-patterns.md` | Defending against prompt injection, validating outputs, or building secure agent prompts |
-
----
+| --- | --- |
+| `references/advanced-reasoning.md` | You need structured reasoning patterns such as CoT, ToT, ReAct, self-consistency, or self-refine |
+| `references/cross-model-guide.md` | You are migrating prompts across Claude, GPT, Gemini, or open-source models |
+| `references/production-patterns.md` | You need versioning, evaluation, caching, rollout, monitoring, or prompt-chain design |
+| `references/security-patterns.md` | You are handling untrusted input, tool use, prompt injection, or output validation |
 
 ## Core Workflow
 
-### Workflow 1: Create a New Prompt
+### Workflow 1: Scope The Prompt Job
 
-**Step 1 — Define success criteria before writing anything.**
+Before rewriting anything, pin down:
 
-Answer these questions first:
-1. What is the task? (Be precise: "classify support tickets into 5 categories" not "handle support")
-2. What does a good output look like? (Collect 3-5 examples of ideal outputs)
-3. How will you measure success? (Accuracy %, format compliance, user satisfaction)
-4. What are the constraints? (Token budget, latency target, model choice)
+1. The task and the exact output shape
+2. What "good" looks like with 3-5 representative examples
+3. The constraints: model, context budget, latency, cost, determinism, safety
+4. The current failure modes: wrong format, wrong content, instability, unsafe
+   behavior, or cross-model drift
 
-**Step 2 — Start simple, then add complexity only when needed.**
+Always collect at least:
 
-Follow the Progressive Disclosure principle:
+- one happy-path input
+- one edge case
+- one adversarial or malformed case
 
-| Level | When to use | Example |
-|-------|-------------|---------|
-| **L1: Direct instruction** | Try this first for any task | `Summarize this article in 3 bullet points.` |
-| **L2: Add constraints** | L1 output is inconsistent | `Summarize in 3 bullets. Each under 20 words. Focus on actionable insights only.` |
-| **L3: Add reasoning** | L2 misses nuance or logic | `First identify the 3 main findings, then summarize each in one bullet point.` |
-| **L4: Add examples** | L3 format still drifts | Include 2-3 input-output pairs showing desired behavior |
-| **L5: Add scaffolding** | Complex multi-step reasoning | Use CoT, structured output schemas, or prompt chains |
+If you cannot explain what success means, do not jump into fancy prompting
+techniques yet.
 
-The right level is the simplest one that meets your success criteria. Over-engineering prompts wastes tokens and can confuse models.
+### Workflow 2: Draft Or Repair With Minimum Necessary Complexity
 
-**Step 3 — Structure the prompt with clear sections.**
+Start with the smallest change that could plausibly fix the problem, then
+escalate only if the evidence says you need more structure.
 
-Use this ordering — it matches how models process instructions most effectively:
+| Level | Default move | Use when |
+| --- | --- | --- |
+| `L1` | Clear direct instruction | First pass for almost every task |
+| `L2` | Add explicit constraints and output format | The model drifts on brevity, style, or schema |
+| `L3` | Add examples | The model still misclassifies, misformats, or misses edge cases |
+| `L4` | Add reasoning scaffold | The task needs multi-step analysis or error checking |
+| `L5` | Split into a chain or reusable template | Intermediate validation or multi-stage processing matters |
 
-```
-[System context / Role]      ← Who the model is, persistent constraints
-[Task instructions]           ← What to do, step by step
-[Examples / Few-shot pairs]   ← Show, don't tell
-[Input data]                  ← The actual content to process
-[Output format specification] ← Exactly what the response should look like
-```
+Use this structure by default:
 
-**Step 4 — Test on at least 3 inputs.**
-
-- One happy-path input (typical case)
-- One edge case (unusual or boundary input)
-- One adversarial input (malformed, ambiguous, or tricky)
-
-If accuracy < 90% on your test set, return to Step 2 and move up one level.
-
-### Workflow 2: Optimize an Existing Prompt
-
-1. **Measure baseline** — Run the current prompt on 10+ diverse inputs. Record accuracy, consistency, format compliance, and token usage.
-2. **Identify failure modes** — Categorize failures: wrong format? Wrong content? Hallucination? Inconsistency? Too verbose?
-3. **Apply targeted fixes** — Change one variable at a time:
-
-| Failure | Fix |
-|---------|-----|
-| Wrong output format | Add a concrete output example at the end |
-| Inconsistent answers | Add 2-3 few-shot examples showing expected reasoning |
-| Hallucination | Add "If unsure, say 'I don't know'" + constrain the answer domain |
-| Too verbose | Add explicit word/sentence limit + "Be concise" instruction |
-| Misses edge cases | Add an edge-case few-shot example |
-| Ignores instructions | Move critical instructions to the beginning and end (primacy + recency) |
-| Low reasoning quality | Add step-by-step reasoning scaffold (see Advanced Reasoning reference) |
-
-4. **Re-test** — Run the same test set. Keep changes that improve metrics; revert those that don't.
-5. **Document** — Record what changed, why, and the measured impact. Treat prompts as code.
-
-### Workflow 3: Design a System Prompt for an Agent
-
-System prompts are behavioral specifications — they define who the agent is and how it operates across all interactions.
-
-**Framework — Four layers, in order of priority:**
-
-```
-Layer 1: Identity & Constraints
-  → Role, expertise boundaries, what the agent must never do
-
-Layer 2: Behavioral Guidelines
-  → Communication style, error handling, uncertainty protocols
-
-Layer 3: Task-Specific Instructions
-  → Current domain knowledge, workflows, output formats
-
-Layer 4: Safety & Guardrails
-  → Content policies, injection resistance, escalation rules
+```text
+[Role or system context]
+[Task instructions]
+[Examples, if needed]
+[Input data]
+[Output format]
 ```
 
-**Calibrate freedom level based on task fragility:**
+Keep model-specific features explicit and removable. Do not bury XML tags,
+prefilling tricks, or vendor-specific schema APIs inside a supposedly
+model-agnostic prompt.
 
-| Freedom | When | Prompt style |
-|---------|------|-------------|
-| **High** | Multiple valid approaches; context-dependent decisions | Text guidelines, heuristics, principles |
-| **Medium** | Preferred pattern exists; some variation acceptable | Pseudocode or templates with parameters |
-| **Low** | Fragile operations; consistency critical; specific sequence required | Exact scripts, no parameters, "run exactly this" |
+### Workflow 3: Evaluate On Real Work
 
-**Example — High freedom:**
-```
-Analyze the code for potential issues. Consider correctness, security,
-performance, and maintainability. Prioritize based on severity.
-```
+Treat prompt changes like code changes:
 
-**Example — Low freedom:**
-```
-Run exactly: python scripts/migrate.py --verify --backup
-Do not modify the command or add flags.
-```
+1. Record a baseline on representative inputs
+2. Change one variable at a time when possible
+3. Re-run the same cases on the revised prompt
+4. Compare:
+   - task accuracy or usefulness
+   - format compliance
+   - consistency across repeated runs
+   - latency and token cost
+5. Keep notes on what changed, why, and what improved
 
----
+If the task involves model migration, re-test on the target model directly. Do
+not assume prompt portability just because two models are both strong.
 
-## Essential Techniques
+### Workflow 4: Productionize And Harden
 
-### 1. Few-Shot Learning
+When the prompt is headed toward repeated or user-facing use:
 
-Teach by showing examples instead of explaining rules. The model generalizes from patterns in your examples.
+- version the prompt and template variables
+- prefer API-level structure enforcement when the platform supports it
+- isolate untrusted input from instructions
+- restate critical boundaries when injection risk exists
+- validate outputs before downstream actions depend on them
+- define rollback or fallback behavior for high-impact uses
+- monitor drift, edge cases, and cost regressions over time
 
-**When to use:** You need consistent formatting, specific reasoning patterns, or handling of edge cases.
+## Technique Selection Guide
 
-**How many examples:** 2-5 is optimal. More examples improve accuracy but consume tokens. Balance based on task complexity and context budget.
+Use the lightest tool that matches the problem.
 
-**Example selection strategy:**
-- Include diverse examples that cover the problem space (not 5 similar cases)
-- Order from simple to complex for progressive learning
-- Include at least one edge case
-- Make sure examples match your actual target task (mismatched examples hurt more than no examples)
+| Need | Default move | Read next |
+| --- | --- | --- |
+| Reliable structured output | Show the exact format first; use schema enforcement when available | `references/production-patterns.md`, `references/cross-model-guide.md` |
+| Stronger analytical reasoning | Prefer model-native reasoning first; add a structured scaffold only if needed | `references/advanced-reasoning.md` |
+| Cross-model migration | Remove vendor-specific tricks, normalize delimiters, then re-test on the target model | `references/cross-model-guide.md` |
+| Injection resistance | Isolate data, repeat critical constraints, and validate outputs | `references/security-patterns.md` |
+| Multi-step pipeline | Split into a chain only when intermediate validation adds value | `references/production-patterns.md` |
 
-```
-Extract structured data from support tickets:
+## Validate And Evaluate
 
-Input: "My login doesn't work and I keep getting error 403"
-Output: {"issue": "authentication", "error_code": "403", "priority": "high"}
+This canonical package ships a lightweight eval suite under `eval/` for
+realistic prompt-work scenarios.
 
-Input: "Feature request: add dark mode to settings"
-Output: {"issue": "feature_request", "error_code": null, "priority": "low"}
+When updating the canonical skill in this repo, validate the package and eval
+fixture before projecting:
 
-Input: "App crashes when uploading files over 10MB"
-Output: {"issue": "file_upload", "error_code": null, "priority": "high"}
-
-Now process this ticket:
-Input: "{user_input}"
-Output:
-```
-
-### 2. Chain-of-Thought Reasoning
-
-Request step-by-step reasoning before the final answer. Improves accuracy on analytical tasks significantly.
-
-**When to use:** Multi-step logic, mathematical reasoning, complex analysis, or when you need to audit the model's thinking.
-
-**Modern context (2025+):** Reasoning models (Claude with extended thinking, o1/o3, Gemini with thinking) handle CoT internally. For these models, you often don't need explicit "think step by step" instructions — they reason automatically. However, providing a reasoning scaffold (structured steps to follow) still helps guide the direction of reasoning.
-
-**Zero-shot CoT** (simplest — try first):
-```
-Analyze this bug report and determine the root cause.
-Think through this step by step before giving your conclusion.
+```bash
+uv run python skills/skill-lifecycle-manager/scripts/quick_validate.py skills/prompt-engineering
+uv run python skills/skill-lifecycle-manager/scripts/validate_eval_suite.py skills/prompt-engineering/eval/eval-cases.json
 ```
 
-**Structured CoT** (when you need specific reasoning steps):
-```
-Analyze this bug report:
+For behavioral review, run the cases in `eval/eval-cases.json` as realistic
+tasks and check whether the response:
 
-1. What is the expected behavior?
-2. What is the actual behavior?
-3. What changed recently that could cause this?
-4. What components are involved?
-5. What is the most likely root cause?
+- defines success before rewriting
+- proposes the smallest effective prompt change
+- calibrates advice to the target model or runtime
+- includes a concrete validation plan
+- treats safety and output control explicitly when risk is present
 
-Bug: "{bug_report}"
-```
+## Projection And Install Notes
 
-**CoT with self-verification** (when accuracy is critical):
-```
-Solve this problem step by step.
+Treat `skills/prompt-engineering/` as the canonical package. Generate runtime
+surfaces from it rather than hand-editing copies:
 
-After reaching your answer, verify it by:
-- Checking it against the original requirements
-- Testing with a simple example
-- Looking for logical errors in your reasoning
-
-If verification fails, revise before responding.
+```bash
+uv run python skills/skill-lifecycle-manager/scripts/project_skill.py skills/prompt-engineering --platform all
+uv run python skills/skill-lifecycle-manager/scripts/validate_projection.py skills/prompt-engineering --platform all
 ```
 
-### 3. Structured Output
-
-Enforce output schemas for reliable parsing and downstream processing.
-
-**When to use:** API responses, data pipelines, tool calling, or any case where you need machine-readable output.
-
-**Technique 1 — JSON schema in prompt:**
-```
-Analyze the sentiment. Respond with JSON only, no other text:
-{
-  "sentiment": "positive" | "negative" | "neutral",
-  "confidence": 0.0-1.0,
-  "key_phrases": ["phrase1", "phrase2"],
-  "reasoning": "brief explanation"
-}
-```
-
-**Technique 2 — Output prefilling** (Claude-specific):
-Start the assistant response with the opening brace to anchor JSON output:
-```python
-response = client.messages.create(
-    model="claude-sonnet-4-6",
-    messages=[
-        {"role": "user", "content": "Analyze: " + text},
-        {"role": "assistant", "content": "{"}  # Prefill
-    ]
-)
-```
-
-**Technique 3 — API-level enforcement:**
-Use structured output features when available: Claude's tool use, OpenAI's `response_format`, or Gemini's schema parameter. These are more reliable than prompt-only approaches.
-
-### 4. Template Systems
-
-Build reusable prompt structures with variables and conditional sections.
-
-```python
-# Reusable template with clear variable slots
-REVIEW_TEMPLATE = """You are a senior {role} reviewing {artifact_type}.
-
-Context:
-{context}
-
-Review for:
-{criteria}
-
-For each issue found, provide:
-- Location (line number or section)
-- Issue description
-- Severity (critical / warning / suggestion)
-- Recommended fix
-
-{artifact_type}:
-{content}"""
-
-# Usage
-prompt = REVIEW_TEMPLATE.format(
-    role="security engineer",
-    artifact_type="API endpoint code",
-    context="This handles user authentication for a banking app",
-    criteria="1. SQL injection\n2. Auth bypass\n3. Data exposure",
-    content=code
-)
-```
-
-### 5. Prompt Chains
-
-Break complex tasks into sequential prompts where each step's output feeds the next.
-
-**When to use:** Tasks too complex for a single prompt, or where intermediate validation is needed.
-
-```
-Step 1: Extract    → "Extract all entities from this document"
-Step 2: Classify   → "Classify these entities: {step1_output}"
-Step 3: Relate     → "Identify relationships between: {step2_output}"
-Step 4: Synthesize → "Generate a knowledge graph summary from: {step3_output}"
-```
-
-Each step can use a different model, different temperature, or include validation before proceeding.
-
-### 6. Role & Persona Design
-
-Establish expertise and behavioral boundaries through role definition.
-
-**Effective role prompt anatomy:**
-```
-You are a [specific role] with expertise in [specific domains].
-
-Your responsibilities:
-- [What you do]
-- [How you approach problems]
-
-Your constraints:
-- [What you don't do]
-- [When to escalate or defer]
-
-Communication style:
-- [Tone and format preferences]
-```
-
-Avoid vague roles ("You are a helpful assistant"). The more specific the role, the more consistent the behavior.
-
----
-
-## Context Engineering Principles
-
-Modern prompt engineering extends beyond the prompt itself to the entire context window. Think of the context window as RAM — every token competes for the model's attention.
-
-### Principle 1: Minimize context, maximize signal
-
-Every piece of information in the context should earn its place. Challenge each section:
-- Does the model need this to do the task?
-- Can I assume the model already knows this?
-- Does this paragraph justify its token cost?
-
-### Principle 2: Position matters
-
-Models attend more to the beginning and end of context (primacy and recency effects). Place critical instructions at the top and reinforce them at the bottom. Put large data blocks in the middle.
-
-### Principle 3: Progressive disclosure for agents
-
-Don't load everything upfront. Use a three-tier pattern:
-- **Discovery** (~80 tokens): Names and descriptions only
-- **Activation**: Full instructions load when relevant
-- **Execution**: Scripts and reference materials load only during task completion
-
-### Principle 4: Compress history
-
-For multi-turn conversations, summarize older context rather than keeping the full transcript. Keep the last 3-5 exchanges verbatim; summarize everything before that.
-
----
-
-## Quality Gates
-
-Before shipping a prompt to production, verify:
-
-- [ ] Accuracy > 90% on 10+ diverse test cases
-- [ ] < 5% variance across 3+ repeated runs
-- [ ] All edge cases handled gracefully
-- [ ] Output format matches spec on every test case
-- [ ] Token usage within budget
-- [ ] No prompt injection vulnerabilities (see `references/security-patterns.md`)
-- [ ] Tested on target model(s) — behavior varies across models
-
----
+`projection.json` excludes author-only evaluation artifacts from runtime
+projections so Codex and Claude Code only receive the execution-relevant
+package.
 
 ## Best Practices
 
-1. **Start simple** — Try the simplest prompt first. Add complexity only when measurements show it's needed.
-2. **Show, don't tell** — Examples are more effective than descriptions. One good example beats a paragraph of instructions.
-3. **Be specific** — "Summarize in 3 bullet points, each under 20 words" beats "write a short summary."
-4. **Explain the why** — When giving constraints, explain the reason. Models with good theory of mind respond better to motivated instructions than rigid MUST/NEVER directives.
-5. **One variable at a time** — When optimizing, change one thing, measure, decide. Changing multiple things makes results unattributable.
-6. **Test on the target model** — Prompts that work on Claude may fail on GPT and vice versa. See `references/cross-model-guide.md`.
-7. **Version your prompts** — Track prompt changes with the same discipline as code changes.
-8. **Document intent** — Future you (or your team) needs to know why the prompt is structured this way.
+1. Start with the smallest prompt change that could fix the failure.
+2. Measure on representative inputs before and after edits.
+3. Keep model-specific tricks explicit and easy to remove.
+4. Prefer API-level structure enforcement over prompt-only formatting when the
+   platform supports it.
+5. Treat prompts as versioned artifacts, not disposable chat snippets.
 
 ## Common Pitfalls
 
 | Pitfall | Why it hurts | Fix |
-|---------|-------------|-----|
-| Over-engineering | Wastes tokens, adds ambiguity | Start at L1, escalate only on failure |
-| Vague instructions | Multiple valid interpretations | Add format examples, explicit constraints |
-| Example pollution | Examples don't match target task | Curate examples that represent real inputs |
-| Context overflow | Important instructions get lost | Compress, summarize, use progressive disclosure |
-| No error handling | Silently produces wrong output | Add confidence scores, fallback behaviors |
-| Ignoring model differences | What works on Claude may fail on GPT | Test cross-model, use the reference guide |
-| ALL-CAPS directives | Can overtrigger models, reduce quality | Explain the reasoning; reserve emphasis for true safety constraints |
-| Assuming longer = better | Extra detail adds noise after ~300 words of instruction | Be concise; token cost compounds over thousands of calls |
+| --- | --- | --- |
+| Jumping to exotic techniques too early | Complexity hides the real failure mode | Define success and start at the lowest effective level |
+| Shipping without negative cases | Edge failures appear only in production | Test happy-path, edge, and adversarial inputs |
+| Assuming prompt portability | Vendor behaviors diverge in subtle ways | Re-test on the target model and remove model-specific tricks |
+| Mixing trusted instructions with untrusted data | Injection risk rises sharply | Delimit, isolate, and restate boundaries |
+| Changing many variables at once | You cannot tell what improved | Run one targeted fix at a time where practical |

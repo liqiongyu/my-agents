@@ -143,6 +143,64 @@ class SkillAuditAndValidateTests(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertEqual(warnings, [])
 
+    def test_validate_skill_accepts_alternate_negative_boundary_heading(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp) / "repo"
+            skill_dir = repo_root / "skills" / "activate-skill"
+            write_text(repo_root / "categories.json", '{"categories": ["workflow"]}\n')
+            write_text(
+                skill_dir / "skill.json",
+                textwrap.dedent(
+                    """\
+                    {
+                      "name": "activate-skill",
+                      "description": "Use this skill when you need activation-boundary guidance for a workflow request.",
+                      "version": "1.0.0",
+                      "categories": ["workflow"]
+                    }
+                    """
+                ),
+            )
+            write_text(
+                skill_dir / "SKILL.md",
+                textwrap.dedent(
+                    """\
+                    ---
+                    name: activate-skill
+                    description: >
+                      Use this skill when you need activation-boundary guidance for a workflow request.
+                    ---
+
+                    # Activate Skill
+
+                    This fixture verifies that alternate negative-boundary headings still count as valid.
+
+                    ## When NOT to Activate
+
+                    Do not activate this for unrelated code work.
+                    """
+                )
+                + ("Extra filler to clear the minimum length. " * 8),
+            )
+            write_text(
+                skill_dir / "CHANGELOG.md",
+                textwrap.dedent(
+                    """\
+                    # Changelog
+
+                    ## [1.0.0] - 2026-03-28
+
+                    ### Added
+                    - Initial release.
+                    """
+                ),
+            )
+
+            errors, warnings = quick_validate.validate_skill(skill_dir)
+
+            self.assertEqual(errors, [])
+            self.assertEqual(warnings, [])
+
     def test_audit_inventory_reports_trigger_and_projection_findings(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo_root = Path(tmp) / "repo"
@@ -211,6 +269,69 @@ class SkillAuditAndValidateTests(unittest.TestCase):
             self.assertIn("Boundary clarity", dimensions)
             self.assertGreater(report["summary"]["mediumCount"], 0)
             self.assertEqual(report["summary"]["duplicateNameCount"], 0)
+
+    def test_audit_inventory_accepts_alternate_negative_boundary_heading(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp) / "repo"
+            skills_root = repo_root / "skills"
+            skill_dir = skills_root / "activate-skill"
+            write_text(repo_root / "categories.json", '{"categories": ["workflow"]}\n')
+            write_text(
+                skill_dir / "skill.json",
+                textwrap.dedent(
+                    """\
+                    {
+                      "name": "activate-skill",
+                      "description": "Use this skill when you need activation-boundary guidance for a workflow request.",
+                      "version": "1.0.0",
+                      "categories": ["workflow"]
+                    }
+                    """
+                ),
+            )
+            write_text(
+                skill_dir / "SKILL.md",
+                textwrap.dedent(
+                    """\
+                    ---
+                    name: activate-skill
+                    description: Use this skill when you need activation-boundary guidance for a workflow request.
+                    ---
+
+                    # Activate Skill
+
+                    This fixture includes a valid negative boundary heading using activation wording.
+
+                    ## When NOT to Activate
+
+                    Do not activate this for unrelated code work.
+
+                    ## Workflow
+
+                    Validate before use.
+                    """
+                )
+                + ("Extra filler to clear the minimum length. " * 8),
+            )
+            write_text(
+                skill_dir / "CHANGELOG.md",
+                textwrap.dedent(
+                    """\
+                    # Changelog
+
+                    ## [1.0.0] - 2026-03-28
+
+                    ### Added
+                    - Initial release.
+                    """
+                ),
+            )
+
+            report = audit_skill_inventory.audit_inventory(skills_root)
+            findings = report["skills"][0]["findings"]
+            dimensions = {finding["dimension"] for finding in findings}
+
+            self.assertNotIn("Boundary clarity", dimensions)
 
 
 if __name__ == "__main__":

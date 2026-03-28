@@ -1,0 +1,157 @@
+{
+  "version": "0.1.2",
+  "skill": "git-worktree-workflows",
+  "description": "Evaluation suite for the git-worktree-workflows skill. The suite tests whether the skill chooses the right worktree route, uses official command semantics, keeps destructive operations safety-gated, avoids overfitting repo-specific bootstrap habits, and ends with a clear next step.",
+  "assertions": [
+    "route_selection_correct",
+    "official_command_model_used",
+    "destructive_safety_explicit",
+    "repo_specific_bootstrap_not_assumed",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "route_selection_correct": "The response chooses the smallest correct route, such as decide, create, inspect, cleanup, or repair, rather than dumping every worktree command at once.",
+    "official_command_model_used": "The response uses or recommends the correct official git-worktree command family for the scenario and distinguishes key commands such as remove, prune, lock, move, and repair.",
+    "destructive_safety_explicit": "When cleanup or forceful operations are in play, the response inspects state first and warns clearly before suggesting risky actions.",
+    "repo_specific_bootstrap_not_assumed": "The response does not present copying `.env`, linking `.venv`, installing dependencies, or trusting dev tools as universal worktree behavior unless the prompt explicitly makes those repo conventions part of the task.",
+    "next_step_explicit": "The response ends with a concrete next step, such as entering the worktree, checking status, pruning stale metadata, or choosing a simpler alternative."
+  },
+  "cases": [
+    {
+      "id": "eval-1",
+      "name": "Use a worktree for a hotfix while feature work is in progress",
+      "description": "Tests the decide-plus-create path for a high-value worktree scenario.",
+      "prompt": "I have uncommitted feature work in my current checkout, but I need to patch a production issue from main right now. Should I use git worktree here? If yes, show the safest workflow.",
+      "mode": "standard",
+      "expected_stages": [
+        "Decide",
+        "Create"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should clearly say a worktree is appropriate and then provide a focused creation workflow."
+        },
+        "official_command_model_used": {
+          "check": "The creation flow should use `git worktree add -b <branch> <path> <start-point>` or an equivalent official pattern."
+        },
+        "repo_specific_bootstrap_not_assumed": {
+          "check": "The response should not automatically add `.env` copying, dependency installation, or trust-tool steps unless the repo explicitly requires them."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next obvious step, such as `cd` into the new worktree and continue the hotfix."
+        }
+      }
+    },
+    {
+      "id": "eval-2",
+      "name": "Resolve branch already checked out elsewhere",
+      "description": "Tests the inspect path and the safest escalation order for the most common worktree error.",
+      "prompt": "I tried to add a worktree for `feature/auth`, but Git says that branch is already checked out in another worktree. What should I do?",
+      "mode": "standard",
+      "expected_stages": [
+        "Inspect",
+        "Create"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should inspect first, then recommend using the existing worktree, a derived branch, or detached HEAD before riskier overrides."
+        },
+        "official_command_model_used": {
+          "check": "The answer should use `git worktree list --porcelain` or equivalent inspection before proposing a solution."
+        },
+        "destructive_safety_explicit": {
+          "check": "Risky overrides such as `--ignore-other-worktrees` should be framed as last resort with explicit confirmation."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next step, such as locating the existing worktree or creating a derived branch."
+        }
+      }
+    },
+    {
+      "id": "eval-3",
+      "name": "Clean up stale metadata after manual deletion",
+      "description": "Tests whether the skill distinguishes remove from prune and gates destructive cleanup.",
+      "prompt": "I already deleted one of my worktree folders with Finder. Git still shows it in `git worktree list`. How do I clean this up safely?",
+      "mode": "standard",
+      "expected_stages": [
+        "Cleanup"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should stay in cleanup mode rather than re-explaining creation or compare workflows."
+        },
+        "official_command_model_used": {
+          "check": "The answer should recommend `git worktree prune --dry-run` and then `git worktree prune`, not `git worktree remove` on a missing path."
+        },
+        "destructive_safety_explicit": {
+          "check": "The response should inspect current state and warn before any forceful cleanup."
+        },
+        "next_step_explicit": {
+          "check": "Ends with a follow-up such as re-running `git worktree list` to confirm cleanup."
+        }
+      }
+    },
+    {
+      "id": "eval-4",
+      "name": "Reject worktree overhead for a tiny clean fix",
+      "description": "Tests the negative boundary and whether the skill can say no when a worktree adds more complexity than value.",
+      "prompt": "My repo is clean and I just need to tweak one typo on the current branch. Should I make a new worktree first?",
+      "mode": "standard",
+      "expected_stages": [
+        "Decide"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should recommend a simpler path and explain why a worktree is unnecessary here."
+        },
+        "repo_specific_bootstrap_not_assumed": {
+          "check": "The answer should not force creation or attach unrelated setup steps."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the simpler next step, such as continuing on the current checkout."
+        }
+      }
+    },
+    {
+      "id": "eval-5",
+      "name": "Compare two implementations and selectively keep one file",
+      "description": "Tests the compare-and-merge route without collapsing into a full branch merge.",
+      "prompt": "I have two worktrees with different implementations of the same module. I want to compare them side by side and keep only one file from the other branch. What's the cleanest workflow?",
+      "mode": "standard",
+      "expected_stages": [
+        "Compare / Merge"
+      ],
+      "assertions": {
+        "route_selection_correct": {
+          "check": "The response should focus on compare and selective adoption rather than broad merge advice."
+        },
+        "official_command_model_used": {
+          "check": "The answer should recommend diff plus `git restore --source=...` or equivalent selective checkout/cherry-pick patterns."
+        },
+        "repo_specific_bootstrap_not_assumed": {
+          "check": "The response should stay on compare-and-merge mechanics and not drift into unrelated worktree bootstrap steps."
+        },
+        "next_step_explicit": {
+          "check": "Ends with the next step, such as reviewing the restored file and committing the selected change."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "A case passes if it scores at least 75 percent of the applicable assertion points. The suite passes if every case passes individually."
+  },
+  "runner_instructions": {
+    "setup": "Install or project the skill to the target surface, or keep the canonical package directly available for evaluation.",
+    "execution": "Run each prompt in a session where the skill is discoverable. Capture the chosen route and any command guidance.",
+    "evaluation": "Score route choice, command correctness, destructive-safety handling, and whether repo-specific bootstrap habits stayed separate from generic worktree behavior.",
+    "environment": "Filesystem write access is useful for realistic create/cleanup checks. Network access is optional unless the prompt explicitly involves remote branch discovery."
+  }
+}

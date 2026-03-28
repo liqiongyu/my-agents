@@ -1,11 +1,34 @@
 ---
 name: business-plan
-description: "ALWAYS use this skill for ANY business planning, financial analysis, market analysis, pitch deck, strategic review, or valuation task — it contains specialized frameworks, output templates, quality checklists, China/US fundraising guidance, and AI-industry-specific analysis that are NOT available in your base knowledge. Activate whenever the user: writes or updates a business plan; needs financial analysis, P&L review, unit economics, or cash flow modeling; asks about market size (TAM/SAM/SOM) or competitive landscape; creates a pitch deck or investor presentation; requests a SWOT analysis, strategic review, or competitive positioning; needs a valuation estimate; discusses revenue models, pricing strategy, or go-to-market plans; describes a business idea and wants to evaluate feasibility; mentions fundraising, investors, or preparing to raise capital; asks about business model design or wants to structure commercial thinking. This skill is essential even for seemingly straightforward business requests because it provides structured workflows with investor-grade output formats, AI/Agent startup-specific cost modeling and moat frameworks, and China-market fundraising guidance (VIE structures, 赛道叙事, regulatory compliance) that you cannot reliably produce from memory alone. Covers solopreneurs through enterprises, idea stage through mature businesses. When in doubt about whether to use this skill for a business-related request, USE IT."
+description: "Use this skill for substantial business planning work: drafting or revising a business plan, investor-ready financial analysis, market sizing, pitch deck narrative, strategic review, or business valuation. It is especially useful when the user needs structured commercial thinking, investor-grade outputs, China fundraising context, or AI/agent business analysis. Prefer this skill when the main deliverable is a business analysis or plan, not open-ended idea exploration, general current-events research, or final file production in slides, docs, or spreadsheets."
 ---
 
 # Business Plan
 
 A comprehensive business strategy skill that adapts to your stage, scale, and specific need — whether that is a full business plan, financial deep-dive, market sizing, pitch deck, strategic review, or valuation.
+
+## Invocation Posture
+
+This skill is `hybrid`.
+
+- Trigger confidently for explicit business-planning requests and high-confidence asks for structured business analysis.
+- Stay out of scope when the user is still deciding what business to pursue, primarily needs fresh cited research, or mainly wants a `.pptx`, `.docx`, or `.xlsx` file produced.
+
+## When Not To Use
+
+Do not use this skill when:
+
+- The user is still exploring or comparing business directions and has not chosen a path yet; use `brainstorming` first.
+- The main request is current market, competitor, fundraising, or regulatory research with fresh citations; use `deep-research` first, then use this skill to turn the findings into a plan.
+- The primary deliverable is a final `.pptx`, `.docx`, or `.xlsx` artifact; use `pptx`, `docx`, or `xlsx` after the business content is defined here.
+- The request is really for legal, tax, accounting, or investment advice that requires licensed professional judgment.
+
+## Adjacent Skill Routing
+
+- **`brainstorming` first** for open-ended business ideation, comparing opportunities, or deciding whether an idea is worth pursuing.
+- **`deep-research` first** for time-sensitive market sizing, competitor tracking, funding landscape, or regulatory research that needs direct sources and dates.
+- **`pptx` / `docx` / `xlsx` after this skill** when the final output must be a presentation, document, or spreadsheet file.
+- **Execution workflows after this skill** when the business direction is chosen and the user wants implementation rather than planning.
 
 ## Workflow Routing
 
@@ -21,6 +44,7 @@ Detect the user's intent and route to the appropriate workflow. If unclear, ask.
 | **Valuation** | "value the company", "valuation", "what's it worth", "how much is my business worth" | `references/valuation.md` |
 
 When the request spans multiple workflows (e.g., "business plan with detailed financials and a pitch deck"), execute them in logical sequence — plan first, then specialized outputs.
+If the request spans adjacent skills too, run the least surprising sequence: `deep-research` -> `business-plan` -> `pptx` / `docx` / `xlsx` when needed.
 
 ### Context-Specific References
 
@@ -32,18 +56,19 @@ These references layer on top of any workflow when the context applies. Read the
 | **AI/Agent Industry** | User is building an AI or Agent business | `references/ai-agent-industry.md` |
 | **Modern Frameworks** | Lean Canvas, Value Proposition Canvas, Blue Ocean tools, OKR planning, JTBD | `references/frameworks.md` |
 
-## Platform Compatibility
+## Interaction Model
 
-Use whatever interactive question tool the platform provides:
-
-| Platform | Question tool |
-|----------|--------------|
-| Claude Code | `AskUserQuestion` |
-| Codex | `request_user_input` |
-| Gemini | `ask_user` |
-| Other / Claude.ai | Present numbered options in chat and wait for the user's reply |
+Use the platform's standard interactive question mechanism when follow-up input is needed. Keep the canonical skill platform-neutral; projections can map this behavior to the surface-specific question tool.
 
 **Language**: Respond in the same language the user uses. All user-facing output follows the user's language. Skill internals are English.
+
+## Evidence And Freshness
+
+The reference files in this skill provide durable frameworks, checklists, and output structures. They do **not** replace current evidence.
+
+- For market size, growth rates, benchmarks, competitor status, pricing, funding climate, regulatory requirements, and valuation multiples, verify current facts with up-to-date sources and include dates.
+- If the user asks for a fast draft without research, clearly label stale or unverified numbers as assumptions rather than facts.
+- Treat legal, securities, tax, and compliance content as business guidance only. Explain business implications, but recommend professional review for definitive decisions.
 
 ## Core Process
 
@@ -91,6 +116,7 @@ Ask targeted questions to fill gaps. Do not dump a questionnaire — adapt quest
 - For quick/focused requests (market sizing, specific financial question): batch 2-3 questions, get answers, deliver.
 - For comprehensive work (full business plan, strategic review): one question at a time, build understanding incrementally.
 - When the user provides a document, data, or existing plan: analyze what exists before asking questions. Focus on gaps.
+- When the answer depends on current external facts: verify the facts first or make the uncertainty explicit before you build a polished narrative on top of them.
 
 ### Step 3: Analyze and Generate
 
@@ -106,15 +132,21 @@ Read the relevant reference file and follow its specific structure and guidance.
 
 **Challenge assumptions.** Before generating output, consider: Is this the right problem? What happens if we do nothing? Is there a simpler approach? Are we solving for the confirmed need or hypothetical future needs?
 
+**Use fresh evidence for time-sensitive claims.** Current market share, regulatory posture, investor sentiment, funding comparables, pricing, and valuation ranges should be sourced, dated, and framed with an appropriate confidence level.
+
+**Keep business guidance separate from professional advice.** You can explain the business impact of a VIE structure, fundraising path, or compliance burden, but do not present legal or tax conclusions as definitive.
+
 ### Step 4: Quality Check
 
 Before delivering output, verify against the workflow-specific quality checklist in the reference file. Universal checks:
 
 - [ ] Executive summary stands alone — someone reading only it understands the whole picture
 - [ ] All claims backed by data, logic, or clearly marked as assumptions
+- [ ] Time-sensitive claims are sourced and dated
 - [ ] Financial projections are internally consistent and show the math
 - [ ] Competitive analysis is honest — acknowledges competitor strengths
 - [ ] Risks identified with specific mitigations
+- [ ] Legal, regulatory, and fundraising guidance is framed with appropriate caveats
 - [ ] Output matches the stated purpose (investor deck ≠ personal planning doc)
 
 ### Step 5: Deliver and Advise
@@ -123,6 +155,7 @@ Deliver the output in the requested format. Then provide practical next-step adv
 
 - What to validate first (highest-risk assumptions)
 - What data to gather to strengthen weak sections
+- Which current facts still need verification or fresher sourcing
 - When to update the plan (monthly for first 6 months, quarterly after)
 - Who to share it with for feedback
 
@@ -137,6 +170,8 @@ The same underlying analysis can be delivered in multiple formats. Ask which for
 | **Executive One-Pager** | Quick pitch, board summary, partner intro | 1 page |
 | **Pitch Deck Outline** | Fundraising preparation | 12-15 slides outlined |
 | **Canvas View** | Visual strategy mapping (BMC, Lean Canvas, VPC) | Single-page canvas |
+
+If the user asks for the actual `.pptx`, `.docx`, or `.xlsx`, finish the business reasoning and outline here first, then hand off final file production to the artifact-specific skill.
 
 ## Common Mistakes to Avoid
 
@@ -160,7 +195,7 @@ For users creating a living business plan (not a one-time document):
 
 ## Reference Files
 
-Each workflow has a dedicated reference file with detailed structure, frameworks, output templates, and quality checklists. Read the relevant file before generating output.
+Each workflow has a dedicated reference file with detailed structure, frameworks, output templates, and quality checklists. Read the relevant file before generating output, but treat those references as reusable frameworks rather than authoritative current facts.
 
 | File | Contents |
 |------|----------|

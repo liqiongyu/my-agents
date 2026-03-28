@@ -5,6 +5,31 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-03-28
+
+### Changed
+- Tightened the frontmatter trigger and package description to reinforce a `manual-first` posture and distinguish deep research from ordinary browse-and-answer work.
+- Clarified that `Quick` mode is still a multi-source research pass, not a catch-all for simple factual lookups.
+- Added effort guardrails and conservative parallelism guidance so the workflow has clearer stop and escalation conditions.
+
+### Added
+- Explicit `When Not To Use` guidance in `SKILL.md` so negative boundaries are visible to both readers and validators.
+
+### Fixed
+- Eval scoring metadata now uses the preferred strategy fields instead of legacy max-score keys.
+
+## [0.4.0] - 2026-03-27
+
+### Changed
+- **Invocation posture**: explicitly `manual-first`; frontmatter description shortened and proactive-activation clause removed to prevent over-triggering on content generation tasks.
+- **Frontmatter description**: rewritten to be boundary-heavy with explicit negative cases (quick factual questions, coding tasks, uninstructed pre-generation research).
+
+### Added
+- `projection.json`: excludes `eval/` and `CHANGELOG.md` from runtime projections.
+
+### Fixed
+- Eval iteration outputs (`output_*.md`) moved from `skills/deep-research/eval/` to `workspaces/deep-research/iteration-1/` per repo convention.
+
 ## [0.3.0] - 2026-03-17
 
 ### Added

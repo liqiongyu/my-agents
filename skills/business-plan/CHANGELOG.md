@@ -5,6 +5,20 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-28
+
+### Changed
+- Tightened the trigger posture from an effectively auto-first description to a conservative hybrid boundary.
+- Added explicit `When Not To Use` guidance and adjacent-skill handoffs for `brainstorming`, `deep-research`, `pptx`, `docx`, and `xlsx`.
+- Reframed platform guidance to keep the canonical core platform-neutral instead of naming surface-specific question APIs.
+- Added explicit freshness and sourcing rules for time-sensitive market, funding, regulatory, and valuation claims.
+
+### Added
+- `projection.json` so runtime projections can exclude author-only eval files and the changelog.
+- `eval/README.md` documenting the full-workflow and trigger-posture eval fixtures.
+- `eval/trigger-posture-cases.json` to test hybrid routing boundaries and adjacent-skill handoffs.
+- A stronger universal quality checklist covering sourced dates and caveated legal / regulatory guidance.
+
 ## [1.0.1] - 2026-03-26
 
 ### Changed

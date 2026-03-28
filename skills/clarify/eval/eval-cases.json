@@ -1,0 +1,108 @@
+{
+  "version": "0.1.0",
+  "skill": "clarify",
+  "description": "Evaluation suite for the clarify skill. The suite checks whether clarify stays within its hybrid trigger posture, asks only material questions, prefers evidence before questions, and hands off open-ended direction work to brainstorming.",
+  "assertions": [
+    "evidence_before_questions",
+    "hypothesis_driven_options",
+    "minimal_clarification",
+    "contradiction_prioritized",
+    "respects_execution_boundary",
+    "routes_to_brainstorming",
+    "documents_assumptions"
+  ],
+  "assertion_definitions": {
+    "evidence_before_questions": "The response checks codebase/context evidence or explicitly states what evidence should be gathered before asking the user to decide.",
+    "hypothesis_driven_options": "When a question is necessary, the response offers concrete options with a recommendation instead of an open-ended request for the user to design the answer.",
+    "minimal_clarification": "The response limits itself to only the ambiguities that would materially change implementation rather than creating a broad questionnaire.",
+    "contradiction_prioritized": "When the request includes conflicting goals, the response surfaces that contradiction before discussing downstream implementation details.",
+    "respects_execution_boundary": "For already-specific or explicit-proceed requests, the response avoids unnecessary clarification ceremony and either proceeds or documents minimal assumptions.",
+    "routes_to_brainstorming": "Open-ended direction-finding is recognized as a brainstorming problem, not a clarification problem.",
+    "documents_assumptions": "In non-interactive or proceed-with-assumptions cases, the response records explicit assumptions or review markers instead of repeatedly asking questions."
+  },
+  "cases": [
+    {
+      "id": "clarify-explicit-spec-request",
+      "name": "Explicit request to clarify feature scope",
+      "prompt": "Before you build this, clarify the scope for adding role-based access control to our admin API. We already use JWTs, but I haven't decided whether roles should live in tokens or the database.",
+      "assertions": {
+        "evidence_before_questions": {
+          "check": "The response should first inspect the existing auth setup or explicitly say it would inspect it before asking about role storage."
+        },
+        "hypothesis_driven_options": {
+          "check": "Any question should offer concrete alternatives such as token claims vs database lookup, with a recommendation."
+        },
+        "minimal_clarification": {
+          "check": "The response should focus on the 1-2 decisions that materially change implementation, not ask about unrelated auth details."
+        }
+      }
+    },
+    {
+      "id": "clarify-contradictory-refactor",
+      "name": "Contradictory implementation request",
+      "prompt": "Refactor our payments API to a cleaner v2 design, but keep full backward compatibility and do not add any compatibility layer.",
+      "assertions": {
+        "contradiction_prioritized": {
+          "check": "The response should identify the conflict between redesigning and avoiding any compatibility layer before discussing file changes."
+        },
+        "hypothesis_driven_options": {
+          "check": "The response should propose concrete ways to resolve the contradiction, such as versioned endpoints or a narrower refactor."
+        },
+        "minimal_clarification": {
+          "check": "The response should stay focused on resolving the contradiction rather than broad implementation planning."
+        }
+      }
+    },
+    {
+      "id": "clarify-brainstorming-near-miss",
+      "name": "Open-ended direction finding should route away",
+      "prompt": "Help me think through whether we should turn this internal tool into a SaaS product.",
+      "assertions": {
+        "routes_to_brainstorming": {
+          "check": "The response should identify this as open-ended option exploration and hand off to brainstorming instead of running a clarification flow."
+        },
+        "respects_execution_boundary": {
+          "check": "The response should avoid acting like there is an implementation-ready request to disambiguate."
+        }
+      }
+    },
+    {
+      "id": "clarify-specific-bugfix-no-trigger",
+      "name": "Specific actionable bugfix should not trigger",
+      "prompt": "Add a null check in auth.ts so login stops crashing when displayName is missing.",
+      "assertions": {
+        "respects_execution_boundary": {
+          "check": "The response should treat this as already actionable and should not launch a clarification ceremony."
+        }
+      }
+    },
+    {
+      "id": "clarify-proceed-with-assumptions",
+      "name": "Proceed without waiting, but document assumptions",
+      "prompt": "Don't ask me more questions. Pick the safest default for CSV import conflict handling and proceed, but note any assumptions you make.",
+      "assertions": {
+        "documents_assumptions": {
+          "check": "The response should choose a conservative default and record assumptions or review markers."
+        },
+        "respects_execution_boundary": {
+          "check": "The response should not keep asking questions after the user explicitly said to proceed."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  },
+  "runner_instructions": {
+    "setup": "Make the clarify skill available on the surface under test. Include neighboring skills such as brainstorming when testing routing boundaries.",
+    "execution": "Run each case as a real user request. Capture the response text and any clarification summary or assumptions log that is produced.",
+    "evaluation": "Score only the listed assertions for each case. Pay extra attention to whether the response confuses implementation clarification with broader option exploration."
+  }
+}

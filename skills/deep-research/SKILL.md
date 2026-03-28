@@ -1,7 +1,7 @@
 ---
 name: deep-research
-description: This skill should be used when the user asks to "research a topic", "deep dive into X", "investigate Y", "what is the current state of Z", "compare X and Y", "analyze the market for X", or needs comprehensive multi-source research with citations. It should also be activated proactively before content generation tasks (presentations, articles, designs) that require factual grounding.
-version: 0.3.0
+description: Use when the user explicitly asks for comprehensive, citation-backed research such as a deep dive, due diligence, market analysis, or a multi-source comparison/report. Do not activate for quick factual lookups, ordinary coding tasks, or routine content generation unless the user first asks for research or source verification.
+version: 0.4.1
 ---
 
 # Deep Research
@@ -16,19 +16,46 @@ Conduct comprehensive, citation-backed web research through a systematic multi-p
 - **Pre-content research**: before creating presentations, articles, or designs requiring factual data
 - **Current events**: "what's happening with X", "latest news on Y"
 
+## When Not To Use
+
+- **Quick factual lookups**: a short answer, one-off fact check, or lightweight browse-and-answer task
+- **General coding work**: implementation, debugging, refactoring, or code review where research is not the main deliverable
+- **Routine content creation**: drafting slides, articles, or designs unless the user explicitly asks for research or source verification first
+- **Narrow latest-status requests**: a brief "what changed" or "what's the latest" answer that does not justify a full research pipeline
+
 ## Depth Modes
 
 Select a mode based on the scope and complexity of the request. Announce the selected mode and estimated effort before starting.
 
 | Mode | Min Sub-questions | Min Sources | Report Length | Use When |
 |------|-------------------|-------------|---------------|----------|
-| **Quick** | 2–3 | 5+ | 500–1,500 words | Simple factual questions, quick comparisons |
+| **Quick** | 2–3 | 5+ | 500–1,500 words | Scoped research questions or lightweight comparisons that still need multi-source verification |
 | **Standard** | 3–5 | 10+ | 2,000–5,000 words | Most research requests, topic overviews |
 | **Deep** | 5–8 | 20+ | 5,000–15,000+ words | Comprehensive analysis, due diligence, strategy |
 
 These are **minimums, not caps**. Always collect more sources when available — more evidence produces better synthesis.
+Quick mode is still a research pass. If the user only needs a brief factual answer or a single latest-status check, do not activate this skill; handle it with ordinary browsing instead.
 
 Default to **Standard** unless the request is clearly simple or explicitly comprehensive.
+
+## Effort Guardrails
+
+Start with the smallest mode that can satisfy the user's goal.
+
+Stop expanding when:
+- the user's core question is already answered well enough to support a decision
+- the selected mode's minimums are met and the most recent sources are mostly repetitive
+- remaining gaps are low impact and should be called out as limitations instead of chased indefinitely
+
+Escalate to a deeper mode only when:
+- the user explicitly asks for exhaustive or durable research output
+- the topic is high-stakes, multi-sided, or likely to be misleading without broader coverage
+- important contradictions remain unresolved after the current mode's pass
+
+Use parallel workers conservatively:
+- **Quick**: usually stay in the main session
+- **Standard**: usually 2–3 search workers are enough
+- **Deep**: expand only when extra workers materially improve coverage rather than duplicating search effort
 
 ## Tool Discovery
 
@@ -67,7 +94,7 @@ Execute multi-angle searches for each sub-question.
 **Iterative expansion:** After completing initial searches, review findings for emerging dimensions not covered by the original sub-questions (adjacent technologies, emerging trends, cross-domain implications). Add these as new sub-questions and search for them. The goal is to exceed the minimum sub-question count, not just meet it.
 
 **Parallel execution (Standard and Deep modes):**
-Launch parallel search agents via the Task or Agent tool to maximize speed and source coverage. Each agent independently searches and collects findings; the main session merges all results.
+Launch parallel search agents via the Task or Agent tool only when the added breadth justifies the extra cost and context. Each agent independently searches and collects findings; the main session merges all results.
 
 Pattern for a 5-sub-question Standard research:
 ```

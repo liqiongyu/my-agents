@@ -1,0 +1,133 @@
+{
+  "version": "0.1.0",
+  "skill": "readme-craftsman",
+  "type": "trigger-boundary",
+  "description": "Lightweight trigger-boundary suite for README Craftsman. The suite checks that explicit README authoring, update, and review requests route to the skill, while adjacent documentation tasks that do not specifically target a README stay out of scope.",
+  "assertions": [
+    "routing_verdict_correct",
+    "mode_or_boundary_correct",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response routes explicit README work to the skill and keeps adjacent non-README documentation tasks out of scope.",
+    "mode_or_boundary_correct": "For in-scope requests, the response identifies the right README mode or immediate action. For out-of-scope requests, it explains the README-specific boundary clearly.",
+    "next_step_explicit": "The response closes with a concrete next step, such as create, update, review, or a more appropriate documentation workflow."
+  },
+  "cases": [
+    {
+      "id": "trigger-create-readme",
+      "name": "Create a README from scratch",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Create",
+      "prompt": "Write a README for this repository.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is an explicit README request and should route to readme-craftsman."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should treat this as Create mode or begin the create workflow."
+        },
+        "next_step_explicit": {
+          "check": "The response should say it will analyze the repository and then draft the README."
+        }
+      }
+    },
+    {
+      "id": "trigger-update-readme",
+      "name": "Refresh a README after product changes",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Update",
+      "prompt": "We added OAuth and a new CLI flag. Refresh the README.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is an explicit README update request and should route to readme-craftsman."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should identify this as Update mode and map the new changes to affected README sections."
+        },
+        "next_step_explicit": {
+          "check": "The response should mention reviewing the existing README and proposing targeted updates."
+        }
+      }
+    },
+    {
+      "id": "trigger-review-readme",
+      "name": "Audit README accuracy",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Review",
+      "prompt": "Audit this README and tell me whether it still matches the repository.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is an explicit README review request and should route to readme-craftsman."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should treat this as Review mode."
+        },
+        "next_step_explicit": {
+          "check": "The response should mention checking README claims against the current repository state."
+        }
+      }
+    },
+    {
+      "id": "boundary-api-docs",
+      "name": "Do not route a general API documentation request",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "Write API docs for this service.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to readme-craftsman because it is about API docs rather than a README."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should explain that the skill is README-specific and keep API documentation out of scope."
+        },
+        "next_step_explicit": {
+          "check": "The response should point to a more appropriate documentation workflow."
+        }
+      }
+    },
+    {
+      "id": "boundary-architecture-doc",
+      "name": "Do not route an architecture document request",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "Draft an architecture doc for onboarding engineers.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to readme-craftsman because the requested artifact is not a README."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should keep architecture documentation outside the skill boundary."
+        },
+        "next_step_explicit": {
+          "check": "The response should suggest an architecture-documentation workflow instead."
+        }
+      }
+    },
+    {
+      "id": "boundary-docs-site-nav",
+      "name": "Do not route a docs-site navigation request",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "Improve the docs site navigation and reorganize the docs pages.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to readme-craftsman because it is a docs-site task, not README work."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should explain the README boundary clearly."
+        },
+        "next_step_explicit": {
+          "check": "The response should direct the request toward a docs-site or broader documentation workflow."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  }
+}

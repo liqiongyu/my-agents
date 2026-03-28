@@ -162,7 +162,7 @@ When moving a prompt from one model to another:
 |---------|-------------|-----|
 | Using Claude XML tags in GPT | Tags may be ignored or treated as content | Use markdown delimiters for GPT |
 | "Think step by step" with o1/o3 | Interferes with internal reasoning | Remove explicit CoT triggers for reasoning models |
-| Low temperature with Gemini 3 | "Unexpected behavior" per Google's docs | Keep temperature at 1.0 for Gemini |
+| Low temperature with Gemini 2.x+ | "Unexpected behavior" per Google's docs | Keep temperature at 1.0 for Gemini |
 | Long system prompts with open-source models | Quality degrades | Keep system prompts under 500 tokens |
 | Assuming JSON mode is universal | Some models don't support it | Always have a parsing fallback |
 | Same few-shot examples everywhere | Models learn differently from examples | Curate model-specific example sets |

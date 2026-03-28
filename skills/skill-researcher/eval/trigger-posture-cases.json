@@ -1,0 +1,158 @@
+{
+  "version": "0.2.3",
+  "skill": "skill-researcher",
+  "type": "trigger-posture",
+  "description": "Posture-aware routing suite for skill-researcher. The suite checks whether the skill behaves like a manual-first research workflow: it should route only on explicit skill-ecosystem research requests, preserve constrained source scopes when the user already supplied them, and refuse adjacent requests such as installation, direct authoring, or general non-skill research.",
+  "assertions": [
+    "routing_verdict_correct",
+    "manual_first_boundary_respected",
+    "first_gate_or_scope_correct",
+    "source_scope_preserved",
+    "negative_boundary_respected",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response makes the right top-level routing call: route to skill-researcher only for explicit skill-ecosystem research requests, and decline or redirect adjacent requests.",
+    "manual_first_boundary_respected": "For routed cases, the response keeps the boundary precise and treats the skill as manual-first rather than trying to absorb vague adjacent tasks.",
+    "first_gate_or_scope_correct": "For routed cases, the response identifies the immediate next control point correctly, such as asking for Quick/Standard/Deep before broad discovery or moving directly into a narrow supplied-source comparison.",
+    "source_scope_preserved": "When the user already supplies concrete URLs, repositories, or platform constraints, the response keeps the research constrained to that scope instead of widening it automatically.",
+    "negative_boundary_respected": "For non-routed cases, the response explains why the request falls outside skill-researcher instead of stretching the skill into installation, general research, or direct authoring.",
+    "next_step_explicit": "The response closes with a concrete next step, such as choosing a depth mode, confirming a narrow comparison scope, or using another workflow."
+  },
+  "cases": [
+    {
+      "id": "tp-explicit-ecosystem-survey",
+      "name": "Explicit skill ecosystem survey should trigger",
+      "description": "A direct request to survey similar skills before authoring. The request is clearly about skill research, so it should route to skill-researcher.",
+      "expected_trigger": "should-trigger",
+      "prompt": "A user says: 'Before we write a git worktree skill, research what similar community skills already exist and tell me the first thing you need from me.' Using skill-researcher, answer in one short paragraph whether this should route to the skill and what the immediate next step is. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is an explicit request for skill-ecosystem research, so it should route to skill-researcher."
+        },
+        "manual_first_boundary_respected": {
+          "check": "The answer should treat this as a clean in-scope research request, not as direct authoring."
+        },
+        "first_gate_or_scope_correct": {
+          "check": "Because no depth mode was specified, the first next step should be to ask for Quick, Standard, or Deep before broad discovery begins."
+        },
+        "next_step_explicit": {
+          "check": "The answer should explicitly ask for the depth mode or explain that choice is required before discovery."
+        }
+      }
+    },
+    {
+      "id": "tp-narrow-supplied-sources",
+      "name": "Narrow supplied-source comparison should still trigger",
+      "description": "A constrained compare request is still in scope because the user explicitly wants a fusion-style skill research pass, just not a broad survey.",
+      "expected_trigger": "should-trigger",
+      "prompt": "A user says: 'Compare only these sources for a future brainstorming skill: openai/skills, anthropics/skills, and our local brainstorming skill. Keep the scope narrow and stop at the research handoff.' Using skill-researcher, answer in one short paragraph whether this should route to the skill and what the immediate next step is. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to skill-researcher because it is explicitly about skill research."
+        },
+        "manual_first_boundary_respected": {
+          "check": "The answer should keep the skill in research mode rather than jumping into drafting the new skill."
+        },
+        "first_gate_or_scope_correct": {
+          "check": "Because the scope is already constrained, the immediate next step can move into collecting from the supplied sources rather than broad discovery."
+        },
+        "source_scope_preserved": {
+          "check": "The answer should explicitly preserve the user-supplied narrow source scope."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the next step, such as collecting from the three supplied sources and then producing a focused Fusion Report."
+        }
+      }
+    },
+    {
+      "id": "tn-direct-authoring-with-sources",
+      "name": "Direct authoring request with exact sources should not trigger",
+      "description": "The user already has the inputs and wants writing, not research. This is a boundary case the skill should decline.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'I already have three example skills and I want you to draft the new SKILL.md right now from them. Do not do more research.' Using skill-researcher, answer in one short paragraph whether this should route to the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to skill-researcher because the user wants direct authoring, not ecosystem research."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should explain that the right next workflow is creation/update rather than research."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point toward skill-creator or skill-lifecycle-manager create/update work."
+        }
+      }
+    },
+    {
+      "id": "tn-install-request",
+      "name": "Installation request should not trigger",
+      "description": "A fast-path install request is adjacent to skills but outside this skill's research boundary.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Find me a useful code-review skill I can install quickly. I do not want a survey or fusion report.' Using skill-researcher, answer in one short paragraph whether this should route to the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to skill-researcher."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should explain that installation is not the same as skill research."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to installer or platform-native search tooling."
+        }
+      }
+    },
+    {
+      "id": "tn-general-research-request",
+      "name": "General non-skill research should not trigger",
+      "description": "The wording asks for research, but not skill research. The boundary should hold.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Research the best prompt-engineering techniques used by AI startups this year and summarize the market.' Using skill-researcher, answer in one short paragraph whether this should route to the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to skill-researcher because it is general research rather than skill-ecosystem research."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should redirect to a general research workflow such as deep-research."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point the user to the appropriate research workflow instead of broadening this skill's scope."
+        }
+      }
+    },
+    {
+      "id": "tn-vague-tooling-question",
+      "name": "Vague tooling question should not trigger",
+      "description": "A near-miss request about helpful tools should not route unless it is clearly about skills.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'What tools are out there to help with code review?' Using skill-researcher, answer in one short paragraph whether this should route to the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to skill-researcher because the request is too broad and does not explicitly ask about skills."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should say that the request must be explicitly about skill discovery or skill comparison to be in scope."
+        },
+        "next_step_explicit": {
+          "check": "The answer should suggest clarifying whether the user wants skill-specific research or a broader tools recommendation workflow."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this suite as a manual routing review after trigger or boundary changes. A case passes if it scores at least 75% of the possible points for the assertions that apply to that case."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical skill-researcher package is discoverable on the target surface. These prompts are intentionally classification-only and should not require browsing or file edits.",
+    "execution": "Run each prompt through the target surface with the skill available. Capture whether the answer routes correctly, preserves manual-first boundaries, and names the right next step.",
+    "evaluation": "Score each assertion as pass, partial, or fail after reading the captured response. Pay special attention to whether broad discovery starts too early or whether adjacent requests are incorrectly absorbed into skill research.",
+    "environment": "Filesystem write access is useful for workspace artifacts, but the prompts themselves should stay read-only."
+  }
+}

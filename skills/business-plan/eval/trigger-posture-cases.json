@@ -1,0 +1,156 @@
+{
+  "version": "0.1.0",
+  "skill": "business-plan",
+  "type": "trigger-posture",
+  "description": "Posture-aware routing suite for business-plan. The suite checks whether the skill behaves like a conservative hybrid business workflow: it should trigger on explicit or unmistakable business-planning requests, stay out of open-ended ideation, require fresh research when the task is mainly about current external facts, and hand off artifact-specific production to adjacent skills.",
+  "assertions": [
+    "routing_verdict_correct",
+    "hybrid_boundary_respected",
+    "workflow_route_correct",
+    "adjacent_skill_handoff_correct",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response makes the right top-level routing call: route to business-plan for explicit or high-confidence business-planning work, and decline adjacent requests that are really brainstorming, deep research, or artifact production.",
+    "hybrid_boundary_respected": "The response treats the skill as a conservative hybrid: willing to trigger on clear in-scope commercial-planning tasks, but not so broad that it absorbs vague exploration or unrelated research.",
+    "workflow_route_correct": "For routed requests, the response identifies the primary business-plan workflow correctly, such as Full Business Plan, Financial Analysis, Market Analysis, Pitch Deck, Strategic Review, or Valuation.",
+    "adjacent_skill_handoff_correct": "For non-routed requests, the response points to the right neighboring workflow such as brainstorming, deep-research, pptx, docx, or xlsx instead of stretching the business-plan boundary.",
+    "next_step_explicit": "The response closes with a concrete next step, such as gathering stage and audience context, sourcing current data, or handing off to the adjacent skill."
+  },
+  "cases": [
+    {
+      "id": "tp-explicit-business-plan",
+      "name": "Explicit business plan request should trigger",
+      "description": "A direct business-plan drafting request with enough context to begin the planning workflow.",
+      "expected_trigger": "should-trigger",
+      "expected_workflow": "Full Business Plan",
+      "prompt": "A user says: 'Write a business plan for my B2B SaaS startup that sells procurement automation to mid-market manufacturers.' Using business-plan, answer in one short paragraph whether this should trigger the skill, which workflow applies, and the next step. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to business-plan."
+        },
+        "hybrid_boundary_respected": {
+          "check": "The answer should make it clear this is a strong, explicit in-scope request."
+        },
+        "workflow_route_correct": {
+          "check": "The route should be Full Business Plan."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the next step, such as gathering stage, audience, and revenue-model context."
+        }
+      }
+    },
+    {
+      "id": "tp-financial-analysis",
+      "name": "Explicit financial analysis request should trigger",
+      "description": "A clear request for commercial analysis of business metrics.",
+      "expected_trigger": "should-trigger",
+      "expected_workflow": "Financial Analysis",
+      "prompt": "A user says: 'I have 180 SaaS customers, 5% monthly churn, and a $22K monthly marketing budget. Help me analyze my unit economics and tell me what to fix.' Using business-plan, answer in one short paragraph whether this should trigger the skill, which workflow applies, and the next step. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to business-plan."
+        },
+        "workflow_route_correct": {
+          "check": "The route should be Financial Analysis."
+        },
+        "next_step_explicit": {
+          "check": "The answer should ask for the missing inputs needed for a real unit-economics pass."
+        }
+      }
+    },
+    {
+      "id": "tp-pitch-deck-outline",
+      "name": "Pitch deck content request should trigger",
+      "description": "The user wants pitch-deck narrative and structure, not a finished slide file.",
+      "expected_trigger": "should-trigger",
+      "expected_workflow": "Pitch Deck",
+      "prompt": "A user says: 'Create the outline and slide-by-slide story for our seed fundraising deck for an AI logistics startup.' Using business-plan, answer in one short paragraph whether this should trigger the skill, which workflow applies, and the next step. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to business-plan."
+        },
+        "workflow_route_correct": {
+          "check": "The route should be Pitch Deck."
+        },
+        "next_step_explicit": {
+          "check": "The answer should say it will gather traction, market, team, and ask details before outlining slides."
+        }
+      }
+    },
+    {
+      "id": "tn-open-ended-ideation",
+      "name": "Open-ended startup ideation should not trigger",
+      "description": "The user has not chosen a direction yet and needs ideation rather than planning.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'I want to build something in AI, but I am torn between healthcare, recruiting, and developer tools. Help me think through which direction to pursue.' Using business-plan, answer in one short paragraph whether this should trigger the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to business-plan as the primary skill."
+        },
+        "hybrid_boundary_respected": {
+          "check": "The answer should explain that business-plan starts after the direction is clearer."
+        },
+        "adjacent_skill_handoff_correct": {
+          "check": "The answer should hand off to brainstorming."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the next step, such as comparing options and choosing a direction first."
+        }
+      }
+    },
+    {
+      "id": "tn-fresh-market-research",
+      "name": "Fresh-source market research should not trigger by itself",
+      "description": "The primary task is current external research with citations, not planning synthesis yet.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Research the latest 2026 AI accounting software market in Europe, cite current sources, and summarize recent competitor funding rounds.' Using business-plan, answer in one short paragraph whether this should trigger the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to business-plan as the primary skill."
+        },
+        "adjacent_skill_handoff_correct": {
+          "check": "The answer should hand off to deep-research, with the option to use business-plan afterward."
+        },
+        "next_step_explicit": {
+          "check": "The answer should say the next step is to gather fresh sources and dated evidence first."
+        }
+      }
+    },
+    {
+      "id": "tn-final-pptx-production",
+      "name": "Final slide-file production should not trigger by itself",
+      "description": "The user mainly wants a finished presentation file rather than business-planning content.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Turn my existing investor narrative into a polished 12-slide .pptx deck with visuals and speaker notes.' Using business-plan, answer in one short paragraph whether this should trigger the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to business-plan as the primary skill."
+        },
+        "adjacent_skill_handoff_correct": {
+          "check": "The answer should hand off to pptx and explain that business-plan can help only if the narrative still needs strategy work."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to final slide production as the next step."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this suite as a manual routing review after trigger or boundary changes. The goal is to keep business-plan helpful on clear commercial-planning tasks without letting it absorb ideation, research, or artifact-production workflows."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical business-plan package is discoverable on the target surface. These prompts are intentionally classification-only and should not require browsing or file edits.",
+    "execution": "Run each prompt through the target surface with the skill available. Capture whether the answer routes correctly, picks the right workflow when routed, and hands off adjacent requests cleanly.",
+    "evaluation": "Score each assertion as pass, partial, or fail after reading the captured response. Pay special attention to whether the skill keeps a conservative hybrid boundary.",
+    "environment": "No file edits are required for these prompts. They are meant for posture and routing review."
+  }
+}

@@ -56,6 +56,12 @@ For a narrower, posture-aware routing suite, use [trigger-posture-cases.json](tr
 
 ## Fast Start
 
+Smoke-test the packaged Python helpers before surface evals when you have changed validation, projection, or eval-runner code:
+
+```bash
+uv run python "$SLM_DIR/scripts/run_unit_tests.py"
+```
+
 Seed an evaluation workspace directly from the suite:
 
 ```bash
@@ -174,6 +180,7 @@ The review panel is designed for this step: it loads the case prompt, expected a
 - `eval-3` is the best fit when the skill is being used as a governance or library-health tool.
 - `eval-6` is the regression test for the delegated Discover protocol fix: it should stop at candidate inventory instead of drafting too early.
 - The direct CLI runner now automates both `with-skill` and `baseline` runs. For the `baseline` stage it temporarily hides the project-local projection for the active surface when such a projection exists, and records that baseline mode in `result.json`.
+- Direct surface evals need the matching platform CLI (`codex` or `claude`) for the surface under test, while `run_unit_tests.py` only requires `uv`.
 - The generated review panel stores draft state in browser local storage for that iteration and can export the final review as JSON.
 - `trigger-posture-cases.json` is the best fit for validating the new invocation-posture workflow because it asks for routing and posture classification without doing broad file edits.
 - Both eval suites now use the same normalized scoring model: `pass_threshold` is applied against the assertions that actually apply to each case, rather than a fixed global assertion count.

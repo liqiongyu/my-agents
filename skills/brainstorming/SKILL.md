@@ -1,6 +1,8 @@
 ---
 name: brainstorming
-description: "Use before any design, strategic, or creative work to transform ideas into validated decisions through collaborative dialogue. Activate when the user says 'let's brainstorm', 'help me think through X', 'I want to build X', 'what should we do about Y', presents a vague or ambitious idea, needs to decide between approaches, or seems unsure about direction — even if they don't explicitly ask to brainstorm. Covers all domains: software architecture, product design, business strategy, market analysis, marketing, pricing, organizational decisions, research direction, and open-ended exploration. Also activate proactively when the user is about to commit to a non-trivial direction without having explored alternatives."
+description: "Manual-first brainstorming workflow for turning ambiguous ideas or competing directions into an approved decision before planning or implementation. Activate when the user explicitly asks to brainstorm, explore options, compare approaches, or pressure-test a direction. Do not activate for clarification, review, detailed planning, or straightforward execution once a direction is already chosen."
+invocation_posture: manual-first
+version: 0.2.2
 ---
 
 # Brainstorming
@@ -12,6 +14,17 @@ Brainstorming answers **WHAT** to do and **WHY**. It does not answer HOW — lea
 ## Hard Gate
 
 Do NOT write code, scaffold files, create deliverables, or take any action toward execution until the user has explicitly approved a direction. This applies to every task regardless of perceived simplicity. "Simple" problems are exactly where unexamined assumptions waste the most effort — the brainstorm can be brief, but it must happen and the direction must be approved.
+
+## When Not To Use
+
+Do NOT use this skill when the user is asking for:
+
+- **Clarification only** — missing facts, contradictions, or acceptance criteria that must be pinned down before action. Use `clarify`.
+- **Review of existing work** — code review, document critique, diff analysis, or bug-finding in something already written. Use `review`.
+- **Detailed execution planning** — implementation breakdowns, task sequencing, or delivery plans after the direction is already decided. Use `writing-plans` or proceed with execution.
+- **Straightforward execution** — the user already knows what they want built, changed, or written and just wants to start.
+
+If the request begins with ambiguity but quickly resolves into a concrete chosen direction, finish the brainstorm cleanly and hand off instead of dragging the user through more ideation.
 
 ## Scope Classification
 
@@ -25,16 +38,9 @@ Assess scope before starting. Announce the selected scope and your reasoning.
 
 If scope is unclear, ask one targeted question to disambiguate. When in doubt, start Standard — you can escalate if complexity emerges.
 
-## Platform Compatibility
+## Question Handling
 
-Use whatever interactive question tool the platform provides:
-
-| Platform | Question tool |
-|----------|--------------|
-| Claude Code | `AskUserQuestion` |
-| Codex | `request_user_input` |
-| Gemini | `ask_user` |
-| Other / Claude.ai | Present numbered options in chat and wait for the user's reply |
+Use the platform's native user-input mechanism when one is available and appropriate for the current environment. If the surface does not expose a structured question tool, ask concise questions directly in chat and wait for the user's reply. Do not make the workflow depend on one specific tool name.
 
 **Language**: Respond in the same language the user uses. All user-facing output (questions, summaries, decision records) follows the user's language. Skill internals are English.
 
@@ -276,6 +282,18 @@ Before handoff, explicitly verify ALL of the following (state them in the conver
 - [ ] The user has chosen a next step from the handoff options
 
 If any criterion is unmet, continue refining. Do not silently proceed to execution.
+
+---
+
+## Evaluate The Skill
+
+When you change this skill's trigger wording or process shape, evaluate it with a small prompt mix before calling the update complete:
+
+- **Should trigger**: explicit ideation asks such as "Let's brainstorm the rollout options" or "Help me think through whether we should build A or B first."
+- **Should not trigger**: direct execution asks such as "Implement this API change" or "Write the migration plan for the chosen design."
+- **Adjacent handoff cases**: requests that belong to neighboring skills, such as "Clarify the missing requirements", "Review this draft", or "Break the approved direction into tasks."
+
+The update is healthy only if the skill stays quiet on clarification, review, planning, and straightforward execution prompts while remaining helpful on explicit direction-setting requests.
 
 ---
 

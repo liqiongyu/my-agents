@@ -5,6 +5,27 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-28
+
+### Changed
+- Reframed the canonical skill as a manual-first workflow skill with clearer boundaries against quick technique lookup and general LLM-adjacent tasks.
+- Removed platform-specific invocation wording from the shared core so the canonical package stays portable across Codex and Claude Code.
+- Slimmed `SKILL.md` by replacing the long inline technique cookbook with a workflow-first structure plus a compact technique selection guide that points readers to the deeper references.
+- Added explicit validation, evaluation, and projection guidance to the canonical skill package.
+- Tightened `skill.json` description and tags so package metadata matches the manual-first workflow posture.
+
+### Added
+- Added `projection.json` so runtime projections can exclude author-only artifacts.
+- Added a lightweight eval suite under `eval/` for realistic prompt-work scenarios.
+
+## [0.2.0] - 2026-03-27
+
+### Changed
+- Rewrote frontmatter `description` from keyword-dump (~230 words) to manual-first posture (~40 words) with an explicit negative boundary against quick technique-lookup requests.
+- Declared invocation posture as `manual-first` in the skill body.
+- Added `## When Not to Use` section to prevent overreach into technique-lookup and general coding requests.
+- Fixed incorrect "Gemini 3" reference in `references/cross-model-guide.md` → "Gemini 2.x+".
+
 ## [0.1.0] - 2026-03-25
 
 ### Added

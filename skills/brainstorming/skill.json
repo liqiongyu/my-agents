@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "name": "brainstorming",
   "displayName": "Brainstorming",
-  "description": "Transform ideas into validated decisions through structured, scope-adaptive collaborative dialogue across all domains: software, product, business strategy, market analysis, and open-ended exploration. Features domain-adaptive thinking frameworks, five universal thinking moves, and proportional output formats.",
-  "version": "0.2.0",
+  "description": "Manual-first brainstorming workflow for turning ambiguous ideas or competing directions into an approved decision before planning or implementation. Use when the user explicitly wants to brainstorm, explore options, compare approaches, or pressure-test a direction.",
+  "version": "0.2.2",
   "maturity": "experimental",
   "categories": ["design", "workflow", "productivity"],
   "tags": [

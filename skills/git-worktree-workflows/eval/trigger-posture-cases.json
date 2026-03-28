@@ -1,0 +1,171 @@
+{
+  "version": "0.1.2",
+  "skill": "git-worktree-workflows",
+  "type": "trigger-posture",
+  "description": "Posture-aware trigger suite for git-worktree-workflows. The suite checks whether the skill stays manual-first, routes only on explicit or unmistakable multi-checkout requests, declines adjacent general Git tasks, and keeps repo-specific bootstrap concerns outside the default worktree path.",
+  "assertions": [
+    "routing_verdict_correct",
+    "manual_first_boundary_explicit",
+    "stage_routing_correct",
+    "negative_boundary_respected",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response makes the right top-level call: route into git-worktree-workflows only for explicit or high-confidence worktree requests, and decline adjacent Git tasks that do not really need a worktree workflow.",
+    "manual_first_boundary_explicit": "The response treats the skill as manual-first: it either says the request is strong enough to trigger the worktree skill, or explains why the request should stay outside that boundary.",
+    "stage_routing_correct": "For routed requests, the response chooses the smallest sensible route such as Decide, Create, Inspect, Cleanup, or Repair / Recover instead of dumping the entire playbook.",
+    "negative_boundary_respected": "For non-routed requests, the response explains the boundary clearly, including when bootstrap policy, general Git help, or broader advanced-Git work should stay outside this skill.",
+    "next_step_explicit": "The response ends with a concrete next step such as creating the worktree, inspecting existing checkouts, continuing on the current branch, or using a broader Git workflow instead."
+  },
+  "cases": [
+    {
+      "id": "tp-explicit-hotfix-worktree",
+      "name": "Trigger on an explicit hotfix worktree request",
+      "description": "A high-confidence worktree scenario with uncommitted local work and an urgent hotfix.",
+      "expected_trigger": "should-trigger",
+      "expected_stages": [
+        "Decide",
+        "Create"
+      ],
+      "prompt": "A user says: 'I have uncommitted feature work in my current checkout, but I need a clean hotfix from main. Should I use a git worktree for this, and what route applies?' Using git-worktree-workflows, answer in one short paragraph whether this is strong enough to trigger the manual-first skill, what route applies, and the next step. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to git-worktree-workflows."
+        },
+        "manual_first_boundary_explicit": {
+          "check": "The answer should make it clear that this is a strong match for the manual-first worktree skill."
+        },
+        "stage_routing_correct": {
+          "check": "The route should focus on Decide plus Create."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with the next step, such as creating the worktree from the integration branch."
+        }
+      }
+    },
+    {
+      "id": "tp-branch-already-checked-out",
+      "name": "Trigger on the classic already-checked-out error",
+      "description": "A first-class worktree debugging request that should route to Inspect before any workaround.",
+      "expected_trigger": "should-trigger",
+      "expected_stages": [
+        "Inspect",
+        "Create"
+      ],
+      "prompt": "A user says: 'Git says feature/auth is already checked out in another worktree. Is this a case for the git-worktree-workflows skill, and what route should it take?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the manual-first skill, what route applies, and the next step. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to git-worktree-workflows."
+        },
+        "manual_first_boundary_explicit": {
+          "check": "The answer should say this is squarely inside the skill boundary."
+        },
+        "stage_routing_correct": {
+          "check": "The route should inspect existing worktrees first, then branch or detach only if needed."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with a concrete inspection step such as locating the existing worktree."
+        }
+      }
+    },
+    {
+      "id": "nm-parallel-pr-review",
+      "name": "Trigger on a high-confidence parallel checkout request without naming worktrees",
+      "description": "The user does not say git worktree explicitly, but the request clearly asks for an isolated parallel review checkout.",
+      "expected_trigger": "should-trigger",
+      "expected_stages": [
+        "Decide",
+        "Create"
+      ],
+      "prompt": "A user says: 'I need to review a teammate's remote branch side by side without stashing my current changes. Is this strong enough to use the worktree skill?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the manual-first skill, what route applies, and the next step. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should still route because the parallel isolated checkout need is explicit even without the word worktree."
+        },
+        "manual_first_boundary_explicit": {
+          "check": "The answer should explain why this is a high-confidence enough match for a manual-first skill."
+        },
+        "stage_routing_correct": {
+          "check": "The route should remain focused on Decide plus Create for a review checkout."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with the next step, such as fetching the branch and creating the review worktree."
+        }
+      }
+    },
+    {
+      "id": "tn-general-branch-switch",
+      "name": "Do not trigger for an ordinary branch switch",
+      "description": "A clean, routine Git task with no multi-checkout need.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'My checkout is clean. Should I switch from main to feature/docs or make a worktree first?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not trigger the skill because a normal branch switch is enough."
+        },
+        "manual_first_boundary_explicit": {
+          "check": "The answer should explain that this is below the activation threshold for a manual-first worktree skill."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should point to the simpler Git path instead of stretching the skill boundary."
+        },
+        "next_step_explicit": {
+          "check": "The answer should end with the simpler next step, such as switching branches directly."
+        }
+      }
+    },
+    {
+      "id": "tn-rebase-session",
+      "name": "Do not trigger for a broader advanced-Git session",
+      "description": "Worktrees are only incidental in a bigger rebase-oriented task.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Help me clean up a messy interactive rebase, and I may also need to compare a couple branches while I do it.' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not trigger git-worktree-workflows as the primary skill."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should explain that broader advanced-Git guidance is the better primary workflow unless worktrees become the main issue."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the more appropriate next step or workflow."
+        }
+      }
+    },
+    {
+      "id": "tn-bootstrap-overlays",
+      "name": "Do not treat repo bootstrap as default worktree guidance",
+      "description": "The user asks about copying environment files and reinstalling dependencies after creating a second checkout.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'I already made a second checkout. How should I copy .env, link .venv, and reinstall dependencies there?' Using git-worktree-workflows, answer in one short paragraph whether this should trigger the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route as a default worktree-skill task."
+        },
+        "negative_boundary_respected": {
+          "check": "The answer should explain that bootstrap overlays are repo-specific conventions, not generic worktree behavior."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to project docs or a repo-specific setup workflow."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this suite as a manual trigger-boundary review. The goal is to confirm that the skill stays manual-first, routes only on clear worktree signals, and declines adjacent Git tasks that do not really need a worktree workflow."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical skill package is discoverable. These prompts are classification-only and should be run without editing files.",
+    "execution": "Run each prompt in a session where the skill is available. Capture whether the skill would route, what route it picks, and what next step it recommends.",
+    "evaluation": "Score whether the response respected the manual-first boundary, picked the smallest sensible route, and stayed out of repo-specific bootstrap advice.",
+    "environment": "No file edits are required for these prompts. They are meant for posture and routing review."
+  }
+}

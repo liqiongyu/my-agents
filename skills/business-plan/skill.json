@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "name": "business-plan",
   "displayName": "Business Plan",
-  "description": "Comprehensive business planning, financial analysis, market analysis, pitch deck creation, strategic review, and valuation. Adapts to business stage (idea through mature) and scale (solopreneur through enterprise).",
-  "version": "1.0.1",
+  "description": "Structured business planning and business-analysis workflow for business plans, investor-ready financial analysis, market sizing, pitch deck narrative, strategic review, and valuation. Best for substantive commercial deliverables rather than open-ended ideation, pure research, or final file production.",
+  "version": "1.1.0",
   "maturity": "stable",
   "categories": ["business", "productivity", "workflow"],
   "tags": [

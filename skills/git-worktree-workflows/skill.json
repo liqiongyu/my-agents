@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "name": "git-worktree-workflows",
+  "displayName": "Git Worktree Workflows",
+  "description": "Guide and execute safe git worktree workflows for parallel branches, isolated review checkouts, comparison, cleanup, and repair without baking repo-specific bootstrap habits into the default path.",
+  "version": "0.1.2",
+  "maturity": "experimental",
+  "categories": ["git", "workflow", "coding"],
+  "tags": ["git", "worktree", "parallel-development", "branch-isolation", "cleanup", "repair"],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "requirements": {
+    "tools": ["git"],
+    "network": "optional"
+  },
+  "capabilities": {
+    "shell": true,
+    "network": true,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}
