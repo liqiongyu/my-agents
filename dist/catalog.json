@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-27T14:06:45.003Z",
+  "generatedAt": "2026-03-28T08:10:16.391Z",
   "skills": [
     {
       "name": "agent-lifecycle-manager",
@@ -133,24 +133,26 @@
       ]
     },
     {
-      "name": "git-worktree-workflows",
-      "path": "skills/git-worktree-workflows",
-      "displayName": "Git Worktree Workflows",
-      "description": "Guide and execute safe git worktree workflows for parallel branches, isolated review checkouts, comparison, cleanup, and repair without baking repo-specific bootstrap habits into the default path.",
-      "version": "0.1.0",
+      "name": "implementation-planning",
+      "path": "skills/implementation-planning",
+      "displayName": "Implementation Planning",
+      "description": "Manual-first heavy planning protocol for complex technical implementation work. Use when the user or the planner agent explicitly needs a deep executable plan for a feature, refactor, migration, or architecture change after the direction is already chosen. Do not use for brainstorming, choosing between competing directions, requirements clarification, business planning, generic project management, or code execution.",
+      "version": "0.1.2",
       "maturity": "experimental",
       "categories": [
-        "git",
-        "workflow",
-        "coding"
+        "coding",
+        "design",
+        "workflow"
       ],
       "tags": [
-        "git",
-        "worktree",
-        "parallel-development",
-        "branch-isolation",
-        "cleanup",
-        "repair"
+        "implementation-planning",
+        "planning",
+        "architecture",
+        "refactor-planning",
+        "migration-planning",
+        "execution-plan",
+        "rollout-planning",
+        "technical-roadmap"
       ]
     },
     {
@@ -203,7 +205,7 @@
       "path": "skills/review",
       "displayName": "Review",
       "description": "Perform thorough, structured reviews on PRs, diffs, code, documentation, architecture designs, PRDs, API specs, and configuration changes with severity-graded findings and actionable suggestions.",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "maturity": "experimental",
       "categories": [
         "review",
@@ -225,7 +227,7 @@
       "path": "skills/skill-lifecycle-manager",
       "displayName": "Skill Lifecycle Manager",
       "description": "Manage the lifecycle of agent skills: discover patterns, create or update a skill, validate it, evaluate it, project or install it, or audit a skill library. Use only when the request is explicitly about skills or skill libraries, not for general code tasks or agent management.",
-      "version": "0.5.0",
+      "version": "0.5.2",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -267,7 +269,7 @@
       "path": "agents/debugger",
       "displayName": "Debugger",
       "description": "Systematic debugging agent that diagnoses bugs, test failures, and unexpected behavior through hypothesis-driven investigation.",
-      "version": "1.0.2",
+      "version": "1.0.0",
       "maturity": "experimental",
       "categories": [
         "debugging",
@@ -349,7 +351,7 @@
       "path": "agents/implementer",
       "displayName": "Implementer",
       "description": "Code implementation agent that writes, modifies, and refactors code based on plans, specs, or direct instructions.",
-      "version": "1.0.2",
+      "version": "1.0.0",
       "maturity": "experimental",
       "categories": [
         "coding",
@@ -377,8 +379,8 @@
       "name": "planner",
       "path": "agents/planner",
       "displayName": "Planner",
-      "description": "Architecture and implementation planning agent that designs step-by-step plans with trade-off analysis.",
-      "version": "1.1.1",
+      "description": "Architecture and implementation planning agent that designs step-by-step plans with trade-off analysis and escalates to implementation-planning for complex technical execution plans.",
+      "version": "1.2.0",
       "maturity": "experimental",
       "categories": [
         "design",
@@ -393,7 +395,8 @@
       "archetype": "planner",
       "skills": [
         "brainstorming",
-        "clarify"
+        "clarify",
+        "implementation-planning"
       ],
       "agents": [
         "explorer",
@@ -409,7 +412,7 @@
       "path": "agents/researcher",
       "displayName": "Researcher",
       "description": "Web research agent for deep investigation, multi-source verification, and structured report generation.",
-      "version": "1.1.1",
+      "version": "1.1.0",
       "maturity": "experimental",
       "categories": [
         "research",
@@ -436,7 +439,7 @@
       "path": "agents/reviewer",
       "displayName": "Reviewer",
       "description": "Code review agent that performs structured, severity-graded reviews on PRs, diffs, and code changes.",
-      "version": "1.1.2",
+      "version": "1.1.0",
       "maturity": "experimental",
       "categories": [
         "review",
@@ -467,7 +470,7 @@
       "path": "packs/product-manager",
       "displayName": "Product Manager Pack",
       "description": "Product strategy, requirements, and research workflow pack.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "maturity": "experimental",
       "packType": "role-pack",
       "persona": "product-manager",
@@ -485,7 +488,8 @@
         "clarify",
         "brainstorming",
         "business-plan",
-        "deep-research"
+        "deep-research",
+        "implementation-planning"
       ],
       "agents": [
         "explorer",

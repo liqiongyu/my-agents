@@ -1,0 +1,158 @@
+{
+  "version": "0.1.0",
+  "skill": "implementation-planning",
+  "type": "trigger-posture",
+  "description": "Posture-aware routing suite for implementation-planning. The suite checks whether the skill behaves like a manual-first heavy planning protocol: it should activate only for explicit, complexity-justified technical planning requests and refuse adjacent asks such as brainstorming, clarification, business planning, or trivial execution planning.",
+  "assertions": [
+    "routing_verdict_correct",
+    "manual_first_boundary_respected",
+    "complexity_gate_result_correct",
+    "adjacent_workflow_redirect_correct",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response makes the right top-level routing call: route to implementation-planning only for explicit, deep technical planning requests, and decline or redirect adjacent cases.",
+    "manual_first_boundary_respected": "For routed cases, the response keeps the skill narrow and heavy rather than stretching it into general planning or execution.",
+    "complexity_gate_result_correct": "The response correctly explains whether the task is complex enough for the heavy planning protocol.",
+    "adjacent_workflow_redirect_correct": "For non-routed cases, the response points to the right neighboring workflow such as brainstorming, clarify, business-plan, or a lighter planner pass.",
+    "next_step_explicit": "The response closes with a concrete next step such as using the skill, staying with normal planning, or switching workflows first."
+  },
+  "cases": [
+    {
+      "id": "tp-deep-migration",
+      "name": "Explicit risky migration request should trigger",
+      "description": "The task is a classic heavy-planning fit: explicit request, chosen direction, migration risk, and rollback needs.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "prompt": "A user says: 'The planner already gathered context. Use implementation-planning to write the deep execution plan for our PostgreSQL-to-PostgreSQL schema migration with staged rollout and rollback checkpoints.' Using implementation-planning, answer in one short paragraph whether this should route to the skill and what the next step is. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to implementation-planning."
+        },
+        "manual_first_boundary_respected": {
+          "check": "The answer should keep the scope on deep technical planning rather than broadening to generic planning."
+        },
+        "complexity_gate_result_correct": {
+          "check": "The answer should say the heavy planning protocol is justified."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the next step, such as drafting the deep plan with phases, verification, and rollback."
+        }
+      }
+    },
+    {
+      "id": "tp-cross-cutting-refactor",
+      "name": "Explicit cross-cutting refactor request should trigger",
+      "description": "The task spans multiple modules and interfaces, so a deep implementation plan is appropriate.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "prompt": "A user says: 'Use implementation-planning for this feature-flag cleanup and service-boundary refactor. It touches the web app, API layer, background workers, and observability dashboards, and I want a real deep plan before any code changes.' Using implementation-planning, answer in one short paragraph whether this should route to the skill and what the next step is. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to implementation-planning."
+        },
+        "manual_first_boundary_respected": {
+          "check": "The answer should keep the skill positioned as a heavy planning protocol."
+        },
+        "complexity_gate_result_correct": {
+          "check": "The answer should recognize the task as sufficiently complex and dependency-rich."
+        },
+        "next_step_explicit": {
+          "check": "The answer should say the next step is to draft the deep technical plan."
+        }
+      }
+    },
+    {
+      "id": "tn-small-bugfix",
+      "name": "Small isolated bug fix should not trigger",
+      "description": "The task is explicit but too small for the heavy protocol.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Use implementation-planning for fixing a typo in one validation error string and updating the one snapshot test.' Using implementation-planning, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to implementation-planning."
+        },
+        "complexity_gate_result_correct": {
+          "check": "The answer should explain that the task does not justify the heavy planning protocol."
+        },
+        "adjacent_workflow_redirect_correct": {
+          "check": "The answer should point to a lighter planner pass or direct execution workflow."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the lighter next step."
+        }
+      }
+    },
+    {
+      "id": "tn-option-exploration",
+      "name": "Architecture option comparison should not trigger",
+      "description": "The request is still about deciding direction, so implementation-planning should refuse and redirect to brainstorming.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Help me decide whether we should keep the monolith or split to services, and then maybe give me a plan.' Using implementation-planning, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to implementation-planning yet."
+        },
+        "adjacent_workflow_redirect_correct": {
+          "check": "The answer should redirect to brainstorming or a decision-making workflow first."
+        },
+        "next_step_explicit": {
+          "check": "The answer should say what needs to happen before deep implementation planning makes sense."
+        }
+      }
+    },
+    {
+      "id": "tn-ambiguous-constraints",
+      "name": "Contradictory constraints should not trigger yet",
+      "description": "The user asks for a plan, but the request is still contradictory and should go through clarify first.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Use implementation-planning for redesigning our API, but keep total backward compatibility while removing all legacy fields immediately. I have not decided which clients must keep working.' Using implementation-planning, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to implementation-planning yet."
+        },
+        "adjacent_workflow_redirect_correct": {
+          "check": "The answer should redirect to clarify because the request still has unresolved contradictions."
+        },
+        "next_step_explicit": {
+          "check": "The answer should state the clarification step needed before planning."
+        }
+      }
+    },
+    {
+      "id": "tn-business-roadmap",
+      "name": "Business roadmap request should not trigger",
+      "description": "The wording includes planning and roadmap language, but the task is commercial rather than technical implementation planning.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Write a six-month product and go-to-market roadmap for our AI startup.' Using implementation-planning, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to implementation-planning."
+        },
+        "adjacent_workflow_redirect_correct": {
+          "check": "The answer should redirect to business-plan or another business planning workflow."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to the appropriate next workflow."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this suite as a manual routing review after boundary or description changes. A case passes if it scores at least 75% of the possible points for the assertions that apply to that case."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical implementation-planning package is discoverable. These prompts are intentionally routing-focused and should not require editing files.",
+    "execution": "Run each prompt through a surface where the skill can activate. Capture whether the answer routes correctly and preserves the manual-first heavy boundary.",
+    "evaluation": "Score each assertion as pass, partial, or fail after reading the captured response. Pay special attention to false positives on trivial, exploratory, or non-technical planning requests.",
+    "environment": "Filesystem write access is useful for workspace artifacts, but the prompts themselves should stay read-only."
+  }
+}

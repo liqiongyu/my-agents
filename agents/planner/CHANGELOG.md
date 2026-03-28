@@ -2,6 +2,23 @@
 
 All notable changes to the **planner** agent will be documented in this file.
 
+## [1.2.0] - 2026-03-28
+
+### Added
+
+- Added `implementation-planning` as a linked heavy planning skill for complex technical execution plans.
+- Added explicit depth-selection guidance so planner keeps small and medium plans inline and escalates only when the heavier protocol is justified.
+
+### Changed
+
+- Updated planner descriptions to distinguish normal planning from deep implementation-planning.
+
+## [1.1.1] - 2026-03-27
+
+### Changed
+
+- Added an explicit Codex `model_reasoning_effort = "high"` default so planner keeps a stable deep-planning posture across caller sessions.
+
 ## [1.1.0] - 2026-03-26
 
 ### Added

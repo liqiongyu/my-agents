@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "name": "implementation-planning",
+  "displayName": "Implementation Planning",
+  "description": "Manual-first heavy planning protocol for complex technical implementation work. Use when the user or the planner agent explicitly needs a deep executable plan for a feature, refactor, migration, or architecture change after the direction is already chosen. Do not use for brainstorming, choosing between competing directions, requirements clarification, business planning, generic project management, or code execution.",
+  "version": "0.1.2",
+  "maturity": "experimental",
+  "categories": ["coding", "design", "workflow"],
+  "tags": [
+    "implementation-planning",
+    "planning",
+    "architecture",
+    "refactor-planning",
+    "migration-planning",
+    "execution-plan",
+    "rollout-planning",
+    "technical-roadmap"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "requirements": {
+    "network": "optional"
+  },
+  "capabilities": {
+    "shell": true,
+    "network": true,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

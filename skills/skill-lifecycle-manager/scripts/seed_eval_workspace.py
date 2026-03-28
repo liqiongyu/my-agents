@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -133,6 +135,127 @@ def write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf8")
 
 
+def read_json(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf8"))
+    return payload if isinstance(payload, dict) else None
+
+
+class SeedWorkspaceLock:
+    def __init__(self, lock_path: Path, timeout_sec: float = 10.0, poll_interval_sec: float = 0.05) -> None:
+        self.lock_path = lock_path
+        self.timeout_sec = timeout_sec
+        self.poll_interval_sec = poll_interval_sec
+        self.fd: int | None = None
+
+    def __enter__(self) -> "SeedWorkspaceLock":
+        deadline = time.monotonic() + self.timeout_sec
+        while True:
+            try:
+                self.fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                payload = json.dumps(
+                    {"pid": os.getpid(), "createdAt": now_iso()},
+                    ensure_ascii=True,
+                )
+                os.write(self.fd, payload.encode("utf8"))
+                return self
+            except FileExistsError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(f"timed out waiting for seed workspace lock: {self.lock_path}")
+                time.sleep(self.poll_interval_sec)
+
+    def __exit__(self, exc_type, exc, exc_tb) -> bool:
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+        try:
+            self.lock_path.unlink()
+        except FileNotFoundError:
+            pass
+        return False
+
+
+def reserve_next_iteration_dir(skill_root: Path) -> tuple[int, Path]:
+    while True:
+        iteration_number = next_iteration(skill_root)
+        iteration_dir = skill_root / f"iteration-{iteration_number}"
+        try:
+            iteration_dir.mkdir(parents=False, exist_ok=False)
+            return iteration_number, iteration_dir
+        except FileExistsError:
+            continue
+
+
+def merge_evals(existing_evals: list[dict], new_evals: list[dict]) -> list[dict]:
+    merged: list[dict] = []
+    positions: dict[str, int] = {}
+
+    for entry in [*existing_evals, *new_evals]:
+        if not isinstance(entry, dict):
+            continue
+        key = str(entry.get("id") or entry.get("label") or "").strip()
+        if not key:
+            continue
+        normalized = dict(entry)
+        if key in positions:
+            merged[positions[key]] = normalized
+        else:
+            positions[key] = len(merged)
+            merged.append(normalized)
+
+    return merged
+
+
+def merge_manifests(existing_manifest: dict | None, new_manifest: dict) -> dict:
+    if not existing_manifest:
+        payload = dict(new_manifest)
+        payload["evalCount"] = len(payload.get("evals", []))
+        return payload
+
+    merged_evals = merge_evals(
+        existing_manifest.get("evals", []) if isinstance(existing_manifest.get("evals"), list) else [],
+        new_manifest.get("evals", []) if isinstance(new_manifest.get("evals"), list) else [],
+    )
+
+    merged_stages = list(
+        dict.fromkeys(
+            [
+                *(
+                    existing_manifest.get("stages", [])
+                    if isinstance(existing_manifest.get("stages"), list)
+                    else []
+                ),
+                *(new_manifest.get("stages", []) if isinstance(new_manifest.get("stages"), list) else []),
+            ]
+        )
+    )
+    merged_source_cases = list(
+        dict.fromkeys(
+            [
+                *(
+                    existing_manifest.get("sourceCases", [])
+                    if isinstance(existing_manifest.get("sourceCases"), list)
+                    else []
+                ),
+                *(new_manifest.get("sourceCases", []) if isinstance(new_manifest.get("sourceCases"), list) else []),
+            ]
+        )
+    )
+
+    return {
+        "skill": existing_manifest.get("skill", new_manifest.get("skill")),
+        "iteration": existing_manifest.get("iteration", new_manifest.get("iteration")),
+        "generatedAt": new_manifest.get("generatedAt"),
+        "evalCount": len(merged_evals),
+        "stages": merged_stages or ["with-skill", "baseline"],
+        "notes": new_manifest.get("notes") or existing_manifest.get("notes"),
+        "evals": merged_evals,
+        "sourceEvalFile": new_manifest.get("sourceEvalFile") or existing_manifest.get("sourceEvalFile"),
+        "sourceCases": merged_source_cases,
+    }
+
+
 def seed_workspace(
     skill_name: str,
     workspace_root: Path,
@@ -145,50 +268,61 @@ def seed_workspace(
 ) -> Path:
     skill_root = workspace_root / skill_name
     skill_root.mkdir(parents=True, exist_ok=True)
+    lock_path = skill_root / ".seed-workspace.lock"
 
-    if iteration is not None:
-        iteration_number = iteration
-    elif reuse_latest:
-        iteration_number = latest_iteration(skill_root) or next_iteration(skill_root)
-    else:
-        iteration_number = next_iteration(skill_root)
-    iteration_dir = skill_root / f"iteration-{iteration_number}"
-    evals_dir = iteration_dir / "evals"
-    evals_dir.mkdir(parents=True, exist_ok=True)
+    with SeedWorkspaceLock(lock_path):
+        if iteration is not None:
+            iteration_number = iteration
+            iteration_dir = skill_root / f"iteration-{iteration_number}"
+            iteration_dir.mkdir(parents=False, exist_ok=True)
+        elif reuse_latest:
+            existing_iteration = latest_iteration(skill_root)
+            if existing_iteration is not None:
+                iteration_number = existing_iteration
+                iteration_dir = skill_root / f"iteration-{iteration_number}"
+                iteration_dir.mkdir(parents=False, exist_ok=True)
+            else:
+                iteration_number, iteration_dir = reserve_next_iteration_dir(skill_root)
+        else:
+            iteration_number, iteration_dir = reserve_next_iteration_dir(skill_root)
 
-    manifest = {
-        "skill": skill_name,
-        "iteration": iteration_number,
-        "generatedAt": now_iso(),
-        "evalCount": len(evals),
-        "stages": ["with-skill", "baseline"],
-        "notes": "Populate outputs after running the skill and any requested baseline.",
-        "evals": evals,
-        "sourceEvalFile": str(source_eval_file) if source_eval_file else None,
-        "sourceCases": source_cases or [],
-    }
-    write_json(iteration_dir / "manifest.json", manifest)
+        evals_dir = iteration_dir / "evals"
+        evals_dir.mkdir(parents=True, exist_ok=True)
 
-    for eval_spec in evals:
-        eval_dir = evals_dir / eval_spec["id"]
-        for stage in ["with-skill", "baseline"]:
-            stage_dir = eval_dir / stage
-            stage_dir.mkdir(parents=True, exist_ok=True)
-            write_json(
-                stage_dir / "run-template.json",
-                {
-                    "skill": skill_name,
-                    "iteration": iteration_number,
-                    "evalId": eval_spec["id"],
-                    "stage": stage,
-                    "prompt": eval_spec["prompt"],
-                    "successCriteria": eval_spec["successCriteria"],
-                    "resultSummary": "",
-                    "artifacts": [],
-                },
-            )
+        manifest = {
+            "skill": skill_name,
+            "iteration": iteration_number,
+            "generatedAt": now_iso(),
+            "evalCount": len(evals),
+            "stages": ["with-skill", "baseline"],
+            "notes": "Populate outputs after running the skill and any requested baseline.",
+            "evals": evals,
+            "sourceEvalFile": str(source_eval_file) if source_eval_file else None,
+            "sourceCases": source_cases or [],
+        }
+        merged_manifest = merge_manifests(read_json(iteration_dir / "manifest.json"), manifest)
+        write_json(iteration_dir / "manifest.json", merged_manifest)
 
-    return iteration_dir
+        for eval_spec in evals:
+            eval_dir = evals_dir / eval_spec["id"]
+            for stage in ["with-skill", "baseline"]:
+                stage_dir = eval_dir / stage
+                stage_dir.mkdir(parents=True, exist_ok=True)
+                write_json(
+                    stage_dir / "run-template.json",
+                    {
+                        "skill": skill_name,
+                        "iteration": iteration_number,
+                        "evalId": eval_spec["id"],
+                        "stage": stage,
+                        "prompt": eval_spec["prompt"],
+                        "successCriteria": eval_spec["successCriteria"],
+                        "resultSummary": "",
+                        "artifacts": [],
+                    },
+                )
+
+        return iteration_dir
 
 
 def main() -> int:

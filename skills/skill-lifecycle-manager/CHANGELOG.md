@@ -5,15 +5,33 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-03-28
+
+### Changed
+- Hardened eval workspace seeding so concurrent `--new-iteration` runs reserve iteration directories atomically instead of racing onto the same manifest.
+- Taught workspace seeding to merge existing manifests when reusing an iteration, which preserves earlier cases instead of overwriting them.
+- Added regression tests covering occupied-iteration retry behavior and manifest merging for reused iterations.
+
+## [0.5.1] - 2026-03-28
+
+### Changed
+- Taught `scripts/quick_validate.py` and `scripts/audit_skill_inventory.py` to recognize additional negative-boundary headings such as `When Not to Activate` and `Do Not Activate`, reducing false positives for otherwise well-bounded skills.
+- Added regression tests covering the alternate negative-boundary heading variants so validation and audit behavior stay aligned.
+
 ## [0.5.0] - 2026-03-27
 
 ### Added
 - Added a delegated-research regression case to `eval/eval-cases.json` so the suite now checks that deep Discover work can stop at candidate inventory instead of jumping straight into authoring.
+- Added `scripts/run_unit_tests.py` as a stable `uv run --with pytest ...` entrypoint for the skill's packaged Python unit tests.
+- Added unit coverage for the new test-runner wrapper so the default and forwarded pytest argument paths stay exercised.
 
 ### Changed
 - Synchronized `skill.json` description wording with the richer frontmatter boundary so generated metadata now matches the canonical skill trigger text.
 - Tightened the Discover-stage protocol so delegated specialist workflows inherit their own mandatory checkpoints and handoff semantics before downstream stages resume.
 - Updated the lifecycle-mode reference and eval documentation to make the delegated research pause semantics explicit.
+- Tightened `skill.json` requirements so only the common lifecycle tools (`git`, `uv`) are declared as baseline dependencies; direct Codex and Claude CLIs are now documented as phase-specific needs for surface evals instead of hard prerequisites for every stage.
+- Expanded the Validate workflow and eval README so packaged unit tests are part of the documented validation path when projection, validation, or eval-runner code changes.
+- Wired the packaged Python unit tests into the repository `npm test` path and updated CI to install `uv` before running shared validation.
 
 ## [0.4.1] - 2026-03-27
 

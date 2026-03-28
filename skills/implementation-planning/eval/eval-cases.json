@@ -1,0 +1,144 @@
+{
+  "version": "0.1.0",
+  "skill": "implementation-planning",
+  "description": "Evaluation suite for the implementation-planning skill. The suite checks whether the heavy planning protocol is used only when justified, routes back out when brainstorming or clarification should happen first, and produces plans grounded in current state, phased execution, verification, and rollback-aware risk handling.",
+  "assertions": [
+    "complexity_gate_correct",
+    "preconditions_checked",
+    "scope_challenge_present",
+    "what_exists_accounted_for",
+    "verification_present",
+    "rollback_present_for_risky_work",
+    "routes_back_when_out_of_scope",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "complexity_gate_correct": "The response makes the right call on whether the task deserves the heavy planning protocol rather than a normal planner pass.",
+    "preconditions_checked": "The response checks that direction, context, and basic constraints are already known before drafting a deep plan.",
+    "scope_challenge_present": "The response pressure-tests the task by checking whether the scope is too large, too risky, or can be split into safer slices.",
+    "what_exists_accounted_for": "The plan is anchored in the current system or repository state instead of treating the work like greenfield design.",
+    "verification_present": "The plan includes concrete verification for the major phases rather than only listing implementation steps.",
+    "rollback_present_for_risky_work": "When the task has migration, compatibility, or production risk, the response includes rollback, fallback, or containment notes.",
+    "routes_back_when_out_of_scope": "If the task should really go to brainstorming, clarify, or a lighter planner path, the response says so instead of forcing a deep plan.",
+    "next_step_explicit": "The response ends with the next practical step, such as approve the plan, gather missing context, or use a different workflow first."
+  },
+  "cases": [
+    {
+      "id": "eval-1",
+      "name": "Cross-cutting auth migration needs the heavy planning protocol",
+      "description": "The direction is chosen and the task is clearly complex: multiple services, compatibility constraints, staged rollout, and rollback requirements. The skill should engage fully.",
+      "prompt": "The planner already mapped the codebase and the team has chosen the direction: migrate our session-based auth to JWT across the API gateway, two backend services, and the admin console without breaking existing clients. Write the deep implementation plan, including what already exists, phased execution, verification, and rollback handling.",
+      "mode": "deep",
+      "expected_phases": [
+        "Complexity Gate",
+        "Preconditions",
+        "Scope Challenge",
+        "Draft The Plan",
+        "Quality Gate"
+      ],
+      "assertions": {
+        "complexity_gate_correct": {
+          "check": "This task should clearly enter the heavy implementation-planning flow."
+        },
+        "preconditions_checked": {
+          "check": "The response should confirm or use the fact that the direction and codebase context are already established."
+        },
+        "scope_challenge_present": {
+          "check": "The plan should pressure-test sequencing, compatibility, and whether the migration can be phased safely."
+        },
+        "what_exists_accounted_for": {
+          "check": "The plan should include a current-state or `What already exists` section grounded in the existing auth system."
+        },
+        "verification_present": {
+          "check": "Each major phase should include how to verify the migration is working."
+        },
+        "rollback_present_for_risky_work": {
+          "check": "The plan should include rollback, containment, or compatibility fallback handling."
+        },
+        "next_step_explicit": {
+          "check": "The plan should end with a concrete next step such as approval or execution handoff."
+        }
+      }
+    },
+    {
+      "id": "eval-2",
+      "name": "Contradictory API redesign request should route back to clarify",
+      "description": "The user wants a deep plan, but the task still contains conflicting constraints and missing acceptance criteria. The skill should refuse to draft a confident deep plan and route back to clarification first.",
+      "prompt": "Write the deep implementation plan for redesigning our public API. Keep full backward compatibility, remove the old response shape immediately, and make sure clients do not need any migration work. We have not agreed on acceptance criteria yet, but I still want the heavy plan now.",
+      "mode": "standard",
+      "expected_phases": [
+        "Preconditions"
+      ],
+      "assertions": {
+        "preconditions_checked": {
+          "check": "The response should notice that key preconditions for deep planning are not satisfied."
+        },
+        "routes_back_when_out_of_scope": {
+          "check": "The response should send the workflow back toward clarification instead of pretending the contradictions are settled."
+        },
+        "next_step_explicit": {
+          "check": "The answer should state the next step, such as resolving the compatibility and rollout constraints through clarify."
+        }
+      }
+    },
+    {
+      "id": "eval-3",
+      "name": "Small local bug fix should stay in normal planner flow",
+      "description": "The work is specific and low-risk. A giant deep-planning protocol would be overkill, so the skill should decline and recommend a lighter plan path.",
+      "prompt": "Use implementation-planning for this task: add a null check to the password reset handler and update the one failing test. The code path is isolated to one module and one test file.",
+      "mode": "quick",
+      "expected_phases": [
+        "Complexity Gate"
+      ],
+      "assertions": {
+        "complexity_gate_correct": {
+          "check": "The response should say the heavy protocol is not warranted for this task."
+        },
+        "routes_back_when_out_of_scope": {
+          "check": "The answer should recommend the planner's normal lightweight planning flow or direct implementation planning in brief form."
+        },
+        "next_step_explicit": {
+          "check": "The answer should state the next step instead of forcing a deep-plan template onto a trivial fix."
+        }
+      }
+    },
+    {
+      "id": "eval-4",
+      "name": "Architecture option exploration should route back to brainstorming",
+      "description": "The user has not chosen a direction and is still deciding what should be built. The skill should not jump into technical execution planning yet.",
+      "prompt": "We are unsure whether to split the monolith first or build the new event pipeline inside the monolith. Use implementation-planning to tell us which path is better and give the full execution plan.",
+      "mode": "standard",
+      "expected_phases": [
+        "Preconditions"
+      ],
+      "assertions": {
+        "preconditions_checked": {
+          "check": "The response should identify that the direction is not yet chosen."
+        },
+        "routes_back_when_out_of_scope": {
+          "check": "The answer should redirect to brainstorming or a decision-oriented workflow before implementation planning."
+        },
+        "next_step_explicit": {
+          "check": "The answer should say what needs to happen before a deep implementation plan is credible."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "A case passes if it scores at least 75% of the possible points for the assertions that apply to that case. Treat the suite as a behavior review for planning quality and boundary control, not as a deterministic code-generation test."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical implementation-planning package is available on the target surface. For realistic results, also make the planner agent and any repository context available.",
+    "execution": "Run each prompt in a session where the skill can activate. Capture both routing behavior and, for in-scope cases, the full generated plan.",
+    "evaluation": "Score each assertion as pass, partial, or fail. Pay special attention to whether the response overuses the heavy protocol, skips current-state grounding, or omits verification and rollback on risky work.",
+    "environment": "Filesystem write access is optional unless the plan is being saved to a repository file as part of the evaluation."
+  }
+}
