@@ -15,7 +15,10 @@ This repository keeps the canonical source of truth under `skills/`, `agents/`, 
 
 ## Quick Start
 
-Prerequisite: Node.js 18 or newer.
+Prerequisites:
+
+- Node.js 18 or newer
+- `uv` for Python-backed validation and test helpers used by `npm test`
 
 ```bash
 npm install
@@ -42,6 +45,8 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 - [docs/metadata/skill-metadata-policy.md](docs/metadata/skill-metadata-policy.md) explains how to use `requirements`, `capabilities`, and `maturity` consistently across skill packages.
 - [docs/metadata/pack-metadata-policy.md](docs/metadata/pack-metadata-policy.md) explains how to model pack membership, `packType`, and `persona` consistently.
 - [docs/metadata/project-manifest-policy.md](docs/metadata/project-manifest-policy.md) explains how to use `my-agents.project.json` for repository bootstrap.
+- [docs/cli/README.md](docs/cli/README.md) is the operator-facing command reference index.
+- [docs/architecture/tooling-layout.md](docs/architecture/tooling-layout.md) explains how the tooling and docs are organized as the command surface grows.
 - [instructions/root/shared.md](instructions/root/shared.md) is the source of truth for rules shared by Codex and Claude Code.
 - [AGENTS.md](AGENTS.md), [CLAUDE.md](CLAUDE.md), and [CONTRIBUTING.md](CONTRIBUTING.md) cover contributor workflow, release hygiene, and local conventions.
 
@@ -49,7 +54,9 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 
 | Path                       | Purpose                                                                                                                |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `docs/architecture/`       | Maintainer-oriented notes about tooling boundaries, projection flow, and repository architecture                       |
 | `docs/catalog/`            | Generated Markdown catalogs for tracked skills, agents, and packs                                                      |
+| `docs/cli/`                | Operator-facing command reference for runtime, sync, and maintenance workflows                                         |
 | `docs/metadata/`           | Repository-level metadata policy and authoring conventions                                                             |
 | `skills/<name>/`           | Canonical source packages for reusable skills (`skill.json`, `SKILL.md`, `CHANGELOG.md`)                               |
 | `agents/<name>/`           | Canonical source packages for reusable agents (`agent.json`, `claude-code.md`, `codex.toml`, `CHANGELOG.md`)           |
@@ -60,6 +67,7 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 | `schemas/`                 | JSON Schemas for skill, agent, and catalog metadata                                                                    |
 | `research/`                | Research notes, source digests, and longer-form background documents                                                   |
 | `workspaces/<skill-name>/` | Evaluation sandboxes and scratch space for skill development                                                           |
+| `.my-agents/`              | Ignored local state such as project sync state and the optional `reference-repos.json` manifest                        |
 | `.claude/` and `.agents/`  | Project-scope runtime projections created during local installation flows                                              |
 
 ## Common Workflows
@@ -94,46 +102,22 @@ npm test
 
 This scaffolds `packs/product-manager/` with `pack.json`, `README.md`, and `CHANGELOG.md`.
 
-### Install into runtime surfaces
+### Runtime and sync commands
 
 ```bash
+npx my-agents --help
+npx my-agents add https://github.com/affaan-m/everything-claude-code/tree/main/skills/agentic-engineering
 npm run install-skill -- clarify
-npm run install-skill -- clarify --platform codex --scope project
-npm run install-agent -- explorer
-npm run install-agent -- explorer --platform codex --scope project
-npm run install-pack -- product-manager
-npm run install-pack -- product-manager --platform codex --scope project
-npm run sync-project -- --manifest docs/examples/my-agents.project.example.json
 npm run sync-project -- --prune
-```
-
-The install tool also supports `--all`, `--platform claude|codex|all`, `--scope user|project`, `--manifest <path>`, and matching `npm run uninstall-skill` / `npm run uninstall-agent` / `npm run uninstall-pack` commands.
-
-Skills can include `projection.json` to exclude author-only files from runtime projections while keeping the canonical package intact in the repository.
-
-### Sync a project manifest
-
-Create a root-level `my-agents.project.json` in the target repository, or start from [docs/examples/my-agents.project.example.json](docs/examples/my-agents.project.example.json):
-
-```bash
-cp docs/examples/my-agents.project.example.json my-agents.project.json
-npm run sync-project
-npm run sync-project -- --platform codex
-npm run sync-project -- --prune
-```
-
-`sync-project` always installs into project scope. CLI `--platform` overrides the manifest's default `platforms`; if neither is set, both supported platforms are synced.
-
-The sync command records its managed project-scope state in `.my-agents/project-sync-state.json`. Plain sync installs missing desired items; `--prune` also removes previously managed skills and agents that are no longer desired by the manifest.
-
-### Sync root instruction files
-
-```bash
 npm run sync-instructions
-npm run sync-instructions -- --check
+npm run sync-references -- sync
 ```
 
-`instructions/root/shared.md` holds the shared rules; `instructions/root/claude.md` and `instructions/root/codex.md` hold platform-specific additions. `npm install` configures the repo's versioned `.githooks/pre-commit`, which auto-runs instruction sync and stages `AGENTS.md` plus `CLAUDE.md` on commit. `npm test` also fails if the generated instruction files are stale.
+The root README keeps only the highest-frequency entrypoints. Use `npx my-agents --help` when you need the full CLI surface, including `--platform`, `--scope`, `--manifest`, `--all`, `--uninstall`, and `--prune`. For the full command reference, examples, and behavior notes, see [docs/cli/runtime-and-sync-commands.md](docs/cli/runtime-and-sync-commands.md).
+
+If you are bootstrapping a project manifest from scratch, start from [docs/examples/my-agents.project.example.json](docs/examples/my-agents.project.example.json).
+
+Project manifests can now mix local package names with external official GitHub-backed assets. The `add <url>` flow resolves the URL to a structured manifest entry with an immutable commit SHA so `sync-project` stays reproducible.
 
 ### Lint and format the repo
 
@@ -160,12 +144,13 @@ ESLint covers the repo's JavaScript tooling and Prettier covers supported reposi
 - `npm run sync-instructions` regenerates the root `AGENTS.md` and `CLAUDE.md` files from `instructions/root/`.
 - Do not hand-edit those generated indexes; update the underlying packages instead.
 - Policy docs under `docs/metadata/` and instruction fragments under `instructions/root/` are source documents and should be edited directly when repository conventions change.
+- Tooling structure guidance lives in [docs/architecture/tooling-layout.md](docs/architecture/tooling-layout.md).
 
 ## Validation and Release
 
 - `npm test` runs `npm run validate`.
-- Validation checks ESLint, Prettier, schemas, directory conventions, changelog/version alignment, pack reference integrity, optional project manifest integrity, generated index freshness, generated root instruction freshness, and minimum documentation quality.
-- When metadata semantics change, update the canonical package, any relevant policy docs, then rerun `npm run build` and `npm test` before committing.
+- Validation checks ESLint, Prettier, schemas, directory conventions, changelog/version alignment, pack reference integrity, optional project manifest integrity, generated index freshness, generated root instruction freshness, minimum documentation quality, and packaged Python unit tests executed through `uv`.
+- When metadata semantics change, update the canonical package, any relevant policy docs, then rerun `npm run build`, `npm run sync-instructions`, and `npm test` before committing.
 - GitHub Actions runs validation on every push and pull request via `.github/workflows/validate.yml`.
 - Dependabot keeps npm and GitHub Actions dependencies fresh via `.github/dependabot.yml`.
 - Tagging `v*` triggers `.github/workflows/release.yml`, which assembles GitHub Release notes from per-skill, per-agent, and per-pack changelogs.

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Example project bootstrap manifest for a product-focused repository.",
+  "description": "Baseline local-only project bootstrap manifest for a product-focused repository.",
   "platforms": ["claude", "codex"],
   "packs": ["product-manager"],
   "skills": [],

@@ -5,6 +5,115 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion"],
+  "$defs": {
+    "localNameEntry": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "externalBaseEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "provider",
+        "platform",
+        "name",
+        "repo",
+        "declaredRef",
+        "resolvedCommit",
+        "path",
+        "sourceUrl"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "const": "official"
+        },
+        "provider": {
+          "type": "string",
+          "const": "github"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "repo": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "declaredRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolvedCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*//).+[^/]$"
+        },
+        "sourceUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://github\\.com/"
+        }
+      }
+    },
+    "externalSkillEntry": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/externalBaseEntry"
+        },
+        {
+          "properties": {
+            "platform": {
+              "const": "claude"
+            }
+          }
+        }
+      ]
+    },
+    "externalClaudeAgentEntry": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/externalBaseEntry"
+        },
+        {
+          "properties": {
+            "platform": {
+              "const": "claude"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*//).+\\.md$"
+            }
+          }
+        }
+      ]
+    },
+    "externalCodexAgentEntry": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/externalBaseEntry"
+        },
+        {
+          "properties": {
+            "platform": {
+              "const": "codex"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*//).+\\.toml$"
+            }
+          }
+        }
+      ]
+    }
+  },
   "properties": {
     "schemaVersion": {
       "type": "integer",
@@ -24,22 +133,36 @@
     "packs": {
       "type": "array",
       "items": {
-        "type": "string",
-        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        "$ref": "#/$defs/localNameEntry"
       }
     },
     "skills": {
       "type": "array",
       "items": {
-        "type": "string",
-        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        "oneOf": [
+          {
+            "$ref": "#/$defs/localNameEntry"
+          },
+          {
+            "$ref": "#/$defs/externalSkillEntry"
+          }
+        ]
       }
     },
     "agents": {
       "type": "array",
       "items": {
-        "type": "string",
-        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        "oneOf": [
+          {
+            "$ref": "#/$defs/localNameEntry"
+          },
+          {
+            "$ref": "#/$defs/externalClaudeAgentEntry"
+          },
+          {
+            "$ref": "#/$defs/externalCodexAgentEntry"
+          }
+        ]
       }
     }
   }

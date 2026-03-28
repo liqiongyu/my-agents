@@ -13,10 +13,13 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
+    "test:node": "node --test scripts/tests/*.test.js",
+    "test:skill-lifecycle-manager": "uv run python skills/skill-lifecycle-manager/scripts/run_unit_tests.py",
     "check:staged": "node scripts/run-staged-checks.js",
     "prepare": "node scripts/setup-git-hooks.js",
     "sync-instructions": "node scripts/sync-instructions.js",
-    "validate": "npm run lint && npm run format:check && node scripts/sync-instructions.js --check && node scripts/validate.js",
+    "sync-references": "node scripts/sync-references.js",
+    "validate": "npm run lint && npm run format:check && node scripts/sync-instructions.js --check && node scripts/validate.js && npm run test:node && npm run test:skill-lifecycle-manager",
     "install-skill": "node scripts/install.js --skill",
     "install-agent": "node scripts/install.js --agent",
     "install-pack": "node scripts/install.js --pack",
@@ -27,6 +30,7 @@
     "test": "npm run validate"
   },
   "bin": {
+    "my-agents": "scripts/install.js",
     "my-agents-install": "scripts/install.js"
   },
   "repository": {

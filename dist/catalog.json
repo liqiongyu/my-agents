@@ -1,6 +1,5 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-28T08:10:16.391Z",
   "skills": [
     {
       "name": "agent-lifecycle-manager",
@@ -27,8 +26,8 @@
       "name": "brainstorming",
       "path": "skills/brainstorming",
       "displayName": "Brainstorming",
-      "description": "Transform ideas into validated decisions through structured, scope-adaptive collaborative dialogue across all domains: software, product, business strategy, market analysis, and open-ended exploration. Features domain-adaptive thinking frameworks, five universal thinking moves, and proportional output formats.",
-      "version": "0.2.0",
+      "description": "Manual-first brainstorming workflow for turning ambiguous ideas or competing directions into an approved decision before planning or implementation. Use when the user explicitly wants to brainstorm, explore options, compare approaches, or pressure-test a direction.",
+      "version": "0.2.2",
       "maturity": "experimental",
       "categories": [
         "design",
@@ -48,8 +47,8 @@
       "name": "business-plan",
       "path": "skills/business-plan",
       "displayName": "Business Plan",
-      "description": "Comprehensive business planning, financial analysis, market analysis, pitch deck creation, strategic review, and valuation. Adapts to business stage (idea through mature) and scale (solopreneur through enterprise).",
-      "version": "1.0.1",
+      "description": "Structured business planning and business-analysis workflow for business plans, investor-ready financial analysis, market sizing, pitch deck narrative, strategic review, and valuation. Best for substantive commercial deliverables rather than open-ended ideation, pure research, or final file production.",
+      "version": "1.1.0",
       "maturity": "stable",
       "categories": [
         "business",
@@ -74,8 +73,8 @@
       "name": "clarify",
       "path": "skills/clarify",
       "displayName": "Clarify",
-      "description": "Structured framework for detecting ambiguity and asking hypothesis-driven clarifying questions before acting. Must consult when requests lack specifics needed to act correctly.",
-      "version": "1.0.0",
+      "description": "Hybrid workflow for turning ambiguous implementation requests into actionable scope before execution. Use explicitly for clarification/spec requests, or automatically for direct contradictions or missing acceptance criteria that would materially change the build. Not for open-ended brainstorming or already-specific tasks.",
+      "version": "1.2.0",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -94,8 +93,8 @@
       "name": "deep-research",
       "path": "skills/deep-research",
       "displayName": "Deep Research",
-      "description": "Conduct comprehensive, citation-backed web research with multi-phase pipeline, parallel execution, anti-hallucination protocols, and structured report generation.",
-      "version": "0.3.0",
+      "description": "Explicit, citation-backed web research for deep dives, due diligence, market analysis, and comprehensive comparisons; not for quick factual lookups or routine coding/content tasks.",
+      "version": "0.4.1",
       "maturity": "experimental",
       "categories": [
         "research",
@@ -133,6 +132,27 @@
       ]
     },
     {
+      "name": "git-worktree-workflows",
+      "path": "skills/git-worktree-workflows",
+      "displayName": "Git Worktree Workflows",
+      "description": "Guide and execute safe git worktree workflows for parallel branches, isolated review checkouts, comparison, cleanup, and repair without baking repo-specific bootstrap habits into the default path.",
+      "version": "0.1.2",
+      "maturity": "experimental",
+      "categories": [
+        "git",
+        "workflow",
+        "coding"
+      ],
+      "tags": [
+        "git",
+        "worktree",
+        "parallel-development",
+        "branch-isolation",
+        "cleanup",
+        "repair"
+      ]
+    },
+    {
       "name": "implementation-planning",
       "path": "skills/implementation-planning",
       "displayName": "Implementation Planning",
@@ -159,8 +179,8 @@
       "name": "prompt-engineering",
       "path": "skills/prompt-engineering",
       "displayName": "Prompt Engineering",
-      "description": "Master prompt engineering and context engineering for LLMs: drafting, testing, optimizing, securing, and scaling prompts across Claude, GPT, Gemini, and open-source models in production.",
-      "version": "0.1.0",
+      "description": "Manual-first workflow for redesigning, debugging, hardening, and productionizing LLM prompts or system prompts across models. Use when the job needs end-to-end prompt work, not quick technique lookup.",
+      "version": "0.2.1",
       "maturity": "experimental",
       "categories": [
         "ai",
@@ -168,12 +188,12 @@
       ],
       "tags": [
         "prompt-engineering",
-        "context-engineering",
         "llm",
-        "few-shot",
-        "chain-of-thought",
+        "workflow",
         "system-prompt",
-        "prompt-optimization",
+        "prompt-debugging",
+        "cross-model",
+        "prompt-evaluation",
         "prompt-security",
         "structured-output",
         "agent-prompting"
@@ -183,8 +203,8 @@
       "name": "readme-craftsman",
       "path": "skills/readme-craftsman",
       "displayName": "README Craftsman",
-      "description": "Generate, update, or review README.md files with deep codebase analysis, project-type-aware templates, and quality validation. Covers OSS libraries, web services, CLI tools, personal projects, internal tools, monorepos, and config directories.",
-      "version": "1.1.1",
+      "description": "Create, update, or review a repository README when the user explicitly asks for README work. Use it to draft a new README, refresh an existing README after project changes, or audit a README against the current repository. Do not use it for general documentation, API docs, architecture docs, or documentation tasks that do not specifically target a README file.",
+      "version": "1.1.3",
       "maturity": "stable",
       "categories": [
         "documentation",
@@ -247,8 +267,8 @@
       "name": "skill-researcher",
       "path": "skills/skill-researcher",
       "displayName": "Skill Researcher",
-      "description": "Survey community skills, require candidate confirmation before deeper analysis, and produce structured fusion reports as handoff artifacts for downstream skill creation.",
-      "version": "0.2.0",
+      "description": "Research existing community skills for a skill topic, pause for candidate confirmation, and produce a Fusion Report for downstream skill creation.",
+      "version": "0.2.3",
       "maturity": "experimental",
       "categories": [
         "research",
@@ -269,7 +289,7 @@
       "path": "agents/debugger",
       "displayName": "Debugger",
       "description": "Systematic debugging agent that diagnoses bugs, test failures, and unexpected behavior through hypothesis-driven investigation.",
-      "version": "1.0.0",
+      "version": "1.0.2",
       "maturity": "experimental",
       "categories": [
         "debugging",
@@ -351,7 +371,7 @@
       "path": "agents/implementer",
       "displayName": "Implementer",
       "description": "Code implementation agent that writes, modifies, and refactors code based on plans, specs, or direct instructions.",
-      "version": "1.0.0",
+      "version": "1.0.2",
       "maturity": "experimental",
       "categories": [
         "coding",
@@ -412,7 +432,7 @@
       "path": "agents/researcher",
       "displayName": "Researcher",
       "description": "Web research agent for deep investigation, multi-source verification, and structured report generation.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "maturity": "experimental",
       "categories": [
         "research",
@@ -439,7 +459,7 @@
       "path": "agents/reviewer",
       "displayName": "Reviewer",
       "description": "Code review agent that performs structured, severity-graded reviews on PRs, diffs, and code changes.",
-      "version": "1.1.0",
+      "version": "1.1.2",
       "maturity": "experimental",
       "categories": [
         "review",
@@ -497,5 +517,6 @@
         "researcher"
       ]
     }
-  ]
+  ],
+  "generatedAt": "2026-03-28T07:54:34.816Z"
 }

@@ -15,7 +15,10 @@
 
 ## 快速开始
 
-前置要求：Node.js 18 或更高版本。
+前置要求：
+
+- Node.js 18 或更高版本
+- `uv`，用于 `npm test` 中执行的 Python 校验与测试辅助脚本
 
 ```bash
 npm install
@@ -42,6 +45,8 @@ npm test
 - [docs/metadata/skill-metadata-policy.md](docs/metadata/skill-metadata-policy.md) 说明了如何一致地使用 `requirements`、`capabilities` 和 `maturity` 等字段。
 - [docs/metadata/pack-metadata-policy.md](docs/metadata/pack-metadata-policy.md) 说明了 pack 的成员编排方式以及 `packType`、`persona` 等字段约定。
 - [docs/metadata/project-manifest-policy.md](docs/metadata/project-manifest-policy.md) 说明了如何使用 `my-agents.project.json` 做项目级引导。
+- [docs/cli/README.md](docs/cli/README.md) 是面向操作方的命令参考索引。
+- [docs/architecture/tooling-layout.md](docs/architecture/tooling-layout.md) 说明了随着命令面增长，工具脚本和文档应如何组织。
 - [instructions/root/shared.md](instructions/root/shared.md) 是 Codex 与 Claude Code 共享规则的唯一来源。
 - [AGENTS.md](AGENTS.md)、[CLAUDE.md](CLAUDE.md) 与 [CONTRIBUTING.md](CONTRIBUTING.md) 负责对贡献者说明工作流、发布卫生和本地约定。
 
@@ -49,7 +54,9 @@ npm test
 
 | 路径                       | 用途                                                                                   |
 | -------------------------- | -------------------------------------------------------------------------------------- |
+| `docs/architecture/`       | 面向维护者的说明文档，解释工具边界、投影流程和仓库架构                                 |
 | `docs/catalog/`            | 自动生成的技能、代理与 pack 目录索引                                                   |
+| `docs/cli/`                | 面向操作方的命令参考，覆盖 runtime、sync 与维护工作流                                  |
 | `docs/metadata/`           | 仓库级元数据策略与编写约定                                                             |
 | `skills/<name>/`           | Skills 的标准源码包，包含 `skill.json`、`SKILL.md`、`CHANGELOG.md`                     |
 | `agents/<name>/`           | Agents 的标准源码包，包含 `agent.json`、`claude-code.md`、`codex.toml`、`CHANGELOG.md` |
@@ -60,6 +67,7 @@ npm test
 | `schemas/`                 | Skill、Agent、Catalog 元数据对应的 JSON Schema                                         |
 | `research/`                | 调研笔记、资料整理和较长的背景文档                                                     |
 | `workspaces/<skill-name>/` | Skill 开发时的评估沙箱与临时工作区                                                     |
+| `.my-agents/`              | 本地忽略的状态目录，例如 project sync state 与可选的 `reference-repos.json` 清单       |
 | `.claude/` 和 `.agents/`   | 本地执行项目级安装时产生的运行时投影目录                                               |
 
 ## 常用工作流
@@ -94,42 +102,22 @@ npm test
 
 这会生成 `packs/product-manager/`，其中包含 `pack.json`、`README.md` 和 `CHANGELOG.md`。
 
-### 安装到运行时目录
+### Runtime 与同步命令
 
 ```bash
+npx my-agents --help
+npx my-agents add https://github.com/affaan-m/everything-claude-code/tree/main/skills/agentic-engineering
 npm run install-skill -- clarify
-npm run install-skill -- clarify --platform codex --scope project
-npm run install-agent -- explorer
-npm run install-agent -- explorer --platform codex --scope project
-npm run install-pack -- product-manager
-npm run install-pack -- product-manager --platform codex --scope project
-npm run sync-project -- --manifest docs/examples/my-agents.project.example.json
-```
-
-安装脚本还支持 `--all`、`--platform claude|codex|all`、`--scope user|project`、`--manifest <path>`，以及对应的 `npm run uninstall-skill` / `npm run uninstall-agent` / `npm run uninstall-pack` 卸载命令。
-
-如果某个 skill 需要排除仅供作者使用的文件，可以通过 `projection.json` 控制运行时投影内容，同时保留仓库中的完整源码包。
-
-### 同步项目清单
-
-可以在目标仓库根目录创建 `my-agents.project.json`，或从 [docs/examples/my-agents.project.example.json](docs/examples/my-agents.project.example.json) 开始：
-
-```bash
-cp docs/examples/my-agents.project.example.json my-agents.project.json
-npm run sync-project
-npm run sync-project -- --platform codex
-```
-
-`sync-project` 总是安装到 project scope。CLI 传入的 `--platform` 会覆盖清单里的默认平台；如果两边都没写，则会同步到两个受支持的平台。
-
-### 同步根目录说明文件
-
-```bash
+npm run sync-project -- --prune
 npm run sync-instructions
-npm run sync-instructions -- --check
+npm run sync-references -- sync
 ```
 
-`instructions/root/shared.md` 保存共享规则，`instructions/root/claude.md` 和 `instructions/root/codex.md` 保存平台差异。`npm install` 会为当前 clone 配置版本化的 `.githooks/pre-commit`，提交时自动运行同步并暂存 `AGENTS.md` 与 `CLAUDE.md`。`npm test` 也会在这两个生成文件漂移时失败。
+根 README 只保留最高频的入口命令。需要查看完整 CLI 能力时，可以先运行 `npx my-agents --help`；其中会列出 `--platform`、`--scope`、`--manifest`、`--all`、`--uninstall` 和 `--prune` 等常用参数。完整的命令参考、示例和行为说明集中放在 [docs/cli/runtime-and-sync-commands.md](docs/cli/runtime-and-sync-commands.md)。
+
+如果你要从零开始写项目清单，可以先参考 [docs/examples/my-agents.project.example.json](docs/examples/my-agents.project.example.json)。
+
+项目清单现在可以同时包含本地包名和外部官方 GitHub 资产。`add <url>` 会把 URL 解析成结构化 manifest entry，并锁定到不可变的 commit SHA，这样 `sync-project` 仍然可以稳定复现。
 
 ### Lint 与格式化
 
@@ -156,11 +144,12 @@ ESLint 负责仓库里的 JavaScript 工具脚本，Prettier 负责 Markdown、J
 - `npm run sync-instructions` 会根据 `instructions/root/` 重新生成根目录的 `AGENTS.md` 与 `CLAUDE.md`。
 - 这些索引文件不建议手动编辑，应该回到对应的源码包中修改。
 - `docs/metadata/` 下的策略文档和 `instructions/root/` 下的说明源文件都不是生成文件；仓库约定变化时应直接修改这些源文件。
+- 工具层的结构说明见 [docs/architecture/tooling-layout.md](docs/architecture/tooling-layout.md)。
 
 ## 校验与发布
 
 - `npm test` 实际执行的是 `npm run validate`。
-- 校验内容包括 ESLint、Prettier、schema、目录约定、CHANGELOG 与版本号一致性、pack 与项目清单引用完整性、生成索引是否最新、根目录说明文件是否已同步，以及文档最小质量要求。
+- 校验内容包括 ESLint、Prettier、schema、目录约定、CHANGELOG 与版本号一致性、pack 与项目清单引用完整性、生成索引是否最新、根目录说明文件是否已同步、文档最小质量要求，以及通过 `uv` 执行的打包 Python 单元测试。
 - 如果调整了元数据语义或仓库策略，应该先更新标准源码包、相关策略文档或 `instructions/root/`，再执行 `npm run build`、`npm run sync-instructions` 和 `npm test`。
 - GitHub Actions 会在每次 push 和 pull request 时运行 `.github/workflows/validate.yml`。
 - Dependabot 会通过 `.github/dependabot.yml` 定期更新 npm 与 GitHub Actions 依赖。

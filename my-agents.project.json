@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "description": "Bootstrap manifest for the my-agents authoring repository.",
+  "platforms": ["claude", "codex"],
+  "packs": [],
+  "skills": [
+    "agent-lifecycle-manager",
+    "git-worktree-workflows",
+    "prompt-engineering",
+    "readme-craftsman",
+    "skill-lifecycle-manager",
+    "skill-researcher",
+    {
+      "source": "official",
+      "provider": "github",
+      "platform": "claude",
+      "name": "agentic-engineering",
+      "repo": "affaan-m/everything-claude-code",
+      "declaredRef": "main",
+      "resolvedCommit": "8b6140dedca32f081ba6964854bb70da31237f5e",
+      "path": "skills/agentic-engineering",
+      "sourceUrl": "https://github.com/affaan-m/everything-claude-code/tree/main/skills/agentic-engineering"
+    }
+  ],
+  "agents": []
+}

@@ -6,6 +6,7 @@ CLAUDE.md
 .codex/
 .my-agents/
 .venv/
+.pytest_cache/
 dist/
 docs/catalog/
 docs/plans/

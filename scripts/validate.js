@@ -4,11 +4,25 @@ const path = require("node:path");
 const Ajv = require("ajv/dist/2020");
 const addFormats = require("ajv-formats");
 
+const { fileExists, readJson, listDirs } = require("./lib/fs-utils");
+const {
+  SKILLS_CATALOG_PATH,
+  AGENTS_CATALOG_PATH,
+  PACKS_CATALOG_PATH,
+  MACHINE_CATALOG_PATH,
+  detectPlatforms,
+  generateCatalogSnapshot
+} = require("./lib/catalog");
+const {
+  formatAjvErrors,
+  checkChangelogHasVersion,
+  pushUnknownCategoryErrors,
+  findDuplicates,
+  validateProjectManifestReferences,
+  detectAgentCycles
+} = require("./lib/validate-utils");
+
 const MIN_DOC_LENGTH = 200;
-const SKILLS_CATALOG_PATH = path.join("docs", "catalog", "skills.md");
-const AGENTS_CATALOG_PATH = path.join("docs", "catalog", "agents.md");
-const PACKS_CATALOG_PATH = path.join("docs", "catalog", "packs.md");
-const MACHINE_CATALOG_PATH = path.join("dist", "catalog.json");
 const DEFAULT_PROJECT_MANIFEST_PATH = "my-agents.project.json";
 const EXAMPLE_PROJECT_MANIFEST_PATH = path.join(
   "docs",
@@ -16,58 +30,11 @@ const EXAMPLE_PROJECT_MANIFEST_PATH = path.join(
   "my-agents.project.example.json"
 );
 
-async function fileExists(filePath) {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function readJson(jsonPath) {
-  const raw = await fs.readFile(jsonPath, "utf8");
-  return JSON.parse(raw);
-}
-
-async function listDirs(baseDir) {
-  if (!(await fileExists(baseDir))) return [];
-  const entries = await fs.readdir(baseDir, { withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .filter((name) => !name.startsWith("_") && !name.startsWith("."));
-}
-
-function formatAjvErrors(errors) {
-  return (errors ?? [])
-    .map((error) => `- ${error.instancePath || "/"} ${error.message}`)
-    .join("\n");
-}
-
-async function checkChangelogHasVersion(changelogPath, version) {
-  const raw = await fs.readFile(changelogPath, "utf8");
-  const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`^##\\s*\\[?${escaped}\\]?(?:\\s+-.*)?$`, "m");
-  return re.test(raw);
-}
-
 async function loadAllowedCategories(repoRoot) {
   const catPath = path.join(repoRoot, "categories.json");
   if (!(await fileExists(catPath))) return null;
   const data = await readJson(catPath);
   return new Set(data.categories);
-}
-
-async function detectPlatforms(agentDir) {
-  const platforms = [];
-  if (await fileExists(path.join(agentDir, "claude-code.md"))) {
-    platforms.push("claude-code");
-  }
-  if (await fileExists(path.join(agentDir, "codex.toml"))) {
-    platforms.push("codex");
-  }
-  return platforms.sort();
 }
 
 async function checkDocLength(filePath, label, errors) {
@@ -82,256 +49,7 @@ async function checkDocLength(filePath, label, errors) {
   }
 }
 
-function pushUnknownCategoryErrors(baseLabel, categories, allowedCategories, errors) {
-  if (!allowedCategories) return;
-  for (const category of categories ?? []) {
-    if (!allowedCategories.has(category)) {
-      errors.push(`${baseLabel}: unknown category "${category}" (add it to categories.json first)`);
-    }
-  }
-}
-
-function findDuplicates(values) {
-  const seen = new Set();
-  const duplicates = new Set();
-  for (const value of values ?? []) {
-    if (seen.has(value)) {
-      duplicates.add(value);
-    }
-    seen.add(value);
-  }
-  return [...duplicates].sort();
-}
-
-function validateProjectManifestReferences(
-  manifest,
-  label,
-  packNames,
-  skillNames,
-  agentNames,
-  errors
-) {
-  for (const duplicate of findDuplicates(manifest.packs)) {
-    errors.push(`${label}: duplicate pack "${duplicate}"`);
-  }
-
-  for (const duplicate of findDuplicates(manifest.skills)) {
-    errors.push(`${label}: duplicate skill "${duplicate}"`);
-  }
-
-  for (const duplicate of findDuplicates(manifest.agents)) {
-    errors.push(`${label}: duplicate agent "${duplicate}"`);
-  }
-
-  for (const packName of manifest.packs ?? []) {
-    if (!packNames.has(packName)) {
-      errors.push(`${label}: references unknown pack "${packName}"`);
-    }
-  }
-
-  for (const skillName of manifest.skills ?? []) {
-    if (!skillNames.has(skillName)) {
-      errors.push(`${label}: references unknown skill "${skillName}"`);
-    }
-  }
-
-  for (const agentName of manifest.agents ?? []) {
-    if (!agentNames.has(agentName)) {
-      errors.push(`${label}: references unknown agent "${agentName}"`);
-    }
-  }
-}
-
-function toSkillCatalogItem(skill, dirName) {
-  return {
-    name: skill.name,
-    path: `skills/${dirName}`,
-    displayName: skill.displayName,
-    description: skill.description,
-    version: skill.version,
-    maturity: skill.maturity,
-    categories: skill.categories,
-    tags: skill.tags ?? []
-  };
-}
-
-function toAgentCatalogItem(agent, dirName, platforms) {
-  return {
-    name: agent.name,
-    path: `agents/${dirName}`,
-    displayName: agent.displayName,
-    description: agent.description,
-    version: agent.version,
-    maturity: agent.maturity,
-    categories: agent.categories,
-    tags: agent.tags ?? [],
-    archetype: agent.archetype,
-    skills: agent.skills ?? [],
-    agents: agent.agents ?? [],
-    platforms
-  };
-}
-
-function toPackCatalogItem(pack, dirName) {
-  return {
-    name: pack.name,
-    path: `packs/${dirName}`,
-    displayName: pack.displayName,
-    description: pack.description,
-    version: pack.version,
-    maturity: pack.maturity,
-    packType: pack.packType,
-    persona: pack.persona,
-    categories: pack.categories,
-    tags: pack.tags ?? [],
-    skills: pack.skills ?? [],
-    agents: pack.agents ?? [],
-    leadAgent: pack.leadAgent
-  };
-}
-
-function renderSkillsMarkdown(items) {
-  const header = [
-    "# Skills Catalog",
-    "",
-    "> This file is generated. Run `npm run build`.",
-    "",
-    "| Name | Version | Maturity | Categories | Description |",
-    "| --- | --- | --- | --- | --- |"
-  ];
-
-  const rows = items.map((item) => {
-    const link = `[${item.name}](../../${item.path}/SKILL.md)`;
-    const categories = (item.categories ?? []).join(", ");
-    const desc = (item.description ?? "").replace(/\r?\n/g, " ");
-    return `| ${link} | ${item.version} | ${item.maturity} | ${categories} | ${desc} |`;
-  });
-
-  return [...header, ...rows, ""].join("\n");
-}
-
-function renderAgentsMarkdown(items) {
-  const header = [
-    "# Agents Catalog",
-    "",
-    "> This file is generated. Run `npm run build`.",
-    "",
-    "| Name | Version | Maturity | Archetype | Platforms | Categories | Description |",
-    "| --- | --- | --- | --- | --- | --- | --- |"
-  ];
-
-  const rows = items.map((item) => {
-    const link = `[${item.name}](../../${item.path}/claude-code.md)`;
-    const platforms = (item.platforms ?? []).join(", ");
-    const categories = (item.categories ?? []).join(", ");
-    const desc = (item.description ?? "").replace(/\r?\n/g, " ");
-    return `| ${link} | ${item.version} | ${item.maturity} | ${item.archetype} | ${platforms} | ${categories} | ${desc} |`;
-  });
-
-  return [...header, ...rows, ""].join("\n");
-}
-
-function renderPacksMarkdown(items) {
-  const header = [
-    "# Packs Catalog",
-    "",
-    "> This file is generated. Run `npm run build`.",
-    "",
-    "| Name | Type | Version | Maturity | Categories | Members | Description |",
-    "| --- | --- | --- | --- | --- | --- | --- |"
-  ];
-
-  const rows = items.map((item) => {
-    const link = `[${item.name}](../../${item.path}/README.md)`;
-    const categories = (item.categories ?? []).join(", ");
-    const desc = (item.description ?? "").replace(/\r?\n/g, " ");
-    const members = `${(item.skills ?? []).length} skills, ${(item.agents ?? []).length} agents`;
-    return `| ${link} | ${item.packType} | ${item.version} | ${item.maturity} | ${categories} | ${members} | ${desc} |`;
-  });
-
-  return [...header, ...rows, ""].join("\n");
-}
-
-async function generateExpectedIndex(repoRoot) {
-  const skillDirs = await listDirs(path.join(repoRoot, "skills"));
-  const skillItems = [];
-  for (const dirName of skillDirs) {
-    const skillJsonPath = path.join(repoRoot, "skills", dirName, "skill.json");
-    if (!(await fileExists(skillJsonPath))) continue;
-    const skill = await readJson(skillJsonPath);
-    skillItems.push(toSkillCatalogItem(skill, dirName));
-  }
-  skillItems.sort((a, b) => a.name.localeCompare(b.name));
-
-  const agentDirs = await listDirs(path.join(repoRoot, "agents"));
-  const agentItems = [];
-  for (const dirName of agentDirs) {
-    const agentJsonPath = path.join(repoRoot, "agents", dirName, "agent.json");
-    if (!(await fileExists(agentJsonPath))) continue;
-    const agent = await readJson(agentJsonPath);
-    const platforms = await detectPlatforms(path.join(repoRoot, "agents", dirName));
-    agentItems.push(toAgentCatalogItem(agent, dirName, platforms));
-  }
-  agentItems.sort((a, b) => a.name.localeCompare(b.name));
-
-  const packDirs = await listDirs(path.join(repoRoot, "packs"));
-  const packItems = [];
-  for (const dirName of packDirs) {
-    const packJsonPath = path.join(repoRoot, "packs", dirName, "pack.json");
-    if (!(await fileExists(packJsonPath))) continue;
-    const pack = await readJson(packJsonPath);
-    packItems.push(toPackCatalogItem(pack, dirName));
-  }
-  packItems.sort((a, b) => a.name.localeCompare(b.name));
-
-  const expectedCatalogObj = {
-    schemaVersion: 1,
-    skills: skillItems,
-    agents: agentItems,
-    packs: packItems
-  };
-
-  return {
-    expectedCatalogObj,
-    expectedSkillsMd: renderSkillsMarkdown(skillItems),
-    expectedAgentsMd: renderAgentsMarkdown(agentItems),
-    expectedPacksMd: renderPacksMarkdown(packItems)
-  };
-}
-
-function detectAgentCycles(agentGraph) {
-  const errors = [];
-  const state = new Map();
-
-  function visit(node, trail) {
-    const status = state.get(node);
-    if (status === "visiting") {
-      const cycleStart = trail.indexOf(node);
-      const cycle = trail.slice(cycleStart).concat(node);
-      errors.push(
-        `agents/${node}/agent.json: circular agent reference detected (${cycle.join(" -> ")})`
-      );
-      return;
-    }
-    if (status === "visited") return;
-
-    state.set(node, "visiting");
-    for (const ref of agentGraph.get(node) ?? []) {
-      visit(ref, [...trail, node]);
-    }
-    state.set(node, "visited");
-  }
-
-  for (const node of agentGraph.keys()) {
-    visit(node, []);
-  }
-
-  return [...new Set(errors)];
-}
-
-async function main() {
-  const repoRoot = path.resolve(__dirname, "..");
-
+async function loadValidators(repoRoot) {
   const skillSchema = await readJson(path.join(repoRoot, "schemas", "skill.schema.json"));
   const agentSchema = await readJson(path.join(repoRoot, "schemas", "agent.schema.json"));
   const packSchema = await readJson(path.join(repoRoot, "schemas", "pack.schema.json"));
@@ -343,21 +61,18 @@ async function main() {
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
 
-  const validateSkill = ajv.compile(skillSchema);
-  const validateAgent = ajv.compile(agentSchema);
-  const validatePack = ajv.compile(packSchema);
-  const validateProjectManifest = ajv.compile(projectManifestSchema);
-  const validateCatalog = ajv.compile(catalogSchema);
+  return {
+    validateSkill: ajv.compile(skillSchema),
+    validateAgent: ajv.compile(agentSchema),
+    validatePack: ajv.compile(packSchema),
+    validateProjectManifest: ajv.compile(projectManifestSchema),
+    validateCatalog: ajv.compile(catalogSchema)
+  };
+}
 
-  const allowedCategories = await loadAllowedCategories(repoRoot);
-
-  const errors = [];
-  const warnings = [];
-  const skillNames = new Set();
-  const agentNames = new Set();
-  const agentMetadata = new Map();
-
+async function validateSkills(repoRoot, validateSkill, allowedCategories, errors, skillNames) {
   const skillDirs = await listDirs(path.join(repoRoot, "skills"));
+
   for (const dirName of skillDirs) {
     const baseDir = path.join(repoRoot, "skills", dirName);
     const skillJsonPath = path.join(baseDir, "skill.json");
@@ -409,12 +124,24 @@ async function main() {
     const changelogPath = path.join(baseDir, changelog);
     if (!(await fileExists(changelogPath))) {
       errors.push(`Missing changelog: skills/${dirName}/${changelog}`);
-    } else if (!(await checkChangelogHasVersion(changelogPath, skill.version))) {
+    } else if (!(await checkChangelogHasVersion(fs, changelogPath, skill.version))) {
       errors.push(`skills/${dirName}/${changelog}: must contain a '## [${skill.version}]' section`);
     }
   }
+}
 
+async function validateAgents(
+  repoRoot,
+  validateAgent,
+  allowedCategories,
+  skillNames,
+  errors,
+  warnings,
+  agentNames,
+  agentMetadata
+) {
   const agentDirs = await listDirs(path.join(repoRoot, "agents"));
+
   for (const dirName of agentDirs) {
     const baseDir = path.join(repoRoot, "agents", dirName);
     const agentJsonPath = path.join(baseDir, "agent.json");
@@ -499,7 +226,7 @@ async function main() {
     const changelogPath = path.join(baseDir, changelog);
     if (!(await fileExists(changelogPath))) {
       errors.push(`Missing changelog: agents/${dirName}/${changelog}`);
-    } else if (!(await checkChangelogHasVersion(changelogPath, agent.version))) {
+    } else if (!(await checkChangelogHasVersion(fs, changelogPath, agent.version))) {
       errors.push(`agents/${dirName}/${changelog}: must contain a '## [${agent.version}]' section`);
     }
   }
@@ -521,9 +248,20 @@ async function main() {
       }
     }
   }
+}
 
+async function validatePacks(
+  repoRoot,
+  validatePack,
+  allowedCategories,
+  skillNames,
+  agentNames,
+  agentMetadata,
+  errors
+) {
   const packDirs = await listDirs(path.join(repoRoot, "packs"));
   const packNames = new Set();
+
   for (const dirName of packDirs) {
     const baseDir = path.join(repoRoot, "packs", dirName);
     const packJsonPath = path.join(baseDir, "pack.json");
@@ -572,7 +310,7 @@ async function main() {
     const changelogPath = path.join(baseDir, "CHANGELOG.md");
     if (!(await fileExists(changelogPath))) {
       errors.push(`Missing changelog: packs/${dirName}/CHANGELOG.md`);
-    } else if (!(await checkChangelogHasVersion(changelogPath, pack.version))) {
+    } else if (!(await checkChangelogHasVersion(fs, changelogPath, pack.version))) {
       errors.push(`packs/${dirName}/CHANGELOG.md: must contain a '## [${pack.version}]' section`);
     }
 
@@ -632,6 +370,17 @@ async function main() {
     }
   }
 
+  return packNames;
+}
+
+async function validateProjectManifestFiles(
+  repoRoot,
+  validateProjectManifest,
+  packNames,
+  skillNames,
+  agentNames,
+  errors
+) {
   const projectManifestCandidates = [
     {
       required: false,
@@ -679,7 +428,9 @@ async function main() {
       errors
     );
   }
+}
 
+async function validateGeneratedOutputs(repoRoot, validateCatalog, errors) {
   const catalogPath = path.join(repoRoot, MACHINE_CATALOG_PATH);
   if (!(await fileExists(catalogPath))) {
     errors.push(`Missing ${MACHINE_CATALOG_PATH} (run \`npm run build\`)`);
@@ -716,8 +467,7 @@ async function main() {
     errors.push(`Missing ${PACKS_CATALOG_PATH} (run \`npm run build\`)`);
   }
 
-  const { expectedCatalogObj, expectedSkillsMd, expectedAgentsMd, expectedPacksMd } =
-    await generateExpectedIndex(repoRoot);
+  const snapshot = await generateCatalogSnapshot(repoRoot);
 
   if (await fileExists(catalogPath)) {
     const actual = await readJson(catalogPath);
@@ -727,31 +477,75 @@ async function main() {
       agents: actual.agents,
       packs: actual.packs
     };
-    if (JSON.stringify(actualComparable) !== JSON.stringify(expectedCatalogObj)) {
+    if (JSON.stringify(actualComparable) !== JSON.stringify(snapshot.catalogBase)) {
       errors.push(`${MACHINE_CATALOG_PATH} is out of date (run \`npm run build\`)`);
     }
   }
 
   if (
     (await fileExists(skillsMdPath)) &&
-    (await fs.readFile(skillsMdPath, "utf8")) !== expectedSkillsMd
+    (await fs.readFile(skillsMdPath, "utf8")) !== snapshot.skillsMarkdown
   ) {
     errors.push(`${SKILLS_CATALOG_PATH} is out of date (run \`npm run build\`)`);
   }
 
   if (
     (await fileExists(agentsMdPath)) &&
-    (await fs.readFile(agentsMdPath, "utf8")) !== expectedAgentsMd
+    (await fs.readFile(agentsMdPath, "utf8")) !== snapshot.agentsMarkdown
   ) {
     errors.push(`${AGENTS_CATALOG_PATH} is out of date (run \`npm run build\`)`);
   }
 
   if (
     (await fileExists(packsMdPath)) &&
-    (await fs.readFile(packsMdPath, "utf8")) !== expectedPacksMd
+    (await fs.readFile(packsMdPath, "utf8")) !== snapshot.packsMarkdown
   ) {
     errors.push(`${PACKS_CATALOG_PATH} is out of date (run \`npm run build\`)`);
   }
+}
+
+async function main() {
+  const repoRoot = path.resolve(__dirname, "..");
+  const validators = await loadValidators(repoRoot);
+  const allowedCategories = await loadAllowedCategories(repoRoot);
+
+  const errors = [];
+  const warnings = [];
+  const skillNames = new Set();
+  const agentNames = new Set();
+  const agentMetadata = new Map();
+
+  await validateSkills(repoRoot, validators.validateSkill, allowedCategories, errors, skillNames);
+  await validateAgents(
+    repoRoot,
+    validators.validateAgent,
+    allowedCategories,
+    skillNames,
+    errors,
+    warnings,
+    agentNames,
+    agentMetadata
+  );
+
+  const packNames = await validatePacks(
+    repoRoot,
+    validators.validatePack,
+    allowedCategories,
+    skillNames,
+    agentNames,
+    agentMetadata,
+    errors
+  );
+
+  await validateProjectManifestFiles(
+    repoRoot,
+    validators.validateProjectManifest,
+    packNames,
+    skillNames,
+    agentNames,
+    errors
+  );
+  await validateGeneratedOutputs(repoRoot, validators.validateCatalog, errors);
 
   if (warnings.length > 0) {
     console.warn("Warnings:");

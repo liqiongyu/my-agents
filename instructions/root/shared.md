@@ -12,10 +12,11 @@ This repository is a monorepo for reusable skills, agents, and installable packs
 - Agent packages should contain `agent.json`, at least one platform definition file such as `claude-code.md` or `codex.toml`, and `CHANGELOG.md`.
 - Pack packages should contain `pack.json`, `README.md`, and `CHANGELOG.md`.
 - Shared schemas live in `schemas/`; authoring tools live in `scripts/`; generated catalogs live in `docs/catalog/` and `dist/catalog.json`; longer research notes live in `research/`.
+- Local-only external reference repositories should live under `workspaces/references/`. If `.my-agents/reference-repos.json` exists, treat it as the discovery index for those references, but do not commit the manifest or the cloned repositories.
 
 ## Build, Test, And Development Commands
 
-Use Node.js 18+.
+Use Node.js 18+ and install `uv` when running Python-backed skill checks.
 
 - `npm install` installs repo dependencies and configures the repo's versioned Git hooks for this clone.
 - `npm run lint` lints the repository's JavaScript tooling with ESLint.
@@ -26,7 +27,7 @@ Use Node.js 18+.
 - `npm run sync-instructions -- --check` verifies the generated root instruction files are current.
 - `npm run new -- my-skill`, `npm run new -- --agent my-agent`, and `npm run new -- --pack my-pack` scaffold canonical packages.
 - `npm run build` regenerates `dist/catalog.json`, `docs/catalog/skills.md`, `docs/catalog/agents.md`, and `docs/catalog/packs.md`.
-- `npm test` runs repository validation.
+- `npm test` runs repository validation, including packaged Python unit tests that are wired into the shared validation path through `uv`.
 - `npm run install-skill -- <name>`, `npm run install-agent -- <name>`, `npm run install-pack -- <name>`, and `npm run sync-project` manage runtime installs. Install commands support `--platform claude|codex|all`, `--scope user|project`, and `--manifest <path>` where relevant.
 
 ## Coding Style & Naming Conventions
@@ -41,7 +42,7 @@ Match the existing style in surrounding files. JavaScript in `scripts/` uses Com
 - Follow SemVer: MAJOR for breaking changes, MINOR for new capabilities, PATCH for fixes.
 - Run `npm run sync-instructions`, `npm run build`, and `npm test` before opening a PR after changing canonical packages, metadata, generated outputs, or contributor instructions.
 - The versioned `pre-commit` hook keeps local commits fast: it syncs root instructions, formats staged files, auto-fixes staged JavaScript where possible, and re-stages the results.
-- Validation checks schema compliance, directory conventions, changelog/version alignment, category whitelists, pack and project-manifest reference integrity, generated catalog freshness, and generated instruction freshness.
+- Validation checks schema compliance, directory conventions, changelog/version alignment, category whitelists, pack and project-manifest reference integrity, generated catalog freshness, generated instruction freshness, and packaged Python unit tests that participate in the shared validation path.
 
 ## GitHub & Contribution Workflow
 

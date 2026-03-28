@@ -26,6 +26,7 @@ It answers:
 - which extra standalone skills should be installed
 - which extra standalone agents should be installed
 - which platforms this repository expects by default
+- which of those extra standalone skills and agents come from this repo versus a trusted official GitHub source
 
 It is not a publishable package and should not appear in generated library catalogs.
 
@@ -37,8 +38,43 @@ It is not a publishable package and should not appear in generated library catal
   "description": "Bootstrap manifest for a product-focused repository.",
   "platforms": ["claude", "codex"],
   "packs": ["product-manager"],
-  "skills": [],
-  "agents": []
+  "skills": ["brainstorming"],
+  "agents": ["explorer"]
+}
+```
+
+External official assets use an object entry inside `skills` or `agents`:
+
+```json
+{
+  "schemaVersion": 1,
+  "skills": [
+    "brainstorming",
+    {
+      "source": "official",
+      "provider": "github",
+      "platform": "claude",
+      "name": "agentic-engineering",
+      "repo": "affaan-m/everything-claude-code",
+      "declaredRef": "main",
+      "resolvedCommit": "0123456789abcdef0123456789abcdef01234567",
+      "path": "skills/agentic-engineering",
+      "sourceUrl": "https://github.com/affaan-m/everything-claude-code/tree/main/skills/agentic-engineering"
+    }
+  ],
+  "agents": [
+    {
+      "source": "official",
+      "provider": "github",
+      "platform": "codex",
+      "name": "api-designer",
+      "repo": "VoltAgent/awesome-codex-subagents",
+      "declaredRef": "main",
+      "resolvedCommit": "0123456789abcdef0123456789abcdef01234567",
+      "path": "categories/01-core-development/api-designer.toml",
+      "sourceUrl": "https://github.com/VoltAgent/awesome-codex-subagents/blob/main/categories/01-core-development/api-designer.toml"
+    }
+  ]
 }
 ```
 
@@ -47,10 +83,22 @@ It is not a publishable package and should not appear in generated library catal
 Use the manifest fields as follows:
 
 - `packs`: the preferred path for curated role or team bundles
-- `skills`: direct additions that are intentionally outside the selected packs
-- `agents`: direct additions that are intentionally outside the selected packs
+- `skills`: direct additions that are intentionally outside the selected packs, either local strings or external official object entries
+- `agents`: direct additions that are intentionally outside the selected packs, either local strings or external official object entries
 
 Prefer packs first. Use direct `skills` and `agents` only to add small local customizations on top of a pack-based baseline.
+
+## External Official Assets
+
+V1 external asset rules:
+
+- only GitHub-backed entries are supported
+- the manifest stores structured locator data, not just a raw URL
+- external entries must represent one asset, not a category directory or repo root
+- external `skills` are currently Claude-oriented skill directories
+- external `agents` are currently either Claude `.md` files or Codex `.toml` files
+
+The CLI authoring flow should create these object entries from a precise GitHub URL so humans do not need to hand-write the locator fields.
 
 ## Platform Guidance
 
@@ -63,6 +111,8 @@ Resolution order:
 3. default to all supported platforms
 
 This lets a repository declare its default surfaces while still allowing one-off operator overrides.
+
+For external object entries, `platform` is part of the entry itself. The selected effective platforms must include that entry platform or sync should fail clearly instead of silently skipping it.
 
 ## Sync State And Pruning
 
@@ -96,5 +146,8 @@ For v1:
 - no manifest inheritance
 - no lockfile
 - no per-platform member overrides inside the manifest
+- no external packs
+- no non-GitHub providers
+- no patching or overlaying official external assets
 
 Future versions can add those concepts if real usage demands them.

@@ -1,5 +1,7 @@
 # Contributing Guide
 
+This repository uses `uv` for Python-backed validation and test helpers. If a workflow or `npm test` exercises packaged Python checks, prefer the documented `uv run ...` commands instead of relying on a manually managed virtualenv.
+
 ## Adding a New Skill
 
 ```bash
