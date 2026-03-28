@@ -1,0 +1,82 @@
+{
+  "version": "0.1.0",
+  "skill": "project-documentation",
+  "type": "qualitative-output",
+  "description": "Lightweight qualitative output suite for Project Documentation narrowed to docs governance. These cases are meant for human review after running the skill on representative docs-directory restructuring, refresh, consolidation, and verification tasks.",
+  "assertions": [
+    "governance_fit",
+    "repo_grounded",
+    "entry_point_or_scope_clear",
+    "actionable_navigation_or_steps",
+    "stale_or_duplicate_content_handled",
+    "verification_or_limits_stated"
+  ],
+  "assertion_definitions": {
+    "governance_fit": "The output fits the requested docs-governance task instead of forcing a generic one-off document template.",
+    "repo_grounded": "The output is grounded in repository evidence rather than invented commands, files, or capabilities.",
+    "entry_point_or_scope_clear": "The reader can tell where to start or what part of the docs set the change governs.",
+    "actionable_navigation_or_steps": "The output provides concrete navigation, setup, procedure steps, or operational actions where appropriate.",
+    "stale_or_duplicate_content_handled": "The output updates stale sections, preserves accurate sections, or consolidates duplicates without losing unique value.",
+    "verification_or_limits_stated": "The output states what was verified and flags remaining uncertainty instead of presenting guesses as facts."
+  },
+  "cases": [
+    {
+      "id": "quality-structure-landing-page",
+      "name": "Improve docs landing and start-here flow",
+      "repo_archetype": "Repository with a growing docs folder",
+      "task_mode": "Structure",
+      "prompt": "Improve the docs/ landing page and start-here path.",
+      "success_criteria": [
+        "Clarifies where readers should start and how major sections relate.",
+        "Uses the actual docs structure and repository evidence instead of inventing pages.",
+        "Improves navigation without rewriting every docs page unnecessarily."
+      ]
+    },
+    {
+      "id": "quality-refresh-docs",
+      "name": "Refresh docs after repo changes",
+      "repo_archetype": "Service or monorepo with changing internals",
+      "task_mode": "Refresh",
+      "prompt": "Refresh the stale pages in docs/ after our auth and worker refactor, but keep accurate sections.",
+      "success_criteria": [
+        "Updates only the parts that drifted instead of rewriting everything blindly.",
+        "Fixes paths, commands, and changed flows using current repo evidence.",
+        "Preserves the docs set's voice and current information architecture where it still works."
+      ]
+    },
+    {
+      "id": "quality-consolidate-docs",
+      "name": "Consolidate overlapping docs",
+      "repo_archetype": "Repository with documentation sprawl",
+      "task_mode": "Structure",
+      "prompt": "Consolidate overlapping setup and troubleshooting docs without losing important details.",
+      "success_criteria": [
+        "Analyzes overlapping content before removing or merging pages.",
+        "Keeps unique troubleshooting and caveat details while reducing duplicate prose.",
+        "Leaves a clearer navigation path or source-of-truth structure behind."
+      ]
+    },
+    {
+      "id": "quality-verify-runbook",
+      "name": "Verify docs pages against the current repo",
+      "repo_archetype": "Operational repository or service with deploy scripts",
+      "task_mode": "Verify",
+      "prompt": "Check whether the runbook and onboarding pages under docs/ still match the repository.",
+      "success_criteria": [
+        "Reports mismatches with evidence instead of only giving generic documentation advice.",
+        "Checks operationally important items such as commands, env vars, and rollback or validation steps.",
+        "States verification limits clearly where the repo does not prove a claim."
+      ]
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  }
+}

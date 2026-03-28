@@ -176,6 +176,30 @@
       ]
     },
     {
+      "name": "project-documentation",
+      "path": "skills/project-documentation",
+      "displayName": "Docs Governance",
+      "description": "Govern a repository's docs/ directory or docs site by reorganizing structure, consolidating overlapping pages, refreshing stale docs after code changes, and auditing documentation for drift, dead links, duplication, and missing source-of-truth boundaries. Use when the user explicitly wants to clean up, restructure, maintain, or verify a docs set rather than write a README or review a PR. Do not use it for README-only requests, one-off root-level docs outside the docs set, deep external research, or generic PR/diff review.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "documentation",
+        "workflow",
+        "review"
+      ],
+      "tags": [
+        "project-documentation",
+        "docs",
+        "docs-governance",
+        "docs-directory",
+        "docs-maintenance",
+        "docs-review",
+        "docs-navigation",
+        "information-architecture",
+        "knowledge-base"
+      ]
+    },
+    {
       "name": "prompt-engineering",
       "path": "skills/prompt-engineering",
       "displayName": "Prompt Engineering",
@@ -518,5 +542,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-28T16:35:35.182Z"
+  "generatedAt": "2026-03-28T17:01:37.392Z"
 }

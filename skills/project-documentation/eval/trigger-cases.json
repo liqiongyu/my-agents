@@ -1,0 +1,190 @@
+{
+  "version": "0.1.0",
+  "skill": "project-documentation",
+  "type": "trigger-boundary",
+  "description": "Lightweight trigger-boundary suite for Project Documentation narrowed to docs governance. The suite checks that docs/ directory restructuring, consolidation, refresh, and verification requests route to the skill, while README-only requests, one-off non-docs-set document requests, PR review tasks, deep research requests, and document-conversion tasks stay with narrower workflows.",
+  "assertions": [
+    "routing_verdict_correct",
+    "mode_or_boundary_correct",
+    "repo_grounding_or_handoff_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response routes docs-set governance work to this skill and keeps narrower or non-docs-set tasks out of scope.",
+    "mode_or_boundary_correct": "For in-scope requests, the response identifies Structure, Refresh, or Verify correctly. For out-of-scope requests, it explains the boundary clearly.",
+    "repo_grounding_or_handoff_explicit": "The response either says it will inspect the docs set before editing or points to the narrower workflow that should handle the request."
+  },
+  "cases": [
+    {
+      "id": "trigger-structure-docs",
+      "name": "Restructure the docs directory",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Structure",
+      "prompt": "Clean up the docs/ directory and give it a clearer start-here path.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is explicit docs-governance work and should route to project-documentation."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should treat this as Structure mode."
+        },
+        "repo_grounding_or_handoff_explicit": {
+          "check": "The response should mention inspecting the docs tree or current docs navigation before editing."
+        }
+      }
+    },
+    {
+      "id": "trigger-refresh-docs",
+      "name": "Refresh docs after repo changes",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Refresh",
+      "prompt": "Refresh the pages under docs/ after we renamed commands and moved config files, but keep accurate sections.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to project-documentation."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should identify Refresh mode."
+        },
+        "repo_grounding_or_handoff_explicit": {
+          "check": "The response should mention comparing the current docs set to repository changes before editing."
+        }
+      }
+    },
+    {
+      "id": "trigger-consolidate-docs",
+      "name": "Consolidate overlapping docs pages",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Structure",
+      "prompt": "Our docs folder has overlapping setup and troubleshooting pages. Consolidate them into a smaller, clearer structure.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to project-documentation."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should treat this as Structure work with a consolidation path."
+        },
+        "repo_grounding_or_handoff_explicit": {
+          "check": "The response should mention analyzing overlap or source-of-truth documents before deleting or merging content."
+        }
+      }
+    },
+    {
+      "id": "trigger-verify-docs",
+      "name": "Verify docs set against the repository",
+      "expected_trigger": "should-trigger",
+      "expected_mode": "Verify",
+      "prompt": "Check whether the pages under docs/ still match the current repository.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to project-documentation."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should identify Verify mode."
+        },
+        "repo_grounding_or_handoff_explicit": {
+          "check": "The response should make the docs-to-repo comparison explicit before judging accuracy."
+        }
+      }
+    },
+    {
+      "id": "boundary-readme-only",
+      "name": "README-only request should stay narrower",
+      "expected_trigger": "should-not-trigger",
+      "case_type": "out-of-scope",
+      "prompt": "Write a README for this repository.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should stay with readme-craftsman rather than docs governance."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should explain the README-only boundary clearly."
+        },
+        "repo_grounding_or_handoff_explicit": {
+          "check": "The response should hand off to the README-specific workflow."
+        }
+      }
+    },
+    {
+      "id": "boundary-one-off-root-doc",
+      "name": "One-off root-level document should stay out of scope",
+      "expected_trigger": "should-not-trigger",
+      "case_type": "out-of-scope",
+      "prompt": "Draft a root-level architecture memo for this repository.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to project-documentation because the task is a one-off root-level doc, not docs-set governance."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should explain the docs-set boundary clearly."
+        },
+        "repo_grounding_or_handoff_explicit": {
+          "check": "The response should avoid treating broad one-off document drafting as docs/ governance."
+        }
+      }
+    },
+    {
+      "id": "boundary-pr-review",
+      "name": "Docs diff review should stay with review",
+      "expected_trigger": "should-not-trigger",
+      "case_type": "out-of-scope",
+      "prompt": "Review this PR's documentation changes and call out regressions.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should stay with review because the task is change-set review, not docs governance."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should distinguish docs verification from PR or diff review."
+        },
+        "repo_grounding_or_handoff_explicit": {
+          "check": "The response should point to the review workflow."
+        }
+      }
+    },
+    {
+      "id": "boundary-deep-research",
+      "name": "Research-heavy request should not route here",
+      "expected_trigger": "should-not-trigger",
+      "case_type": "out-of-scope",
+      "prompt": "Research the latest Kubernetes ingress best practices and write a citation-backed report.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to project-documentation because the primary deliverable is deep external research."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should keep research-first work outside this skill boundary."
+        },
+        "repo_grounding_or_handoff_explicit": {
+          "check": "The response should point to deep-research rather than docs governance."
+        }
+      }
+    },
+    {
+      "id": "boundary-doc-conversion",
+      "name": "Document conversion should stay out of scope",
+      "expected_trigger": "should-not-trigger",
+      "case_type": "out-of-scope",
+      "prompt": "Convert this PDF handbook to Markdown and keep the tables intact.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to project-documentation because the primary task is format conversion."
+        },
+        "mode_or_boundary_correct": {
+          "check": "The response should explain that conversion is a different workflow from docs governance."
+        },
+        "repo_grounding_or_handoff_explicit": {
+          "check": "The response should hand off to a document-conversion workflow."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  }
+}
