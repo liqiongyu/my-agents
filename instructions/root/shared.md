@@ -28,7 +28,7 @@ Use Node.js 18+ and install `uv` when running Python-backed skill checks.
 - `npm run new -- my-skill`, `npm run new -- --agent my-agent`, and `npm run new -- --pack my-pack` scaffold canonical packages.
 - `npm run build` regenerates `dist/catalog.json`, `docs/catalog/skills.md`, `docs/catalog/agents.md`, and `docs/catalog/packs.md`.
 - `npm test` runs repository validation, including packaged Python unit tests that are wired into the shared validation path through `uv`.
-- `npm run install-skill -- <name>`, `npm run install-agent -- <name>`, `npm run install-pack -- <name>`, and `npm run sync-project` manage runtime installs. Install commands support `--platform claude|codex|all`, `--scope user|project`, and `--manifest <path>` where relevant.
+- `npx my-agents install <skill|agent|pack> <name>`, `npx my-agents uninstall <skill|agent|pack> <name>`, `npx my-agents project sync`, and `npx my-agents references <command>` are the canonical runtime commands. Repo-local `npm run install-*`, `npm run uninstall-*`, `npm run sync-project`, and `npm run sync-references` aliases remain available for compatibility. Runtime commands support `--platform claude|codex|all`, `--scope user|project`, and `--manifest <path>` where relevant.
 
 ## Coding Style & Naming Conventions
 
@@ -53,3 +53,15 @@ Use Conventional Commits such as `feat(skills): add skill lifecycle manager work
 - `dist/catalog.json` contains a volatile `generatedAt` timestamp; freshness checks compare the durable catalog fields, not that timestamp.
 - Schema `$id` values under `schemas/` point at GitHub raw URLs; update them if the repo is renamed or transferred.
 - Keep root guidance concise and push package-specific operating details into the relevant `SKILL.md`, `claude-code.md`, `codex.toml`, pack `README.md`, or changelog.
+
+## Observable Completion
+
+After completing work, include an `Execution Summary` using this canonical format by default:
+
+`Execution Summary: agents=<...>; skills=<...>; tools=<...>; verification=<...>; limits=<...>`
+
+- Keep it lightweight and factual. Do not expose hidden reasoning or chain-of-thought.
+- `agents`, `skills`, `tools`, and `verification` must always be present. Use `none` when not used.
+- `limits` may be omitted if there are no meaningful limits or blockers.
+- For trivial tasks, the default one-line format is enough.
+- If the summary would be too long, use the same keys on separate lines in the same order.
