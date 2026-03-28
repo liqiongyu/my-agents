@@ -6,18 +6,6 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
 
-const prettierExtensions = new Set([
-  ".cjs",
-  ".js",
-  ".json",
-  ".json5",
-  ".md",
-  ".mdx",
-  ".toml",
-  ".yaml",
-  ".yml"
-]);
-
 const eslintExtensions = new Set([".cjs", ".js"]);
 
 function run(command, args) {
@@ -81,10 +69,11 @@ function main() {
     return;
   }
 
-  const prettierFiles = selectFiles(files, prettierExtensions);
-  if (prettierFiles.length > 0) {
-    run(binaryPath("prettier"), ["--write", ...prettierFiles]);
-    run("git", ["add", "--", ...prettierFiles]);
+  // Let Prettier decide which staged files it can handle so this hook stays aligned
+  // with the installed formatter support instead of a manually curated extension list.
+  if (files.length > 0) {
+    run(binaryPath("prettier"), ["--ignore-unknown", "--write", ...files]);
+    run("git", ["add", "--", ...files]);
   }
 
   const eslintFiles = selectFiles(files, eslintExtensions);
