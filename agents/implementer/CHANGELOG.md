@@ -2,6 +2,18 @@
 
 All notable changes to the **implementer** agent will be documented in this file.
 
+## [1.0.2] - 2026-03-27
+
+### Changed
+
+- Added an explicit Codex `model_reasoning_effort = "medium"` default so implementer keeps a stable execution-oriented posture without inheriting the caller's reasoning setting.
+
+## [1.0.1] - 2026-03-27
+
+### Changed
+
+- Expanded the Codex definition to mention explorer usage explicitly and align its context-gathering guidance with the declared `explorer` dependency and the Claude Code surface.
+
 ## [1.0.0] - 2026-03-26
 
 ### Added

@@ -3,7 +3,7 @@
   "name": "debugger",
   "displayName": "Debugger",
   "description": "Systematic debugging agent that diagnoses bugs, test failures, and unexpected behavior through hypothesis-driven investigation.",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "maturity": "experimental",
   "categories": ["debugging", "coding"],
   "tags": ["debugging", "troubleshooting", "bug-fix", "diagnostics"],

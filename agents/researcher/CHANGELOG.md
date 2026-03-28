@@ -2,6 +2,12 @@
 
 All notable changes to the **researcher** agent will be documented in this file.
 
+## [1.1.1] - 2026-03-27
+
+### Changed
+
+- Added an explicit Codex `model_reasoning_effort = "high"` default so researcher keeps a stable multi-source synthesis posture across caller sessions.
+
 ## [1.1.0] - 2026-03-26
 
 ### Added

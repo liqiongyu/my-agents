@@ -3,7 +3,7 @@
   "name": "implementer",
   "displayName": "Implementer",
   "description": "Code implementation agent that writes, modifies, and refactors code based on plans, specs, or direct instructions.",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "maturity": "experimental",
   "categories": ["coding", "refactoring"],
   "tags": ["implementation", "coding", "refactoring", "write-code"],

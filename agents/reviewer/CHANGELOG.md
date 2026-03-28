@@ -2,6 +2,18 @@
 
 All notable changes to the **reviewer** agent will be documented in this file.
 
+## [1.1.2] - 2026-03-27
+
+### Changed
+
+- Added an explicit Codex `model_reasoning_effort = "high"` default so reviewer keeps a stable deep-analysis posture instead of inheriting the caller's reasoning setting.
+
+## [1.1.1] - 2026-03-27
+
+### Changed
+
+- Expanded the Codex definition to mention explorer usage explicitly and align its context-gathering guidance with the declared `explorer` dependency and the Claude Code surface.
+
 ## [1.1.0] - 2026-03-26
 
 ### Added
