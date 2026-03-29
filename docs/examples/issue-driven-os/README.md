@@ -104,6 +104,39 @@ For machine-readable output:
 npm run issue-driven-os:simulate -- F1 --json
 ```
 
+## Reference Run Helper
+
+The repo now also includes a thin stateful run helper.
+This helper is still reference-only.
+It does not claim to be the final `Run Manager`, and it does not write canonical `Run Record` objects.
+Instead, it persists a **reference runtime session artifact** that captures:
+
+- the chosen starter scenario
+- a timestamped session id
+- the phase transcript
+- the derived artifact trail
+- the final expected state outcomes
+
+Run it with:
+
+```bash
+npm run issue-driven-os:run -- G1
+```
+
+By default it writes to `.tmp/issue-driven-os-runs/`.
+
+To choose a path:
+
+```bash
+npm run issue-driven-os:run -- F1 --out .tmp/f1-session.json
+```
+
+For stdout-only JSON:
+
+```bash
+npm run issue-driven-os:run -- GT1 --json
+```
+
 ## Reference Stand-Ins
 
 This slice does not claim that the existing repo already contains the real Agent OS runtime.
