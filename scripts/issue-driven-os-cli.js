@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const path = require("node:path");
+const fs = require("node:fs/promises");
 
 const { formatPipelineRun, runIssueDrivenOsPipeline } = require("./lib/issue-driven-os-pipeline");
 const {
@@ -13,6 +14,12 @@ const {
 } = require("./lib/issue-driven-os-scenario-harness");
 const { runReferenceScenario } = require("./lib/issue-driven-os-run-manager");
 const { projectReferenceRuntimeSession } = require("./lib/issue-driven-os-projection-adapter");
+const {
+  produceGitHubIssue,
+  reconcileIssue,
+  runGitHubDaemon,
+  runGitHubIssueWorker
+} = require("./lib/issue-driven-os-github-runtime");
 
 const ISSUE_DRIVEN_OS_USAGE = `Usage:
   npx my-agents issue-driven-os bundle <scenario-id> [--json]
@@ -20,6 +27,10 @@ const ISSUE_DRIVEN_OS_USAGE = `Usage:
   npx my-agents issue-driven-os run <scenario-id> [--out <path>] [--json]
   npx my-agents issue-driven-os project <session-path> [--out <path>] [--json]
   npx my-agents issue-driven-os pipeline <scenario-id> [--out-dir <path>] [--json]
+  npx my-agents issue-driven-os github produce <owner>/<repo> --repo-path <path> --from <path|->
+  npx my-agents issue-driven-os github run <owner>/<repo> --repo-path <path> --issue <number> [--json]
+  npx my-agents issue-driven-os github daemon <owner>/<repo> --repo-path <path> [--concurrency <n>] [--poll-seconds <n>] [--once] [--json]
+  npx my-agents issue-driven-os github reconcile <owner>/<repo> --issue <number> [--branch <name>] [--json]
 
 Examples:
   npx my-agents issue-driven-os bundle G1
@@ -27,7 +38,9 @@ Examples:
   npx my-agents issue-driven-os run F1 --out .tmp/f1-session.json
   npx my-agents issue-driven-os project .tmp/f1-session.json
   npx my-agents issue-driven-os pipeline G1
-  npx my-agents issue-driven-os pipeline GT1 --out-dir .tmp/gt1-pipeline`;
+  npx my-agents issue-driven-os pipeline GT1 --out-dir .tmp/gt1-pipeline
+  npx my-agents issue-driven-os github run owner/repo --repo-path /path/to/repo --issue 123
+  npx my-agents issue-driven-os github daemon owner/repo --repo-path /path/to/repo --concurrency 4 --once`;
 
 function printUsage() {
   console.log(ISSUE_DRIVEN_OS_USAGE);
@@ -40,6 +53,44 @@ function parseValueFlag(args, name) {
 
 function firstPositionalArg(args, excludedValues = new Set()) {
   return args.find((arg) => !arg.startsWith("-") && !excludedValues.has(arg));
+}
+
+function excludedFlagValues(args, names) {
+  const values = new Set();
+  for (const name of names) {
+    const value = parseValueFlag(args, name);
+    if (value !== undefined) {
+      values.add(value);
+    }
+  }
+  return values;
+}
+
+function parseIntegerFlag(args, name, fallback) {
+  const raw = parseValueFlag(args, name);
+  if (raw === undefined) return fallback;
+  const value = Number.parseInt(raw, 10);
+  if (Number.isNaN(value)) {
+    throw new Error(`Expected integer after ${name}.`);
+  }
+  return value;
+}
+
+async function readInputFromFlag(args, name) {
+  const value = parseValueFlag(args, name);
+  if (!value) {
+    throw new Error(`Missing required ${name} value.`);
+  }
+
+  if (value === "-") {
+    const chunks = [];
+    for await (const chunk of process.stdin) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks).toString("utf8");
+  }
+
+  return fs.readFile(path.resolve(process.cwd(), value), "utf8");
 }
 
 async function runBundle(repoRoot, args) {
@@ -144,6 +195,171 @@ async function runPipeline(repoRoot, args) {
   process.stdout.write(formatPipelineRun(result, process.cwd()));
 }
 
+function requireRepoPath(args) {
+  const repoPath = parseValueFlag(args, "--repo-path");
+  if (!repoPath) {
+    throw new Error("Missing --repo-path.");
+  }
+  return path.resolve(process.cwd(), repoPath);
+}
+
+async function runGitHubProduce(repoRoot, args) {
+  const asJson = args.includes("--json");
+  const repoSlug = firstPositionalArg(args, excludedFlagValues(args, ["--repo-path", "--from"]));
+  if (!repoSlug) throw new Error("Missing owner/repo.");
+  const repoPath = requireRepoPath(args);
+  const rawInput = await readInputFromFlag(args, "--from");
+
+  const result = await produceGitHubIssue(repoRoot, repoSlug, repoPath, rawInput);
+  if (asJson) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  console.log(
+    [
+      `Created issue #${result.issueNumber} in ${repoSlug}.`,
+      `URL: ${result.issueUrl}`,
+      `Summary: ${result.normalized.summary}`
+    ].join("\n")
+  );
+}
+
+async function runGitHubSingleIssue(repoRoot, args) {
+  const asJson = args.includes("--json");
+  const issueNumber = parseIntegerFlag(args, "--issue");
+  if (!issueNumber) throw new Error("Missing --issue.");
+  const repoSlug = firstPositionalArg(
+    args,
+    new Set([
+      ...excludedFlagValues(args, ["--repo-path", "--runtime-root", "--issue"]),
+      String(issueNumber)
+    ])
+  );
+  if (!repoSlug) throw new Error("Missing owner/repo.");
+  const repoPath = requireRepoPath(args);
+  const runtimeRoot = parseValueFlag(args, "--runtime-root");
+
+  const result = await runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, {
+    runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined
+  });
+
+  if (asJson) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  console.log(
+    [
+      `Issue #${issueNumber}: ${result.status}`,
+      `Summary: ${result.summary}`,
+      result.pullRequest?.url ? `PR: ${result.pullRequest.url}` : null,
+      result.runId ? `Run id: ${result.runId}` : null
+    ]
+      .filter(Boolean)
+      .join("\n")
+  );
+}
+
+async function runGitHubDaemonMode(repoRoot, args) {
+  const asJson = args.includes("--json");
+  const repoSlug = firstPositionalArg(
+    args,
+    excludedFlagValues(args, [
+      "--repo-path",
+      "--runtime-root",
+      "--concurrency",
+      "--poll-seconds",
+      "--limit"
+    ])
+  );
+  if (!repoSlug) throw new Error("Missing owner/repo.");
+  const repoPath = requireRepoPath(args);
+  const runtimeRoot = parseValueFlag(args, "--runtime-root");
+
+  const result = await runGitHubDaemon(repoRoot, repoSlug, repoPath, {
+    concurrency: parseIntegerFlag(args, "--concurrency", 4),
+    pollSeconds: parseIntegerFlag(args, "--poll-seconds", 60),
+    limit: parseIntegerFlag(args, "--limit", 100),
+    once: args.includes("--once"),
+    runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined
+  });
+
+  if (asJson) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  console.log(
+    [
+      `Daemon pass checked ${result.checked} issues.`,
+      `Candidates consumed: ${result.consumed}`,
+      `Result count: ${result.results.length}`
+    ].join("\n")
+  );
+}
+
+async function runGitHubReconcile(repoRoot, args) {
+  const asJson = args.includes("--json");
+  const issueNumber = parseIntegerFlag(args, "--issue");
+  if (!issueNumber) throw new Error("Missing --issue.");
+  const repoSlug = firstPositionalArg(
+    args,
+    new Set([...excludedFlagValues(args, ["--issue", "--branch"]), String(issueNumber)])
+  );
+  if (!repoSlug) throw new Error("Missing owner/repo.");
+  const branchName = parseValueFlag(args, "--branch");
+
+  const result = await reconcileIssue(repoSlug, issueNumber, {
+    branchName
+  });
+
+  if (asJson) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  console.log(
+    [
+      `Reconcile status: ${result.status}`,
+      `Summary: ${result.summary}`,
+      result.pullRequest?.url ? `PR: ${result.pullRequest.url}` : null
+    ]
+      .filter(Boolean)
+      .join("\n")
+  );
+}
+
+async function runGitHub(repoRoot, args) {
+  const [subcommand, ...rest] = args;
+  if (!subcommand || subcommand === "--help" || subcommand === "-h" || subcommand === "help") {
+    printUsage();
+    return;
+  }
+
+  if (subcommand === "produce") {
+    await runGitHubProduce(repoRoot, rest);
+    return;
+  }
+
+  if (subcommand === "run") {
+    await runGitHubSingleIssue(repoRoot, rest);
+    return;
+  }
+
+  if (subcommand === "daemon") {
+    await runGitHubDaemonMode(repoRoot, rest);
+    return;
+  }
+
+  if (subcommand === "reconcile") {
+    await runGitHubReconcile(repoRoot, rest);
+    return;
+  }
+
+  throw new Error(`Unknown issue-driven-os github command: ${subcommand}`);
+}
+
 async function main(argv = process.argv) {
   const args = argv.slice(2);
   const [command, ...rest] = args;
@@ -177,6 +393,11 @@ async function main(argv = process.argv) {
 
   if (command === "pipeline") {
     await runPipeline(repoRoot, rest);
+    return;
+  }
+
+  if (command === "github") {
+    await runGitHub(repoRoot, rest);
     return;
   }
 

@@ -3,7 +3,9 @@
 This directory contains the first concrete reference slice for the Issue-Driven Agent OS.
 
 It is intentionally example-first.
-Its purpose is to make the bridge-layer documents tangible before building a full runtime implementation.
+Its purpose is to make the bridge-layer documents tangible and to document the
+reference side of the runtime, even though the repo now also ships a real
+GitHub-backed execution path.
 
 ## What Is Here
 
@@ -74,12 +76,55 @@ Available commands:
 - `run`
 - `project`
 - `pipeline`
+- `github produce`
+- `github run`
+- `github daemon`
+- `github reconcile`
 
 The most direct end-to-end path is:
 
 ```bash
 npx my-agents issue-driven-os pipeline G1
 ```
+
+The most direct real GitHub path is:
+
+```bash
+npx my-agents issue-driven-os github run owner/repo --repo-path /path/to/repo --issue 123
+```
+
+## Real GitHub Mode
+
+The repo now includes a real GitHub-backed execution path in addition to the
+reference helpers.
+
+Use it when you want to work against a real repository, real issues, real
+branches, and real pull requests:
+
+- `github produce`
+  - turn raw input into a GitHub issue and mark it ready
+- `github run`
+  - consume one real issue end to end
+- `github daemon`
+  - poll a real repository and run multiple issue workers
+- `github reconcile`
+  - sync issue state after merge or projection drift
+
+Example:
+
+```bash
+npx my-agents issue-driven-os github daemon owner/repo \
+  --repo-path /path/to/repo \
+  --concurrency 4 \
+  --once
+```
+
+This real mode uses:
+
+- GitHub via `gh`
+- Codex via `codex exec`
+- one worktree per issue
+- local runtime state under `~/.my-agents/issue-driven-os/`
 
 ## Runtime Bundle Helper
 
@@ -195,26 +240,33 @@ npm run issue-driven-os:project -- .tmp/issue-driven-os-runs/gt1-session.json --
 
 ## Reference Stand-Ins
 
-This slice does not claim that the existing repo already contains the real Agent OS runtime.
-Instead, it uses existing repository assets only as narrow stand-ins:
+This slice originally used existing repository assets only as narrow stand-ins.
+That is still true for the reference helpers, but the real GitHub mode now also
+reuses the canonical issue-driven agent packages directly:
 
+- intake and normalization
+  - `agents/issue-intake-normalizer`
+- shaping and decomposition
+  - `agents/issue-shaper`
 - primary execution path
-  - `agents/implementer`
+  - `agents/issue-cell-executor`
 - evaluator path
-  - `agents/reviewer`
-- optional exploration support
-  - `agents/explorer`
-- optional shaping or planning support
-  - `agents/planner`
+  - `agents/issue-cell-critic`
+- governance and projection support
+  - `packs/issue-driven-os-governance`
+- execution-cell support
+  - `packs/issue-driven-os-core`
 
-These are stand-ins for the reference slice only.
-They are not a commitment that future runtime roles must map 1:1 to these package names.
+The reference slice and the real GitHub path now coexist:
+
+- the reference commands are still example-first
+- the GitHub commands are the real consumer path
 
 ## Notes
 
 - These examples are canonical-side fixtures, not GitHub-native projections.
-- The slice is intentionally small and does not imply a full orchestrator exists yet.
-- Runtime services such as admission, budget checks, verification gates, workspace management, and adapters are still described conceptually in this slice unless a file explicitly shows otherwise.
+- The reference helpers are still intentionally small and should not be confused with the real GitHub worker path.
+- Runtime services such as admission, budget checks, verification gates, workspace management, and adapters are no longer only conceptual at the repo level; they now have an initial GitHub-backed implementation path.
 - Projection examples in this directory are illustrative only and remain derived from canonical objects.
 - The validation pass records what this slice can already represent without inventing additional architecture.
 - The packaging decision records why the slice currently remains example-first instead of becoming a pack.

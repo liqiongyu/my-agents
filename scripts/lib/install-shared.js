@@ -48,6 +48,7 @@ Examples:
   npx my-agents project sync --manifest docs/examples/my-agents.project.example.json
   npx my-agents project sync --prune
   npx my-agents issue-driven-os pipeline G1
+  npx my-agents issue-driven-os github run owner/repo --repo-path /path/to/repo --issue 123
   npx my-agents references add https://github.com/example/agent-reference-repo
 
 Compatibility aliases:

@@ -75,6 +75,10 @@ test("issue-driven-os help documents the unified runtime flow surface", () => {
     output,
     /npx my-agents issue-driven-os pipeline <scenario-id> \[--out-dir <path>\] \[--json\]/
   );
+  assert.match(
+    output,
+    /npx my-agents issue-driven-os github run <owner>\/<repo> --repo-path <path> --issue <number> \[--json\]/
+  );
 });
 
 test("issue-driven-os pipeline runs the end-to-end reference flow", () => {
