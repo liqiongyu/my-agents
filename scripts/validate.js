@@ -21,6 +21,10 @@ const {
   validateProjectManifestReferences,
   detectAgentCycles
 } = require("./lib/validate-utils");
+const {
+  getIssueDrivenOsExamplesDir,
+  validateIssueDrivenOsFixtures
+} = require("./lib/issue-driven-os-fixtures");
 
 const MIN_DOC_LENGTH = 200;
 const DEFAULT_PROJECT_MANIFEST_PATH = "my-agents.project.json";
@@ -504,6 +508,11 @@ async function validateGeneratedOutputs(repoRoot, validateCatalog, errors) {
   }
 }
 
+async function validateExampleFixtures(repoRoot, errors) {
+  const examplesDir = getIssueDrivenOsExamplesDir(repoRoot);
+  await validateIssueDrivenOsFixtures(examplesDir, errors);
+}
+
 async function main() {
   const repoRoot = path.resolve(__dirname, "..");
   const validators = await loadValidators(repoRoot);
@@ -545,6 +554,7 @@ async function main() {
     agentNames,
     errors
   );
+  await validateExampleFixtures(repoRoot, errors);
   await validateGeneratedOutputs(repoRoot, validators.validateCatalog, errors);
 
   if (warnings.length > 0) {
