@@ -77,6 +77,10 @@ test("issue-driven-os help documents the unified runtime flow surface", () => {
   );
   assert.match(
     output,
+    /npx my-agents issue-driven-os github inspect <owner>\/<repo> \[--runtime-root <path>\] \[--run <id>\] \[--limit <n>\] \[--json\]/
+  );
+  assert.match(
+    output,
     /npx my-agents issue-driven-os github run <owner>\/<repo> --repo-path <path> --issue <number> \[--json\]/
   );
 });

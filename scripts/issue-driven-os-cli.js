@@ -15,6 +15,10 @@ const {
 const { runReferenceScenario } = require("./lib/issue-driven-os-run-manager");
 const { projectReferenceRuntimeSession } = require("./lib/issue-driven-os-projection-adapter");
 const {
+  formatGitHubRuntimeInspection,
+  inspectGitHubRuntime
+} = require("./lib/issue-driven-os-github-inspection");
+const {
   produceGitHubIssue,
   reconcileIssue,
   runGitHubDaemon,
@@ -28,6 +32,7 @@ const ISSUE_DRIVEN_OS_USAGE = `Usage:
   npx my-agents issue-driven-os project <session-path> [--out <path>] [--json]
   npx my-agents issue-driven-os pipeline <scenario-id> [--out-dir <path>] [--json]
   npx my-agents issue-driven-os github produce <owner>/<repo> --repo-path <path> --from <path|->
+  npx my-agents issue-driven-os github inspect <owner>/<repo> [--runtime-root <path>] [--run <id>] [--limit <n>] [--json]
   npx my-agents issue-driven-os github run <owner>/<repo> --repo-path <path> --issue <number> [--json]
   npx my-agents issue-driven-os github daemon <owner>/<repo> --repo-path <path> [--concurrency <n>] [--poll-seconds <n>] [--once] [--json]
   npx my-agents issue-driven-os github reconcile <owner>/<repo> --issue <number> [--branch <name>] [--json]
@@ -39,6 +44,7 @@ Examples:
   npx my-agents issue-driven-os project .tmp/f1-session.json
   npx my-agents issue-driven-os pipeline G1
   npx my-agents issue-driven-os pipeline GT1 --out-dir .tmp/gt1-pipeline
+  npx my-agents issue-driven-os github inspect owner/repo --run run_issue_123_20260329T151315Z
   npx my-agents issue-driven-os github run owner/repo --repo-path /path/to/repo --issue 123
   npx my-agents issue-driven-os github daemon owner/repo --repo-path /path/to/repo --concurrency 4 --once`;
 
@@ -225,6 +231,33 @@ async function runGitHubProduce(repoRoot, args) {
   );
 }
 
+async function runGitHubInspect(_repoRoot, args) {
+  const asJson = args.includes("--json");
+  const runtimeRoot = parseValueFlag(args, "--runtime-root");
+  const runId = parseValueFlag(args, "--run");
+  const repoSlug = firstPositionalArg(
+    args,
+    excludedFlagValues(args, ["--runtime-root", "--run", "--limit"])
+  );
+  if (!repoSlug) throw new Error("Missing owner/repo.");
+  if (args.includes("--run") && !runId) {
+    throw new Error("Missing --run value.");
+  }
+
+  const result = await inspectGitHubRuntime(repoSlug, {
+    runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined,
+    runId,
+    limit: parseIntegerFlag(args, "--limit", 10)
+  });
+
+  if (asJson) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  process.stdout.write(formatGitHubRuntimeInspection(result));
+}
+
 async function runGitHubSingleIssue(repoRoot, args) {
   const asJson = args.includes("--json");
   const issueNumber = parseIntegerFlag(args, "--issue");
@@ -339,6 +372,11 @@ async function runGitHub(repoRoot, args) {
 
   if (subcommand === "produce") {
     await runGitHubProduce(repoRoot, rest);
+    return;
+  }
+
+  if (subcommand === "inspect") {
+    await runGitHubInspect(repoRoot, rest);
     return;
   }
 

@@ -77,6 +77,7 @@ Available commands:
 - `project`
 - `pipeline`
 - `github produce`
+- `github inspect`
 - `github run`
 - `github daemon`
 - `github reconcile`
@@ -103,6 +104,8 @@ branches, and real pull requests:
 
 - `github produce`
   - turn raw input into a GitHub issue and mark it ready
+- `github inspect`
+  - inspect repo-scoped runtime leases, issue summary state, recent runs, and run artifacts
 - `github run`
   - consume one real issue end to end
 - `github daemon`
@@ -110,14 +113,24 @@ branches, and real pull requests:
 - `github reconcile`
   - sync issue state after merge or projection drift
 
-Example:
+Examples:
 
 ```bash
+npx my-agents issue-driven-os github inspect owner/repo \
+  --runtime-root ~/.my-agents/issue-driven-os/owner__repo
+
+npx my-agents issue-driven-os github inspect owner/repo \
+  --runtime-root ~/.my-agents/issue-driven-os/owner__repo \
+  --run run_issue_123_20260329T151315Z \
+  --json
+
 npx my-agents issue-driven-os github daemon owner/repo \
   --repo-path /path/to/repo \
   --concurrency 4 \
   --once
 ```
+
+The inspect command supports both human-readable output and `--json`.
 
 This real mode uses:
 
