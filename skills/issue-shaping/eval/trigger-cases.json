@@ -1,0 +1,105 @@
+{
+  "version": "0.1.0",
+  "skill": "issue-shaping",
+  "description": "Trigger-posture suite for the issue-shaping skill. It checks whether the skill activates for shaping existing issues, strengthens boundaries and acceptance criteria, issues explicit readiness verdicts, and routes raw intake, prioritization, clarify, and planning cases away.",
+  "assertions": [
+    "shaping_scope_detected",
+    "boundary_tightened",
+    "acceptance_criteria_strengthened",
+    "readiness_verdict_given",
+    "decomposition_or_exploration_routed",
+    "boundary_respected",
+    "avoids_prioritization_planning_drift"
+  ],
+  "assertion_definitions": {
+    "shaping_scope_detected": "The response recognizes that the task is to shape an existing issue rather than create one from raw input or produce a full implementation plan.",
+    "boundary_tightened": "The response sharpens in-scope and out-of-scope boundaries rather than repeating the original issue verbatim.",
+    "acceptance_criteria_strengthened": "The result improves or adds observable acceptance criteria.",
+    "readiness_verdict_given": "The response ends with a clear readiness verdict such as ready, needs-clarify, needs-exploration, needs-decomposition, or needs-reframing.",
+    "decomposition_or_exploration_routed": "When the issue is too broad or under-evidenced, the response routes to decomposition or exploration instead of pretending the issue is ready.",
+    "boundary_respected": "Adjacent workflows such as issue-normalization, clarify, prioritization, or implementation planning are not incorrectly handled as issue-shaping.",
+    "avoids_prioritization_planning_drift": "The response does not silently convert issue shaping into backlog ranking, budget choice, or phased implementation planning."
+  },
+  "cases": [
+    {
+      "id": "issue-shaping-explicit-request",
+      "name": "Explicit issue-shaping request",
+      "prompt": "Take this normalized issue and shape it before admission: 'Bulk CSV import is unreliable for finance users. We think row parsing and retry handling are both involved. Acceptance criteria currently just say \"import works better\".'",
+      "assertions": {
+        "shaping_scope_detected": {
+          "check": "The response should recognize this as shaping work on an existing issue."
+        },
+        "boundary_tightened": {
+          "check": "The output should tighten scope rather than leave the issue broad and vague."
+        },
+        "acceptance_criteria_strengthened": {
+          "check": "The response should replace or refine the weak acceptance language."
+        },
+        "readiness_verdict_given": {
+          "check": "The result should end with a shaping verdict."
+        }
+      }
+    },
+    {
+      "id": "issue-shaping-too-broad",
+      "name": "Broad issue should trigger decomposition recommendation",
+      "prompt": "Shape this issue: 'Redesign the notifications system across email, SMS, push delivery, admin controls, analytics, templates, and user preferences before the quarter ends.'",
+      "assertions": {
+        "decomposition_or_exploration_routed": {
+          "check": "The response should say this is too broad and recommend decomposition."
+        },
+        "readiness_verdict_given": {
+          "check": "The verdict should not pretend this issue is ready as one unit."
+        }
+      }
+    },
+    {
+      "id": "issue-shaping-raw-intake-near-miss",
+      "name": "Raw notes should route to issue-normalization",
+      "prompt": "Take these Slack complaints and shape them into something usable: 'login weird again, some people get kicked out, screenshots later.'",
+      "assertions": {
+        "boundary_respected": {
+          "check": "The response should identify that the input is still raw intake and route first to issue-normalization."
+        }
+      }
+    },
+    {
+      "id": "issue-shaping-clarify-near-miss",
+      "name": "Implementation ambiguity should route to clarify",
+      "prompt": "Before we build the RBAC feature, decide whether roles should live in JWT claims or the database.",
+      "assertions": {
+        "boundary_respected": {
+          "check": "The response should recognize this as a clarification problem for a chosen task, not issue-shaping."
+        }
+      }
+    },
+    {
+      "id": "issue-shaping-planning-near-miss",
+      "name": "Deep implementation plan should route away",
+      "prompt": "Write the phased implementation plan for our already-approved JWT auth migration.",
+      "assertions": {
+        "boundary_respected": {
+          "check": "The response should route this to implementation-planning instead of issue-shaping."
+        },
+        "avoids_prioritization_planning_drift": {
+          "check": "The response should avoid turning shaping into a rollout plan."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  },
+  "runner_instructions": {
+    "setup": "Make the issue-shaping skill available on the surface under test. Include neighboring skills such as issue-normalization, clarify, and implementation-planning when checking boundaries.",
+    "execution": "Run each case as a real user request. Capture the response text and any shaped issue artifact that is produced.",
+    "evaluation": "Score only the listed assertions for each case. Pay special attention to whether the response tightens boundaries and avoids drifting into planning or prioritization."
+  }
+}

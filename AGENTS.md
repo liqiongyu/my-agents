@@ -66,7 +66,6 @@ First determine the right workflow for the task, such as direction exploration, 
 When the proposed path is not the shortest, lowest-cost, or most reversible option, say so and recommend a better alternative with reasons.
 Pause only when unresolved uncertainty would materially change the outcome; otherwise, record reasonable assumptions and keep moving.
 Prefer the lightest workflow and tool that can solve the problem well, and avoid adding complexity just to follow an established path.
-For repository design involving skills, MCP, multi-agent orchestration, or harness engineering, consult `docs/architecture/official-agent-best-practices.md` first and use `research/OpenAI_Anthropic_Codex_Claude_Code_Best_Practices_20260329.md` when you need the source-backed rationale.
 
 ## Observable Completion
 

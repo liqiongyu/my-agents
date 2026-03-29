@@ -1,0 +1,97 @@
+{
+  "version": "0.2.0",
+  "skill": "execution-briefing",
+  "type": "qualitative-output",
+  "description": "Lightweight qualitative output suite for the execution-briefing skill. These cases are meant for human review after running the skill on representative run-brief drafting, quick-lane, approval-checkpoint, and route-back tasks.",
+  "assertions": [
+    "run_goal_clear",
+    "non_goals_explicit",
+    "checks_and_evidence_usable",
+    "risks_and_blockers_visible",
+    "done_contract_concrete",
+    "routing_honest",
+    "stays_lighter_than_plan"
+  ],
+  "assertion_definitions": {
+    "run_goal_clear": "The output defines a concrete goal for the current run rather than restating the entire issue at a high level.",
+    "non_goals_explicit": "The brief clearly states what this run must not expand into.",
+    "checks_and_evidence_usable": "Required checks and required evidence are concrete enough for downstream verification.",
+    "risks_and_blockers_visible": "Dependencies, blockers, or execution risks are named instead of hidden.",
+    "done_contract_concrete": "The done contract includes observable outcomes, checks, and evidence rather than vague completion language.",
+    "routing_honest": "When the work is not ready for a brief, the output routes to shaping, clarify, exploration, or planning instead of pretending otherwise.",
+    "stays_lighter_than_plan": "The artifact remains a compact run brief and does not expand into a deep multi-phase implementation plan."
+  },
+  "cases": [
+    {
+      "id": "quality-run-brief-from-shaped-issue",
+      "name": "Turn a shaped issue into a usable run brief",
+      "repo_archetype": "Engineering repo with issue-driven execution and structured verification",
+      "task_mode": "Execution briefing",
+      "prompt": "Take this shaped issue and draft the run brief plus done contract for the next execution attempt.",
+      "success_criteria": [
+        "Defines one concrete run goal and explicit non-goals.",
+        "Turns issue acceptance into checks and evidence expectations.",
+        "Names a credible starting path without becoming a full plan."
+      ]
+    },
+    {
+      "id": "quality-quick-lane-brief",
+      "name": "A small stable issue can use the quick lane without losing rigor",
+      "repo_archetype": "Repo with a small, already-shaped bug fix and straightforward verification",
+      "task_mode": "Quick execution briefing",
+      "prompt": "Produce a quick execution brief for a compact shaped issue whose run goal, non-goals, and likely starting surface are already obvious.",
+      "success_criteria": [
+        "Uses a shorter artifact shape without becoming vague.",
+        "Still defines checks, evidence, and escalation triggers.",
+        "Does not drift into deep planning or direct implementation."
+      ]
+    },
+    {
+      "id": "quality-approval-checkpoint",
+      "name": "A brief can be ready while execution is intentionally held for sign-off",
+      "repo_archetype": "Repo with an explicit approval checkpoint before implementation starts",
+      "task_mode": "Execution briefing with approval hold",
+      "prompt": "Draft the execution brief and done contract, then hold for approval before the execution owner starts work.",
+      "success_criteria": [
+        "Produces a usable brief rather than only a vague request for approval.",
+        "Makes the approval hold explicit and keeps execution paused.",
+        "Still names checks, evidence, and next-step ownership."
+      ]
+    },
+    {
+      "id": "quality-brief-with-risk-and-gates",
+      "name": "Produce a brief for a task with clear verification and gate pressure",
+      "repo_archetype": "Repo where review, browser QA, or merge gates matter before completion",
+      "task_mode": "Verification-oriented briefing",
+      "prompt": "Draft an execution brief for a shaped issue that has review and browser QA gate expectations before merge.",
+      "success_criteria": [
+        "Makes required checks, required evidence, and gate expectations explicit.",
+        "Names the downstream gate source of truth when it matters.",
+        "Names the main risks or blockers up front.",
+        "Keeps the brief compact and execution-focused."
+      ]
+    },
+    {
+      "id": "quality-needs-planning-route",
+      "name": "Large cross-cutting work should route to planning honestly",
+      "repo_archetype": "Monorepo with multi-service migrations and staged rollout constraints",
+      "task_mode": "Route-back",
+      "prompt": "Create the execution brief for a cross-service migration that clearly needs sequencing, rollback design, and team coordination.",
+      "success_criteria": [
+        "Does not fake readiness for a compact run brief.",
+        "Explains why the work needs deeper planning.",
+        "Points to the smallest honest next workflow."
+      ]
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  }
+}

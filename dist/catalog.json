@@ -132,6 +132,28 @@
       ]
     },
     {
+      "name": "execution-briefing",
+      "path": "skills/execution-briefing",
+      "displayName": "Execution Briefing",
+      "description": "Manual-first workflow for converting a shaped issue into an execution-ready brief, optional approval checkpoint, and initial done contract for a run. Use when the issue boundary is already chosen and the next need is a clear run brief, verification focus, gate framing, or pre-execution handoff before execution. Do not use for raw intake, issue shaping, backlog prioritization, or deep implementation planning.",
+      "version": "0.2.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "coding",
+        "productivity"
+      ],
+      "tags": [
+        "execution-briefing",
+        "execution-brief",
+        "done-contract",
+        "handoff",
+        "run-brief",
+        "verification",
+        "approval-checkpoint"
+      ]
+    },
+    {
       "name": "future-aware-architecture",
       "path": "skills/future-aware-architecture",
       "displayName": "Future-Aware Architecture",
@@ -200,6 +222,49 @@
         "execution-plan",
         "rollout-planning",
         "technical-roadmap"
+      ]
+    },
+    {
+      "name": "issue-normalization",
+      "path": "skills/issue-normalization",
+      "displayName": "Issue Normalization",
+      "description": "Hybrid workflow for turning raw task signals, bug reports, handoff notes, review findings, or issue comments into a normalized issue draft with clear problem, evidence, acceptance criteria, and missing-info markers before shaping or execution. Use for issue intake and issue drafting, not prioritization, decomposition, planning, or ordinary implementation clarification.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "productivity",
+        "design"
+      ],
+      "tags": [
+        "issue-normalization",
+        "issue-intake",
+        "task-normalization",
+        "canonical-issue",
+        "acceptance-criteria",
+        "handoff",
+        "review-follow-up"
+      ]
+    },
+    {
+      "name": "issue-shaping",
+      "path": "skills/issue-shaping",
+      "displayName": "Issue Shaping",
+      "description": "Manual-first workflow for turning a normalized issue into a shaped, execution-ready work item with clear scope, non-goals, acceptance criteria, dependencies, and next-step routing. Use when an issue already exists but still needs boundary tightening, execution-readiness judgment, or a decomposition recommendation before admission or execution. Do not use for raw issue intake, backlog prioritization, or detailed implementation planning.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "design",
+        "productivity"
+      ],
+      "tags": [
+        "issue-shaping",
+        "scope-shaping",
+        "acceptance-criteria",
+        "non-goals",
+        "execution-readiness",
+        "decomposition"
       ]
     },
     {
@@ -569,5 +634,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-29T09:38:01.912Z"
+  "generatedAt": "2026-03-29T13:20:35.335Z"
 }

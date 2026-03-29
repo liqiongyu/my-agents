@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "name": "issue-normalization",
+  "displayName": "Issue Normalization",
+  "description": "Hybrid workflow for turning raw task signals, bug reports, handoff notes, review findings, or issue comments into a normalized issue draft with clear problem, evidence, acceptance criteria, and missing-info markers before shaping or execution. Use for issue intake and issue drafting, not prioritization, decomposition, planning, or ordinary implementation clarification.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": ["workflow", "productivity", "design"],
+  "tags": [
+    "issue-normalization",
+    "issue-intake",
+    "task-normalization",
+    "canonical-issue",
+    "acceptance-criteria",
+    "handoff",
+    "review-follow-up"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "capabilities": {
+    "shell": true,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

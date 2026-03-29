@@ -1,0 +1,141 @@
+{
+  "version": "0.2.0",
+  "skill": "execution-briefing",
+  "description": "Trigger-posture suite for the execution-briefing skill. It checks whether the skill activates for explicit run-brief requests, supports quick-lane and approval-checkpoint variants, produces run-focused contracts with checks and evidence, and routes issue-shaping, clarify, planning, and direct-execution cases away.",
+  "assertions": [
+    "briefing_scope_detected",
+    "run_goal_defined",
+    "done_contract_or_checks_defined",
+    "verification_focus_visible",
+    "lane_selection_honest",
+    "approval_checkpoint_supported",
+    "routes_to_shaping_or_planning_when_needed",
+    "boundary_respected",
+    "avoids_plan_or_execution_drift"
+  ],
+  "assertion_definitions": {
+    "briefing_scope_detected": "The response recognizes that the task is to produce a pre-execution brief for an existing issue rather than normalize, shape, or implement it directly.",
+    "run_goal_defined": "The output defines a concrete current run goal instead of repeating the full issue at a high level.",
+    "done_contract_or_checks_defined": "The result includes required checks, required evidence, or an initial done contract rather than vague readiness language.",
+    "verification_focus_visible": "The response makes verification, gates, or evidence expectations explicit before execution begins.",
+    "lane_selection_honest": "The response can choose a compact quick-brief shape for smaller already-stable issues without drifting into unnecessary planning.",
+    "approval_checkpoint_supported": "When the user asks for sign-off before execution, the result can produce a brief plus an explicit approval hold instead of silently starting implementation.",
+    "routes_to_shaping_or_planning_when_needed": "When the issue is still unstable or clearly too large, the response routes to issue-shaping or implementation-planning instead of faking a brief.",
+    "boundary_respected": "Adjacent workflows such as issue-normalization, issue-shaping, clarify, and direct implementation are not incorrectly handled as execution-briefing.",
+    "avoids_plan_or_execution_drift": "The response does not silently turn the brief into a full multi-phase plan or start implementing code."
+  },
+  "cases": [
+    {
+      "id": "execution-briefing-explicit-request",
+      "name": "Explicit execution-brief request",
+      "prompt": "Draft the execution brief for this shaped issue before we hand it to the builder: 'Stabilize retry behavior for failed email delivery. In scope: the retry path and observability around failed sends. Out of scope: redesigning templates, notification preferences, or SMS delivery. Acceptance: failed emails can be retried without duplicate sends, and retry failures are visible in logs or tests.'",
+      "assertions": {
+        "briefing_scope_detected": {
+          "check": "The response should recognize this as a run-brief request for an existing shaped issue."
+        },
+        "run_goal_defined": {
+          "check": "The output should describe a concrete current run goal."
+        },
+        "done_contract_or_checks_defined": {
+          "check": "The response should include checks, evidence expectations, or a done contract."
+        },
+        "verification_focus_visible": {
+          "check": "The response should make verification expectations visible before execution."
+        }
+      }
+    },
+    {
+      "id": "execution-briefing-quick-lane-request",
+      "name": "Compact shaped issue can use the quick lane",
+      "prompt": "Give me a quick execution brief for this already-shaped issue: 'Fix the flaky retry-worker email test. In scope: the existing flaky test and the narrow retry-path behavior it covers. Out of scope: changing retry strategy, redesigning notifications, or refactoring unrelated mail code. Acceptance: the flaky test is stable and duplicate-send prevention is still covered.'",
+      "assertions": {
+        "briefing_scope_detected": {
+          "check": "The response should still recognize this as execution-briefing rather than direct implementation."
+        },
+        "lane_selection_honest": {
+          "check": "The response should be able to use a lighter quick-brief shape instead of an unnecessarily heavy artifact."
+        },
+        "done_contract_or_checks_defined": {
+          "check": "Even in the quick lane, the response should still include checks or evidence expectations."
+        }
+      }
+    },
+    {
+      "id": "execution-briefing-approval-checkpoint",
+      "name": "Approval checkpoint can wrap the brief",
+      "prompt": "Prepare the execution brief for this shaped issue, but stop for my sign-off before anyone starts building. Issue: 'Add import retry observability. In scope: retry-path logging and one regression check. Out of scope: redesigning the import pipeline. Acceptance: retry failures are visible and the regression check passes.'",
+      "assertions": {
+        "briefing_scope_detected": {
+          "check": "The response should recognize that a brief is still being requested."
+        },
+        "approval_checkpoint_supported": {
+          "check": "The result should make the approval hold explicit instead of quietly transitioning into execution."
+        },
+        "verification_focus_visible": {
+          "check": "The output should still state checks, gates, or evidence expectations."
+        }
+      }
+    },
+    {
+      "id": "execution-briefing-needs-shaping",
+      "name": "Unshaped issue should route back to issue-shaping",
+      "prompt": "Write the execution brief for this issue: 'Modernize auth, admin permissions, onboarding, audit logs, and support tooling in the next release.'",
+      "assertions": {
+        "routes_to_shaping_or_planning_when_needed": {
+          "check": "The response should say the issue is still too broad for a run brief and route back to issue-shaping or planning."
+        },
+        "boundary_respected": {
+          "check": "The output should avoid pretending this broad initiative is already execution-ready."
+        }
+      }
+    },
+    {
+      "id": "execution-briefing-clarify-near-miss",
+      "name": "Implementation ambiguity should route to clarify",
+      "prompt": "Before we execute the RBAC issue, decide whether roles should come from JWT claims or database lookups and then write the brief.",
+      "assertions": {
+        "boundary_respected": {
+          "check": "The response should recognize the unresolved implementation decision and route to clarify."
+        }
+      }
+    },
+    {
+      "id": "execution-briefing-planning-near-miss",
+      "name": "Deep migration planning should route away",
+      "prompt": "Prepare the execution brief for our already-approved cross-service billing migration, including all phases, rollout sequencing, rollback strategy, and dependency ordering across teams.",
+      "assertions": {
+        "routes_to_shaping_or_planning_when_needed": {
+          "check": "The response should route this to implementation-planning instead of pretending a compact brief is enough."
+        },
+        "avoids_plan_or_execution_drift": {
+          "check": "The result should avoid silently producing a full phased plan."
+        }
+      }
+    },
+    {
+      "id": "execution-briefing-direct-execution-near-miss",
+      "name": "Direct build request should not force a separate brief",
+      "prompt": "Fix the flaky email retry test and update the implementation now.",
+      "assertions": {
+        "boundary_respected": {
+          "check": "The response should recognize that the user is asking for direct execution, not a pre-execution briefing artifact."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  },
+  "runner_instructions": {
+    "setup": "Make the execution-briefing skill available on the surface under test. Include neighboring skills such as issue-shaping, clarify, and implementation-planning when checking boundaries.",
+    "execution": "Run each case as a real user request. Capture the response text and any execution brief, approval checkpoint, or route-back artifact that is produced.",
+    "evaluation": "Score only the listed assertions for each case. Pay special attention to whether the response stays run-focused, defines verification expectations, supports the quick lane and approval checkpoint when requested, and avoids drifting into deep planning or direct implementation."
+  }
+}
