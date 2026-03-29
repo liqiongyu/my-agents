@@ -1,0 +1,16 @@
+id: verify_g1_pass_01
+version: 0.1
+issue_id: issue_g1_small_bug_01
+run_id: run_g1_small_bug_01
+change_id: change_g1_small_bug_01
+done_contract_ref: done_g1_small_bug_01
+gate_results:
+  review_gate: pass
+  acceptance_gate: pass
+  browser_qa_gate: not_required
+  merge_gate: pass
+overall_result: pass
+evidence_refs:
+  - evidence_g1_diff_summary
+  - test_report_g1_small_bug
+created_at: 2026-03-29T09:01:00Z

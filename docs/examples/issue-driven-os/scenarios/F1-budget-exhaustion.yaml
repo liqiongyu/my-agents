@@ -1,0 +1,22 @@
+scenario_id: F1
+category: failure
+goal: Validate budget-aware failure handling and recovery trail generation.
+starting_objects:
+  issue: ../objects/canonical-issue-gt1-review-gate.yaml
+  run: ../objects/run-record-f1-budget-exhausted.yaml
+required_runtime_actors:
+  - control_plane
+  - issue_cell
+  - budget_service
+expected_artifacts:
+  - ../objects/handoff-bundle-f1-budget-exhausted.yaml
+expected_state_outcomes:
+  issue: active
+  run: failed
+  change: changes_requested
+disallowed_behaviors:
+  - silent_failure
+  - resolved_issue_without_verification
+  - missing_handoff_after_budget_exhaustion
+notes: >
+  Failure is a valid runtime outcome only if the system leaves behind a usable recovery trail.

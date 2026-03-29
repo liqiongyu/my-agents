@@ -1,0 +1,23 @@
+id: run_f1_budget_exhausted_01
+version: 0.1
+issue_id: issue_gt1_review_gate_01
+state: failed
+execution_brief_ref: brief_f1_budget_exhausted_01
+budget:
+  tokens_max: 60000
+  specialist_calls_max: 1
+  review_loops_max: 3
+  elapsed_minutes_max: 30
+started_at: 2026-03-29T10:10:00Z
+updated_at: 2026-03-29T10:42:00Z
+termination_reason: budget_exhausted
+current_blockers:
+  - Repeated revision loop exceeded budget envelope
+artifacts:
+  evidence:
+    - evidence_f1_loop_history
+  decisions:
+    - decision_f1_escalate
+  verification: null
+  handoff:
+    - handoff_f1_budget_exhausted_01

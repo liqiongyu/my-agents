@@ -1,0 +1,14 @@
+id: verify_gt1_fail_01
+version: 0.1
+issue_id: issue_gt1_review_gate_01
+run_id: run_f1_budget_exhausted_01
+change_id: change_gt1_review_blocked_01
+done_contract_ref: done_gt1_review_gate_01
+gate_results:
+  review_gate: fail
+  acceptance_gate: not_run
+  merge_gate: fail
+overall_result: fail
+evidence_refs:
+  - review_note_gt1_missing_mobile_regression
+created_at: 2026-03-29T10:20:00Z

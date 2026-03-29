@@ -1,0 +1,22 @@
+scenario_id: GT1
+category: gate
+goal: Ensure merge does not proceed when the review gate fails.
+starting_objects:
+  issue: ../objects/canonical-issue-gt1-review-gate.yaml
+  change: ../objects/change-object-gt1-review-blocked.yaml
+required_runtime_actors:
+  - control_plane
+  - issue_cell
+  - evaluator_path
+expected_artifacts:
+  - ../objects/verification-report-gt1-fail.yaml
+expected_state_outcomes:
+  issue: active
+  run: failed
+  change: changes_requested
+disallowed_behaviors:
+  - merge_without_verification
+  - close_issue_on_failed_review_gate
+notes: >
+  This scenario validates that gate failure is formalized through Verification Report rather than
+  inferred from conversational review text.

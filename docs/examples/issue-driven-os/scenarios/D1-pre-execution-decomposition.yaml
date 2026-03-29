@@ -1,0 +1,21 @@
+scenario_id: D1
+category: decomposition
+goal: Validate that oversized work is split before execution begins.
+starting_objects:
+  issue: ../objects/canonical-issue-d1-oversized-feature.yaml
+required_runtime_actors:
+  - shaping_decomposition
+  - control_plane
+expected_artifacts:
+  - decomposition_proposal
+  - updated_issue_graph
+expected_state_outcomes:
+  issue: decomposed
+  run: not_created
+  change: no_change_yet
+disallowed_behaviors:
+  - immediate_execution_without_split
+  - hidden_scope_mixed_inside_single_issue
+notes: >
+  This scenario ensures decomposition is treated as a first-class system action rather than a
+  fallback after execution already started.
