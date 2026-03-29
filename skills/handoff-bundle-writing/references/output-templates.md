@@ -117,7 +117,7 @@ Use only when another workflow or tool benefits from a structured contract.
 
 ```json
 {
-  "handoff_id": "handoff_01JXYZ",
+  "id": "handoff_01JXYZ",
   "issue_id": "issue_01JXYZ",
   "run_id": "run_01JXYZ",
   "created_at": "2026-03-29T12:58:00Z",

@@ -19,6 +19,7 @@ execution, and review path in one explicit installable unit.
 - `issue-shaping`
 - `execution-briefing`
 - `handoff-bundle-writing`
+- `acceptance-verification`
 - `clarify`
 - `review`
 

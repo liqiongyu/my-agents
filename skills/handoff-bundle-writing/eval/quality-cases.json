@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "skill": "handoff-bundle-writing",
   "type": "qualitative-output",
   "description": "Lightweight qualitative output suite for the handoff-bundle-writing skill. These cases are meant for human review after running the skill on representative paused-run, transfer, quick-handoff, and route-back scenarios.",
@@ -68,6 +68,18 @@
         "Does not fake a handoff-ready artifact.",
         "Explains why the real missing workflow is elsewhere.",
         "Points to the smallest honest next move."
+      ]
+    },
+    {
+      "id": "quality-route-to-exploration-when-run-facts-are-unclear",
+      "name": "The skill should use needs-exploration when a real run exists but key repo facts are still unresolved",
+      "repo_archetype": "Repo with a real in-progress run, but missing artifact traceability and unresolved blocker diagnosis",
+      "task_mode": "Route-back",
+      "prompt": "Draft the handoff bundle for a paused run where the branch, test output, and blocker diagnosis are all still uncertain and need targeted investigation before transfer.",
+      "success_criteria": [
+        "Returns an honest route-back artifact instead of fabricating missing refs or blocker facts.",
+        "Makes it clear that the run exists, but exploration is still needed before a trustworthy handoff can be written.",
+        "Points to the smallest next move needed to restore handoff readiness."
       ]
     }
   ],

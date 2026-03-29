@@ -5,6 +5,15 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-03-29
+
+### Fixed
+- Aligned the machine-readable handoff bundle example and methodology with the
+  canonical schema by using `id` instead of `handoff_id` for the stable handoff
+  identifier.
+- Clarified and added explicit eval coverage for the `needs-exploration`
+  verdict so route-back behavior stays testable.
+
 ## [0.1.0] - 2026-03-29
 
 ### Added

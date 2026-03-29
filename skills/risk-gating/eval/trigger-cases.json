@@ -1,0 +1,28 @@
+{
+  "version": "0.1.0",
+  "skill": "risk-gating",
+  "description": "Trigger suite for the risk-gating skill.",
+  "assertions": [
+    "gating_scope_detected",
+    "risk_verdict_present",
+    "mitigation_or_escalation_present",
+    "routes_to_adjacent_workflow_when_needed"
+  ],
+  "cases": [
+    {
+      "id": "risk-explicit-go-no-go",
+      "prompt": "Should this schema migration proceed under current conditions, or should it be blocked pending more checks?",
+      "assertions": {
+        "gating_scope_detected": { "check": "Recognizes a proceed/hold/escalate question." },
+        "risk_verdict_present": { "check": "Returns a formal gate verdict." }
+      }
+    },
+    {
+      "id": "risk-near-miss-priority",
+      "prompt": "Which backlog item should be p0 this week?",
+      "assertions": {
+        "routes_to_adjacent_workflow_when_needed": { "check": "Routes to priority scoring rather than pretending this is a risk gate." }
+      }
+    }
+  ]
+}

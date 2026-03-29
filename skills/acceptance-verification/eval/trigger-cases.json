@@ -1,0 +1,28 @@
+{
+  "version": "0.1.0",
+  "skill": "acceptance-verification",
+  "description": "Trigger suite for the acceptance-verification skill.",
+  "assertions": [
+    "verification_scope_detected",
+    "criterion_checking_present",
+    "verdict_present",
+    "routes_to_adjacent_workflow_when_needed"
+  ],
+  "cases": [
+    {
+      "id": "acceptance-explicit-check",
+      "prompt": "Check whether the current evidence actually satisfies the issue's acceptance criteria and draft the verification verdict.",
+      "assertions": {
+        "verification_scope_detected": { "check": "Recognizes an acceptance verification request." },
+        "verdict_present": { "check": "Returns a verification verdict." }
+      }
+    },
+    {
+      "id": "acceptance-near-miss-generic-review",
+      "prompt": "Review this diff and tell me if the code quality looks okay.",
+      "assertions": {
+        "routes_to_adjacent_workflow_when_needed": { "check": "Routes to review rather than pretending this is acceptance verification." }
+      }
+    }
+  ]
+}

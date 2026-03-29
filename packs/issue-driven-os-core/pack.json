@@ -3,7 +3,7 @@
   "name": "issue-driven-os-core",
   "displayName": "Issue-Driven OS Core Pack",
   "description": "Core intake, shaping, execution, and critique team for the Issue-Driven Agent OS implementation path.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "maturity": "experimental",
   "packType": "agent-team",
   "persona": "issue-driven-agent-os",
@@ -13,6 +13,7 @@
     "issue-shaping",
     "execution-briefing",
     "handoff-bundle-writing",
+    "acceptance-verification",
     "clarify",
     "review"
   ],

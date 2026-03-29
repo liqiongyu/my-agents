@@ -5,6 +5,11 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-29
+
+- Added `acceptance-verification` as a first-class dependency so the critic can
+  participate in evidence-backed done-contract checks as well as generic review.
+
 ## [0.1.0] - 2026-03-29
 
 - Added the initial issue cell critic agent for independent execution review

@@ -1,0 +1,28 @@
+{
+  "version": "0.1.0",
+  "skill": "backlog-curation",
+  "description": "Trigger suite for the backlog-curation skill.",
+  "assertions": [
+    "curation_scope_detected",
+    "curation_verdict_present",
+    "follow_up_or_cleanup_present",
+    "routes_to_adjacent_workflow_when_needed"
+  ],
+  "cases": [
+    {
+      "id": "curation-explicit-cleanup",
+      "prompt": "Curate these stale and duplicate issues and tell me which should close, recycle, or become follow-up work.",
+      "assertions": {
+        "curation_scope_detected": { "check": "Recognizes a backlog curation request." },
+        "curation_verdict_present": { "check": "Returns a curation verdict." }
+      }
+    },
+    {
+      "id": "curation-near-miss-intake",
+      "prompt": "Turn these rough Slack notes into an issue.",
+      "assertions": {
+        "routes_to_adjacent_workflow_when_needed": { "check": "Routes to issue normalization rather than pretending to curate backlog state." }
+      }
+    }
+  ]
+}

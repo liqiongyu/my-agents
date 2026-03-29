@@ -136,7 +136,8 @@ Use one of these explicit verdicts at the end of a handoff-writing pass:
   - the work has not actually started and the real missing artifact is the
     pre-execution run contract
 - **`needs-exploration`**
-  - important blockers, refs, or repo facts are still too unclear
+  - a real run exists, but important blockers, refs, or repo facts still need
+    targeted exploration before a trustworthy handoff can be written
 - **`needs-state-sync`**
   - canonical run or projection surfaces must be updated before the handoff can
     be trusted
@@ -297,7 +298,7 @@ bundle.
 
 Recommended fields:
 
-- `handoff_id`
+- `id`
 - `issue_id`
 - `run_id`
 - `created_at`

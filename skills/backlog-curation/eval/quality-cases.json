@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "skill": "backlog-curation",
+  "type": "qualitative-output",
+  "assertions": [
+    "duplicate_and_stale_signals_visible",
+    "follow_up_boundary_clear",
+    "verdict_actionable",
+    "provenance_preserved"
+  ],
+  "cases": [
+    {
+      "id": "curation-follow-up-and-close",
+      "name": "Close completed work while minting a distinct follow-up issue",
+      "prompt": "Curate this completed issue that also revealed one distinct follow-up bug during verification.",
+      "success_criteria": [
+        "Separates closure from follow-up creation.",
+        "Keeps provenance visible.",
+        "Produces an actionable curation outcome."
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@
   "name": "issue-cell-critic",
   "displayName": "Issue Cell Critic",
   "description": "Independent critic path for an issue cell. It reviews execution results against the issue boundary, brief, and done contract without taking over formal state progression.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "maturity": "experimental",
   "categories": ["review", "coding", "workflow"],
   "tags": ["issue-cell", "critic", "review", "evaluation"],
@@ -13,7 +13,7 @@
     }
   ],
   "archetype": "reviewer",
-  "skills": ["review"],
+  "skills": ["review", "acceptance-verification"],
   "agents": ["explorer"],
   "capabilities": {
     "shell": true,

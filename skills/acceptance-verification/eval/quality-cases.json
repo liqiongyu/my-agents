@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "skill": "acceptance-verification",
+  "type": "qualitative-output",
+  "assertions": [
+    "criteria_checked_individually",
+    "evidence_refs_visible",
+    "evidence_gaps_visible",
+    "verdict_honest"
+  ],
+  "cases": [
+    {
+      "id": "acceptance-verification-core",
+      "name": "Verify a run against explicit done criteria",
+      "prompt": "Use the current tests, screenshots, and evidence refs to verify whether this issue is actually done.",
+      "success_criteria": [
+        "Checks criteria individually.",
+        "Keeps evidence and evidence gaps visible.",
+        "Produces an honest verification verdict."
+      ]
+    }
+  ]
+}

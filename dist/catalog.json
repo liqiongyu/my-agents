@@ -2,6 +2,26 @@
   "schemaVersion": 1,
   "skills": [
     {
+      "name": "acceptance-verification",
+      "path": "skills/acceptance-verification",
+      "displayName": "Acceptance Verification",
+      "description": "Manual-first workflow for deciding whether current evidence satisfies an issue's acceptance criteria and done contract, and for drafting a structured verification verdict. Use after execution or before merge when acceptance evidence matters; do not use for generic code review or backlog triage.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "coding",
+        "review"
+      ],
+      "tags": [
+        "verification",
+        "acceptance",
+        "done-contract",
+        "gate",
+        "evidence"
+      ]
+    },
+    {
       "name": "agent-lifecycle-manager",
       "path": "skills/agent-lifecycle-manager",
       "displayName": "Agent Lifecycle Manager",
@@ -20,6 +40,26 @@
         "agent-validation",
         "agent-audit",
         "codex-runtime-controls"
+      ]
+    },
+    {
+      "name": "backlog-curation",
+      "path": "skills/backlog-curation",
+      "displayName": "Backlog Curation",
+      "description": "Manual-first workflow for curating backlog state after execution, review, or learning passes: deduping, recycling, follow-up issue generation, and closure hygiene. Use when the next need is backlog cleanliness and durable work tracking, not fresh intake or queue prioritization.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "productivity",
+        "design"
+      ],
+      "tags": [
+        "backlog",
+        "curation",
+        "dedupe",
+        "follow-up",
+        "recycle"
       ]
     },
     {
@@ -206,7 +246,7 @@
       "path": "skills/handoff-bundle-writing",
       "displayName": "Handoff Bundle Writing",
       "description": "Manual-first workflow for turning an in-progress, paused, interrupted, or transferred run into a structured handoff bundle with current state, completed work, remaining work, blockers, next step, and artifact references for safe resume. Use when execution has already started and the next need is transfer, pause, or recovery context. Do not use for pre-execution briefing, memory writeback, generic summarization, or run-state sync.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -286,6 +326,26 @@
         "non-goals",
         "execution-readiness",
         "decomposition"
+      ]
+    },
+    {
+      "name": "priority-scoring",
+      "path": "skills/priority-scoring",
+      "displayName": "Priority Scoring",
+      "description": "Manual-first workflow for scoring a normalized or shaped issue for relative urgency and queue placement using impact, urgency, reversibility, dependency pressure, and confidence. Use after issue intake or shaping when the next need is a governance-ready priority recommendation, not implementation planning or risk gating.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "productivity",
+        "business"
+      ],
+      "tags": [
+        "priority",
+        "triage",
+        "admission",
+        "queueing",
+        "backlog"
       ]
     },
     {
@@ -377,6 +437,26 @@
         "architecture",
         "security",
         "quality"
+      ]
+    },
+    {
+      "name": "risk-gating",
+      "path": "skills/risk-gating",
+      "displayName": "Risk Gating",
+      "description": "Manual-first workflow for deciding whether an issue, run, or change can proceed under current risk conditions and which mitigations, specialists, or approval gates are required. Use for governance and go/no-go boundary setting, not backlog prioritization or final acceptance verification.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "security",
+        "productivity"
+      ],
+      "tags": [
+        "risk",
+        "gate",
+        "mitigation",
+        "governance",
+        "approval"
       ]
     },
     {
@@ -537,7 +617,7 @@
       "path": "agents/issue-cell-critic",
       "displayName": "Issue Cell Critic",
       "description": "Independent critic path for an issue cell. It reviews execution results against the issue boundary, brief, and done contract without taking over formal state progression.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "maturity": "experimental",
       "categories": [
         "review",
@@ -552,7 +632,8 @@
       ],
       "archetype": "reviewer",
       "skills": [
-        "review"
+        "review",
+        "acceptance-verification"
       ],
       "agents": [
         "explorer"
@@ -749,7 +830,7 @@
       "path": "packs/issue-driven-os-core",
       "displayName": "Issue-Driven OS Core Pack",
       "description": "Core intake, shaping, execution, and critique team for the Issue-Driven Agent OS implementation path.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "maturity": "experimental",
       "packType": "agent-team",
       "persona": "issue-driven-agent-os",
@@ -770,6 +851,7 @@
         "issue-shaping",
         "execution-briefing",
         "handoff-bundle-writing",
+        "acceptance-verification",
         "clarify",
         "review"
       ],
@@ -815,5 +897,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-29T13:29:41.324Z"
+  "generatedAt": "2026-03-29T13:36:33.885Z"
 }
