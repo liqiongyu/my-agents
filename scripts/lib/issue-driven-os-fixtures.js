@@ -174,6 +174,58 @@ async function readYamlObject(filePath) {
   return data;
 }
 
+async function loadIssueDrivenOsFixtures(examplesDir) {
+  const objectsDir = path.join(examplesDir, "objects");
+  const scenariosDir = path.join(examplesDir, "scenarios");
+
+  const objectFiles = await listYamlFiles(objectsDir);
+  const scenarioFiles = await listYamlFiles(scenariosDir);
+  const objectsById = new Map();
+  const objectsByPath = new Map();
+  const scenariosById = new Map();
+  const scenariosByPath = new Map();
+
+  for (const filePath of objectFiles) {
+    const fileName = path.basename(filePath);
+    const spec = findObjectKind(fileName);
+    if (!spec) {
+      continue;
+    }
+
+    const entry = {
+      kind: spec.kind,
+      data: await readYamlObject(filePath),
+      filePath,
+      label: toPosixPath(path.relative(examplesDir, filePath))
+    };
+
+    if (typeof entry.data.id === "string" && entry.data.id.length > 0) {
+      objectsById.set(entry.data.id, entry);
+    }
+    objectsByPath.set(filePath, entry);
+  }
+
+  for (const filePath of scenarioFiles) {
+    const entry = {
+      data: await readYamlObject(filePath),
+      filePath,
+      label: toPosixPath(path.relative(examplesDir, filePath))
+    };
+
+    if (typeof entry.data.scenario_id === "string" && entry.data.scenario_id.length > 0) {
+      scenariosById.set(entry.data.scenario_id, entry);
+    }
+    scenariosByPath.set(filePath, entry);
+  }
+
+  return {
+    objectsById,
+    objectsByPath,
+    scenariosById,
+    scenariosByPath
+  };
+}
+
 function addReferenceError(label, field, refId, expectedKind, entryById, errors) {
   if (typeof refId !== "string" || refId.length === 0) {
     errors.push(`${label}: "${field}" must be a non-empty string`);
@@ -565,6 +617,7 @@ module.exports = {
   SCENARIO_CATEGORIES,
   FIXTURE_PATH_SEGMENTS,
   getIssueDrivenOsExamplesDir,
+  loadIssueDrivenOsFixtures,
   looksLikeFixturePath,
   validateIssueDrivenOsFixtures
 };

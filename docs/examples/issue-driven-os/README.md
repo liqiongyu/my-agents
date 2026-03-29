@@ -57,6 +57,30 @@ This slice is meant to answer three questions quickly:
 The walkthrough page answers those questions first.
 The scenario and object files then provide the concrete fixtures behind that story.
 
+## Runtime Bundle Helper
+
+This slice now includes a thin reference-runtime helper.
+It does not run a full orchestrator.
+It resolves one starter scenario into a concrete runtime bundle that shows:
+
+- starting canonical objects
+- required runtime actors
+- current repo stand-ins
+- expected artifacts
+- expected state outcomes
+
+Run it with:
+
+```bash
+npm run issue-driven-os:bundle -- G1
+```
+
+For machine-readable output:
+
+```bash
+npm run issue-driven-os:bundle -- GT1 --json
+```
+
 ## Reference Stand-Ins
 
 This slice does not claim that the existing repo already contains the real Agent OS runtime.
