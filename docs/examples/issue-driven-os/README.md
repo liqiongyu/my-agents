@@ -13,6 +13,8 @@ Its purpose is to make the bridge-layer documents tangible before building a ful
   - Phase 3 example showing how canonical objects derive GitHub-like projection surfaces
 - `validation-pass.md`
   - Phase 4 check of the four starter scenarios against the bridge-layer documents
+- `packaging-decision.md`
+  - Phase 5 decision on whether the slice should stay example-only or project into a thin pack
 - `objects/`
   - canonical object examples aligned with the bridge-layer schema
 - `scenarios/`
@@ -34,13 +36,14 @@ Its purpose is to make the bridge-layer documents tangible before building a ful
 1. Read [runtime-walkthrough.md](./runtime-walkthrough.md)
 2. Read [projection-boundary-demonstration.md](./projection-boundary-demonstration.md)
 3. Read [validation-pass.md](./validation-pass.md)
-4. Pick one scenario under [scenarios/](./scenarios/)
-5. Follow the referenced objects under [objects/](./objects/)
-6. Compare the object shapes against:
+4. Read [packaging-decision.md](./packaging-decision.md)
+5. Pick one scenario under [scenarios/](./scenarios/)
+6. Follow the referenced objects under [objects/](./objects/)
+7. Compare the object shapes against:
    - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md)
-7. Compare the actor and handoff boundaries against:
+8. Compare the actor and handoff boundaries against:
    - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md)
-8. Compare the scenario intent against:
+9. Compare the scenario intent against:
    - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md)
 
 ## How To Read This Slice
@@ -78,3 +81,4 @@ They are not a commitment that future runtime roles must map 1:1 to these packag
 - Runtime services such as admission, budget checks, verification gates, workspace management, and adapters are still described conceptually in this slice unless a file explicitly shows otherwise.
 - Projection examples in this directory are illustrative only and remain derived from canonical objects.
 - The validation pass records what this slice can already represent without inventing additional architecture.
+- The packaging decision records why the slice currently remains example-first instead of becoming a pack.
