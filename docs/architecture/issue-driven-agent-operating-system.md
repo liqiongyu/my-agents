@@ -1,6 +1,6 @@
 # Issue-Driven Agent Operating System
 
-## 一份以 Issue 为核心、以控制面为治理中枢、以通才执行为默认路径、并能自然映射到本仓库结构的 AI Agent 系统蓝图
+## 一份以 Issue 为核心、以控制面为治理中枢、以通才执行为默认路径、并可投影到仓库与平台表面的 AI Agent 系统蓝图
 
 > 本文档是一份体系级架构蓝图。
 > 它讨论的是“未来完整系统应当长成什么样”，而不是实施排期、V1 范围或某个 workflow 脚本的细节。
@@ -423,12 +423,37 @@ Workspace 的作用不是存文件本身，而是提供：
 - 哪些风险必须升级
 - 哪些写权限属于控制面
 
-### 3.15 Pack
+### 3.15 Service
+
+`Service` 是系统级运行组件。
+它承担独立的运行责任边界，但不应被误写成 agent，也不只是某种可复用 skill。
+
+典型例子包括：
+
+- `Workspace / Sandbox Manager`
+- `Specialist Registry / Router`
+- `Trace & Artifact Store`
+- `Merge / Close / Recycle Controller`
+- `Projection / State Sync`
+- `Budget Checker`
+
+### 3.16 Pack
 
 `Pack` 是一组能力装配单元。
 它把 agents、skills、policy 约定、示例配置和文档一起装成可安装、可复用、可投影的系统集合。
 
-### 3.16 Budget Envelope
+### 3.17 Repo Package
+
+`Repo Package` 是当前 monorepo 中的作者视角分发单元。
+例如：
+
+- `agents/<name>/`
+- `skills/<name>/`
+- `packs/<name>/`
+
+它解决的是“如何组织、版本化、分发和投影能力”，而不是“系统运行时对象如何存在”。
+
+### 3.18 Budget Envelope
 
 `Budget Envelope` 是自治边界的一部分。
 它描述某个 issue / run 在本轮执行中可使用的资源预算，例如：
@@ -439,7 +464,7 @@ Workspace 的作用不是存文件本身，而是提供：
 - 回环次数预算
 - sandbox / CI 资源预算
 
-### 3.17 Trace
+### 3.19 Trace
 
 `Trace` 是系统对运行过程的可观测记录。
 它至少要帮助回答：
@@ -449,7 +474,7 @@ Workspace 的作用不是存文件本身，而是提供：
 - 哪些证据支撑了状态推进
 - 失败发生在哪里
 
-### 3.18 Lesson / Failure Pattern
+### 3.20 Lesson / Failure Pattern
 
 `Lesson` 或 `Failure Pattern` 是系统学习的基本产物。
 它可以沉淀为：
@@ -460,7 +485,7 @@ Workspace 的作用不是存文件本身，而是提供：
 - 新的 policy 调整
 - 新的 skill 优化方向
 
-### 3.19 对象关系图
+### 3.21 对象关系图
 
 下面这张图把主要系统对象放在同一条关系链里，方便理解“任务对象、运行对象、交付对象、验证对象、学习对象”之间的关系。
 
@@ -784,7 +809,8 @@ Issue Cell Runtime 是围绕单个 issue 拉起的局部执行环境。
 
 ### 5.9 Verification & Gate Engine
 
-这一层负责把“我觉得差不多了”转成结构化 gate。
+这一层属于 `Service` 家族中的 runtime verification service。
+它负责把“我觉得差不多了”转成结构化 gate。
 它负责：
 
 - 运行 done contract 检查
@@ -841,6 +867,7 @@ Issue Cell Runtime 是围绕单个 issue 拉起的局部执行环境。
 
 ### 5.14 Agent Engine Adapters
 
+这一层属于 `Service` 家族中的 runtime adapter service。
 系统本体不应写死在某一个执行引擎上。
 因此应有一层 adapter，把内部 contract 映射到具体引擎，例如：
 
@@ -863,6 +890,10 @@ Issue Cell 是围绕单个 issue 临时形成的执行单元。
 - 让执行与评估在局部回环中收敛
 - 让专家只在必要时插入
 - 为控制面提供结构化证据和状态建议
+
+这一章的重点是 `logical role map`：
+它说明单个 issue 的执行单元在逻辑上需要哪些责任视角。
+至于这些角色默认如何物化、何时值得独立实例化、何时应降级为 skill / service / script，则由第 7 章统一定义。
 
 ### 6.2 Issue Cell 的逻辑角色
 
@@ -1006,110 +1037,108 @@ Issue Cell 中的角色首先是逻辑角色，不一定等于独立运行实例
 
 ---
 
-## 7. Agent 体系
+## 7. 角色目录、Agent 边界与实例化规则
 
-### 7.1 Agent 体系的设计原则
+### 7.1 为什么这一章不能写成“未来 agent 清单”
 
-系统里的 Agent 设计应遵循以下原则：
+这套系统必须同时区分三件事：
 
-- 先按系统职责设计，再映射到具体 agent
-- 先明确 contract，再决定是否值得做成独立实例
-- 能由 skill、script、policy 完成的，不必强行人格化
-- 专家的核心不是“更会想”，而是“带不同工具和判断标准”
+- `Logical Role`
+  系统里的逻辑责任
+- `Runtime Agent`
+  值得独立实例化的运行单元
+- `Repo Package`
+  当前仓库里的作者视角分发单元
 
-### 7.2 核心任务代理
+如果把这三者混成一层，就会出现两个常见误区：
 
-#### Intake Normalizer
+- 一个 issue 里出现很多能力需求，于是被误解成应该有很多 agent 常驻并行
+- 文档里的角色目录被误读成未来必须创建的一长串 package 清单
 
-负责把原始信号转成结构化 issue draft。
+本蓝图明确反对这两种误读。
 
-#### Shaper / Decomposer
+### 7.2 什么情况下才值得升级成独立 Agent
 
-负责 issue 整形、边界收敛和拆分提案。
+一个逻辑角色只有在至少满足以下一种条件时，才值得成为独立 runtime agent：
 
-#### Case Owner
+- 需要独立上下文隔离
+- 需要不同的工具面或权限边界
+- 需要独立预算或模型配置
+- 需要并行运行以缩短关键路径
+- 需要独立 decision contract 或 gate responsibility
+- 需要被单独重试、恢复、审计或回收
 
-负责单 issue 的策略持有与执行协调。
+如果不满足这些条件，就应优先考虑把它表达为：
 
-#### Builder
+- skill
+- script / hook
+- policy
+- service
+- artifact template
 
-负责核心代码执行。
+### 7.3 推荐的默认运行形态
 
-#### Critic
+本蓝图推荐的默认 issue runtime 形态不是“角色全开”，而是：
 
-负责实现回环中的评审。
+- `1` 个主执行单元
+  - 通常承担 `Case Owner + Builder`
+- `1` 条独立评估路径
+  - 通常承担 `Critic / Evaluator`
+- `0~2` 个按需 specialist
+  - 只在工具域或判断域明显不同的时候进入
+- 若干 control-plane services
+  - 负责 state write、gate enforcement、budget enforcement、merge / close / recycle
+- 若干 skills、scripts、policies、context packs、artifact templates
+  - 作为能力装载层，而不是默认独立 agent
 
-#### Verifier
+这条默认形态故意偏保守，因为它更符合当前最佳实践中的 `single-generalist-first` 和 `bounded multi-agent` 原则。
 
-负责 done contract 与 gate 级验证。
+### 7.4 Role Manifestation Matrix
 
-#### Learn Synthesizer
+下表描述主要逻辑角色的默认物化方式。
 
-负责从执行结果中提炼 failure pattern、follow-up issue 和可复用经验。
+| 逻辑角色                  | 默认物化形式                      | 默认是否实例化 | 何时升级为独立 Agent                        | 更常见的降级形式            |
+| ------------------------- | --------------------------------- | -------------- | ------------------------------------------- | --------------------------- |
+| `Case Owner`              | 主执行单元的一部分                | 是             | 需要与 `Builder` 分离持有不同上下文或权限时 | role only                   |
+| `Builder`                 | 主执行单元的一部分                | 是             | 需要独立并行编码或独立模型预算时            | role only                   |
+| `Critic`                  | 独立评估路径                      | 是             | 需要独立审计、隔离 review 上下文时          | review skill                |
+| `Verifier`                | gate skill + verification service | 否             | 需要复杂、长期、独立验证上下文时            | verification skill / script |
+| `Closer`                  | control-plane action / service    | 否             | 原则上不建议人格化                          | script / service            |
+| `Explore Utility`         | 辅助 skill                        | 否             | 需要独立上下文做深探索时                    | skill / tool routine        |
+| `Planning Utility`        | 辅助 skill                        | 否             | 复杂任务需要独立计划上下文时                | skill / artifact template   |
+| `Diff / Impact Analyst`   | 分析 skill 或 service             | 否             | 需要独立并行影响面分析时                    | skill / report              |
+| `Trace Summarizer`        | summarization skill 或 service    | 否             | 需要专门压缩超长运行历史时                  | skill / script              |
+| `Learn Synthesizer`       | learn skill 或 service            | 否             | 需要独立学习管线时                          | skill / curated writeback   |
+| `Browser QA Specialist`   | 按需 specialist agent             | 否             | 需要真实浏览器工具链和独立证据采集时        | browser QA skill            |
+| `Architecture Specialist` | 按需 specialist agent             | 否             | 需要独立架构判断边界或 gate 责任时          | architecture review skill   |
 
-### 7.3 运行辅助代理
+### 7.5 建议保留为 agent family 的内容
 
-#### Explore Utility
+在当前最佳实践下，最值得长期保留为 agent family 的通常只有三类：
 
-负责快速 repo reconnaissance、影响面分析、未知问题侦察。
+- `Primary Execution Unit`
+  - 默认主执行者，负责 issue 的主要代码推进
+- `Evaluator / Critic`
+  - 负责与主执行单元形成质量对抗或独立评估
+- `Tool-Bound Specialists`
+  - 例如 `Browser QA Specialist`、`Architecture Specialist`
+  - 前提是它们真的具备独特工具面、权限面或 gate 责任
 
-#### Planning Utility
+### 7.6 更适合降级为非-Agent的内容
 
-负责 issue 内局部计划组织。
+以下内容更适合优先表达为 skill、script、service、policy 或 artifact，而不是新建人格化 agent：
 
-#### Diff / Impact Analyst
+- `Planning Utility`
+- `Diff / Impact Analyst`
+- `Trace Summarizer`
+- `Handoff Bundle Writing`
+- `Budget Check`
+- `Learn Synthesizer`
+- `Cleanup Trigger`
+- 大多数 `Product / Acceptance` 边界强化动作
 
-负责分析变更范围、潜在影响、测试建议。
-
-#### Trace Summarizer
-
-负责把长 trace 压缩成可消费的摘要和 handoff 信息。
-
-### 7.4 领域专家代理
-
-#### Browser QA Specialist
-
-负责浏览器自动化验证、截图、DOM / console / network 证据采集。
-
-#### Architecture Specialist
-
-负责跨模块边界、接口约束、系统一致性判断。
-
-#### Product / Acceptance Specialist
-
-负责需求边界、验收标准、非目标与 issue shaping 强化。
-
-#### Design / UI Specialist
-
-负责设计系统一致性、界面与交互判断。
-
-#### Security Specialist
-
-负责安全风险识别与 gate。
-
-#### Performance Specialist
-
-负责性能分析与性能相关验证。
-
-#### Data Migration Specialist
-
-负责数据迁移、schema change、数据一致性相关问题。
-
-#### Release / Infra Specialist
-
-负责发布、环境、部署、CI / CD、运行基础设施相关判断。
-
-### 7.5 逻辑角色与物理实例的区别
-
-一个好的蓝图不应把“逻辑角色”直接等同于“物理实例”。
-
-例如：
-
-- `Builder` 可以是一个常驻逻辑角色，但在实现上可能只是 Case Owner 的一种模式
-- `Critic` 可以是独立 agent，也可以由专门的 review loop 承担
-- `Specialist Registry` 本身可能不是 agent，而是由 policy + manifest + router 组成
-
-这一区分让系统既保有体系完整性，也能避免过早做成重型 swarm。
+这不是在否定这些能力的重要性，而是在强调：
+**一个 issue 需要很多能力，不等于需要很多 agent。**
 
 ---
 
@@ -1182,104 +1211,168 @@ Issue Cell 中的角色首先是逻辑角色，不一定等于独立运行实例
 
 ---
 
-## 9. Skill、Context Pack、Script、Policy、Pack 的分层
+## 9. Skill、Context Pack、Script、Policy、Artifact、Service、Pack 与 Repo Package 的判定规则
 
-### 9.1 Skill
+### 9.1 为什么必须把类型体系写硬
 
-Skill 表达一种稳定可复用的工作模式。
-它通常包含：
+如果没有显式判定规则，系统会自然滑向两种坏结果：
 
-- 方法
-- 约束
-- 输出格式
-- 工具使用规范
+- 本来只是方法或脚本的东西被人格化成 agent
+- 本来只是 repo 里的分发单元，被误读成系统本体的一部分
 
-### 9.2 Context Pack
+因此，本章的目标不是再补更多名词，而是让每类对象都回答：
 
-Context Pack 表达“这类任务常用的上下文集合”。
-它不是临时聊天记录，而是可重复加载的稳定上下文包。
+- 它解决什么问题
+- 它的责任边界是什么
+- 它为什么不是旁边那一类
 
-### 9.3 Script
+### 9.2 Skill
 
-Script 负责确定性动作。
-它适合承载：
+`Skill` 用来承载稳定、可复用的 workflow、方法和输出契约。
+它最适合表达：
 
-- collect evidence
-- run checks
-- summarize outputs
+- 一类可重复执行的工作模式
+- 一组方法步骤
+- 工具使用约定
+- 标准输出结构
+
+Skill 关注的是“如何做这类事”，而不是“谁来当这个人”。
+
+### 9.3 Context Pack
+
+`Context Pack` 用来承载稳定可加载的上下文集合。
+它最适合表达：
+
+- 领域规则
+- 架构约束
+- 设计系统
+- 历史缺陷模式
+- 风险清单
+
+Context Pack 解决的是“做决定时默认带什么背景材料”。
+
+### 9.4 Script / Hook
+
+`Script / Hook` 用来承载确定性动作。
+它最适合表达：
+
+- 运行验证命令
+- 收集日志与证据
+- 生成标准骨架
 - cleanup
-- apply standard transforms
+- 标准化转换
 
-### 9.4 Policy
+当一件事更像“应稳定执行的固定动作”而不是“应由模型判断的开放动作”时，优先落到这里。
 
-Policy 负责系统边界。
-它定义：
+### 9.5 Policy
 
-- 允许哪些自动推进
-- 哪些必须 gate
-- 哪些必须人工兜底
-- 预算与风险阈值
+`Policy` 用来承载治理规则。
+它最适合表达：
 
-### 9.5 Pack
+- 自动推进边界
+- gate 规则
+- 升级条件
+- 风险阈值
+- 预算规则
+- 写权限边界
 
-Pack 负责把 skills、agents、docs、policies 组合成完整能力集合。
-它是装配与分发对象，而不是运行时治理对象。
-换句话说，pack 决定“系统能力如何被打包、安装与投影”，但不直接参与 issue、run、budget 或 gate 的日常运行时裁决。
+Policy 不是 agent 的人格特质，而是系统的正式约束。
 
-### 9.6 推荐的 Skill 目录
+### 9.6 Artifact
 
-#### 治理类 Skill
+`Artifact` 用来承载系统运行中的正式产物。
+它最适合表达：
 
-- issue-normalization
-- issue-prioritization
-- issue-routing
-- gate-evaluation
-- escalation-decision
+- execution brief
+- evidence packet
+- decision packet
+- verification report
+- handoff bundle
+- lesson / failure pattern
 
-#### 执行类 Skill
+Artifact 是证据和状态的结构化落点，不应被混成 skill 或 agent。
 
-- issue-execution
-- codebase-exploration
-- change-implementation
-- evidence-capture
-- handoff-bundle-writing
+### 9.7 Service
 
-#### 评估类 Skill
+`Service` 用来承载系统级运行责任。
+它最适合表达：
 
-- critic-review
-- acceptance-verification
-- regression-check
-- browser-qa
-- architecture-review
+- workspace / sandbox 生命周期
+- specialist registry / router
+- trace / artifact storage
+- projection / state sync
+- merge / close / recycle control
+- budget enforcement
 
-#### 控制面支撑类 Skill
+Service 有自己的责任边界，但不等于 agent，也不等于 package。
 
-- issue-state-sync
-- run-budget-check
-- trace-summarization
-- workspace-cleanup-trigger
+### 9.8 Pack
 
-#### 收尾与学习类 Skill
+`Pack` 负责装配与分发，不负责运行时治理。
+它最适合表达：
 
-- cleanup-and-closeout
-- failure-pattern-extraction
-- follow-up-issue-generation
-- memory-writeback
+- 某一套能力组合如何被安装、投影和复用
+- 哪些 agents / skills / docs / examples 应被一起交付
 
-### 9.7 四层映射原则
+`Pack` 是 distribution object，不是 runtime authority object。
+
+### 9.9 Repo Package
+
+`Repo Package` 是当前 monorepo 的作者视角组织单元。
+它最适合表达：
+
+- canonical source 如何被版本化
+- installable units 如何被命名与发布
+- docs 与 examples 如何和 package 对齐
+
+Repo Package 解决的是“仓库里怎么放”，不是“运行时里怎么活”。
+
+### 9.10 判定规则表
+
+| 类型            | 主要判断问题               | 适合承载                                   | 不适合承载             |
+| --------------- | -------------------------- | ------------------------------------------ | ---------------------- |
+| `Role`          | 这是谁的逻辑责任？         | 责任分工、视角、职责命名                   | 运行时实例边界         |
+| `Agent`         | 是否需要独立运行边界？     | 独立 context、独立工具、独立预算、独立审计 | 纯文档方法、固定脚本   |
+| `Skill`         | 是否是可复用 workflow？    | 方法、步骤、输出 contract                  | 长期状态、系统治理裁决 |
+| `Context Pack`  | 是否是稳定背景材料？       | 规则、设计、架构、历史模式                 | 临时聊天摘要           |
+| `Script / Hook` | 是否应确定性执行？         | 检查、收集、cleanup、转换                  | 开放式判断             |
+| `Policy`        | 是否是正式治理规则？       | gate、风险、升级、预算                     | 具体任务执行           |
+| `Artifact`      | 是否是应沉淀的产物？       | brief、report、handoff、evidence           | 独立运行逻辑           |
+| `Service`       | 是否是系统级运行责任？     | router、manager、store、controller、sync   | 泛化 persona           |
+| `Pack`          | 是否是装配与分发对象？     | capability bundle、projection bundle       | 运行时状态裁决         |
+| `Repo Package`  | 是否是仓库组织与发布单元？ | `agents/`、`skills/`、`packs/`             | 系统 ontology 本体     |
+
+### 9.11 常见落位示例
+
+以下落位可作为默认判断：
+
+- `browser QA regression`
+  - 默认是 skill；需要真实浏览器工具链和独立证据采集时，升级为 specialist agent
+- `budget check`
+  - 默认是 policy + service，不应人格化
+- `handoff bundle writing`
+  - 默认是 artifact template + skill
+- `trace summarization`
+  - 默认是 skill 或 service，不必天然做成 agent
+- `cleanup and closeout`
+  - 默认是 script + control-plane service
+
+### 9.12 五层映射原则
 
 这套系统里的常见映射应理解为：
 
 - `Agent`
-  负责承担某类逻辑职责或运行时角色
+  负责承担少数真正需要独立边界的运行单元
 - `Skill`
-  负责提供复用能力
+  负责提供复用 workflow
 - `Tool`
   负责提供执行与观测手段
 - `Artifact`
-  负责沉淀系统状态、证据和交接信息
+  负责沉淀状态、证据和交接信息
+- `Service`
+  负责持有系统级运行责任
 
-一个稳定系统不是把所有东西都塞进 agent，而是让四层各司其职。
+一个稳定系统不是把所有东西都塞进 agent，而是让这些层级各司其职。
 
 ---
 
@@ -1317,11 +1410,30 @@ Issue 生命周期表达“任务对象现在处于什么阶段”。
 - shaped
 - decomposed
 - admitted
-- actionable
+- ready
 - active
 - resolved
 - closed
 - recycled
+
+这里要刻意避免把 run-level 语义塞进 issue 状态。
+例如：
+
+- `running`
+- `awaiting_gate`
+- `blocked_on_tool`
+- `needs_specialist`
+
+这些都应属于 `Run Lifecycle`，而不是 `Issue Lifecycle`。
+
+在这个语境下：
+
+- `ready`
+  表示 issue 已具备执行条件
+- `active`
+  表示 issue 当前仍处于执行义务打开的阶段
+
+它们表达的是任务业务阶段，而不是某个具体 run 正在做什么。
 
 ### 10.3 Run Lifecycle
 
@@ -1578,12 +1690,12 @@ Issue Cell 不应硬扛到底，而应回流到 Shaping / Decomposition，形成
 - 当前预算
 - handoff bundle
 
-### 12.3 权威对象与派生对象
+### 12.3 权威对象、派生对象与真相源层次
 
 显式 memory 不等于“所有文档都是同等真相来源”。
 本系统需要明确哪些对象是权威对象，哪些只是派生解释或交接工件。
 
-建议遵循如下原则：
+建议遵循如下层次：
 
 - `Canonical Issue / Issue Graph`
   是任务身份、任务边界、任务关系与高层任务状态的权威来源
@@ -1593,10 +1705,14 @@ Issue Cell 不应硬扛到底，而应回流到 Shaping / Decomposition，形成
   是代码交付对象、PR 对应关系与 change 生命周期的权威来源
 - `Verification Report`
   是 gate 结论与 done contract 检查结果的权威来源
+- `Repo Canonical Source`
+  是仓库中 package、docs 和 projection 规则的作者视角权威来源
 - `Handoff Bundle`
   是交接工件，不应反过来覆盖 issue、run 或 verification 的正式状态
 - `Repo / Project Memory`
   是长期知识和治理上下文，不应直接替代 issue / run / change 的正式记录
+- `GitHub Surface`、`.agents/`、`.codex/`、`.claude/`
+  是平台或运行时投影表面，应反映 canonical state，而不是重新定义它
 
 这条边界非常重要，因为它决定了：
 
@@ -1604,7 +1720,7 @@ Issue Cell 不应硬扛到底，而应回流到 Shaping / Decomposition，形成
 - learn 写回时哪些对象可被更新
 - 未来做 adapter 时哪些字段必须精确映射
 
-### 12.4 冲突解决与写入原则
+### 12.4 冲突解决顺序与写入原则
 
 当不同对象之间出现不一致时，系统不应依赖“谁最后说了一句话”，而应按对象域解决冲突。
 
@@ -1620,6 +1736,15 @@ Issue Cell 不应硬扛到底，而应回流到 Shaping / Decomposition，形成
   以 `Verification Report` 为准；自然语言评论只能提供补充上下文。
 - handoff bundle、trace、evidence 与正式状态的冲突：
   这些对象默认是 append-only 的解释与交接工件，不应直接覆盖 issue、run、change、verification 的正式记录。
+- package canonical source 与 runtime projection 副本的冲突：
+  以仓库中的 canonical source 为准；`.agents/`、`.codex/`、`.claude/` 只应被重新投影或重新生成，而不应作为反向编辑源。
+
+如果必须给出更简化的冲突处理顺序，可遵循：
+
+1. 先按对象域判断冲突属于 `issue / run / change / verification / package source` 中哪一类
+2. 在该对象域中，以对应权威对象为准
+3. projection surface 只能提出修正线索，不能直接成为新真相源
+4. 正式修正由 Control Plane 或 canonical source 维护路径完成落盘
 
 写入边界建议如下：
 
@@ -1802,116 +1927,136 @@ GitHub 更像这套系统的主要外部控制面承载平台之一。
 
 ---
 
-## 15. 与当前仓库结构的映射
+## 15. 宿主、运行时与投影政策
 
-### 15.1 为什么当前仓库适合作为这套系统的宿主
+### 15.1 Host-Not-Cage 原则
 
-当前仓库已经是一个围绕 `skills / agents / packs` 建立的 monorepo。
-它天然适合承载这种“先定义体系，再投影到可安装能力包”的系统设计。
+当前仓库可以成为这套系统的：
 
-它已经具备的结构包括：
+- host
+- capability library
+- projection surface
 
-- `agents/`：角色级 package
-- `skills/`：复用能力 package
-- `packs/`：装配 package
-- `docs/architecture/`：体系设计文档
-- `docs/examples/`：参考映射与示例
-- `research/`：研究沉淀
-- `scripts/`：脚手架、构建、安装、投影相关工具
+但它不应成为这套系统 ontology 的上位约束。
 
-### 15.2 `agents/` 的映射
+更直白地说：
 
-`agents/` 适合承载具有明确角色边界的高层单元，例如：
+- 仓库可以承载这套系统
+- 仓库不该反过来定义这套系统
 
-- `issue-intake-normalizer`
-- `issue-shaper-decomposer`
-- `issue-case-owner`
-- `issue-critic`
-- `issue-verifier`
-- `learn-synthesizer`
-- `browser-qa-specialist`
-- `architecture-specialist`
-- `product-acceptance-specialist`
-- `design-ui-specialist`
+只要现有结构能低扭曲地承载概念，我们就利用它；一旦它开始扭曲概念，系统本体优先于兼容性。
 
-这里的关键不是“一开始要建这么多”，而是：
-如果这些角色需要成为正式、可安装、可投影的角色级 package，`agents/` 是它们的自然落点。
+### 15.2 Canonical Ontology / Runtime System / Projection Layer
 
-### 15.3 `skills/` 的映射
+这套系统更适合被理解成三层：
 
-`skills/` 适合承载可复用、可跨角色调用的能力模块，例如：
+- `Canonical Ontology`
+  - 负责定义 issue、run、change、verification、service、policy、artifact 等系统本体
+- `Runtime System`
+  - 负责 control plane、issue cell runtime、workspace、trace、budget、gate、router 等运行机制
+- `Projection / Distribution Layer`
+  - 负责把系统能力映射到 GitHub、Codex、Claude Code，以及当前仓库的 package 结构
 
-- `issue-normalization`
-- `issue-shaping`
-- `issue-decomposition`
-- `execution-briefing`
-- `critic-review`
-- `acceptance-verification`
-- `browser-qa-regression`
-- `architecture-review`
-- `handoff-bundle-writing`
-- `memory-writeback`
-- `failure-pattern-extraction`
-- `issue-graph-hygiene`
-- `budget-governance`
+下面这张图描述三层关系：
 
-这类内容不应被过度人格化，而应偏向：
+```mermaid
+flowchart TD
+    O[Canonical Ontology] --> R[Runtime System]
+    O --> P[Projection / Distribution Layer]
+    R --> G[GitHub Surface]
+    R --> E[Codex / Claude Runtime]
+    P --> A[agents/]
+    P --> S[skills/]
+    P --> K[packs/]
+    P --> D[docs/ and research/]
+```
 
-- 方法
-- 工具使用规范
-- 输出 contract
-- 结构化检查模式
+这张图要表达的是：
 
-### 15.4 `packs/` 的映射
+- ontology 先于 projection
+- runtime 不必被当前 monorepo 完整吞下
+- 当前仓库更像 distribution surface，而不是整个运行时本体
 
-`packs/` 适合承载整套系统装配。
-例如未来可以存在这样的 pack：
+### 15.3 Compatibility / Projection Policy
 
-- `issue-driven-os-core`
-- `issue-driven-os-specialists`
-- `issue-driven-os-github-surface`
-- `issue-driven-os-browser-qa`
+与当前仓库结构兼容，不应成为自动默认项；它应该是有条件成立的 projection policy。
 
-其中一个核心 pack 可以把首批核心单元组装起来：
+以下情况下，兼容是加分项：
 
-- control plane 相关 agents
-- shaping / decomposition 相关 agents / skills
-- case owner / critic / verifier 相关 agents / skills
-- browser QA / architecture 等 specialist
-- 必要的 docs、examples、projection metadata
+- 当前目录语义能干净表达概念
+- projection 成本低
+- 有利于安装、分发、发现与维护
+- 不会把 runtime object 假装成 package object
 
-### 15.5 `docs/architecture/`、`docs/examples/`、`research/` 的映射
+以下情况下，应主动打破兼容：
 
-建议分工如下：
+- 顶层目录开始误导 ontology
+- 同一能力被迫拆散到多个 package 才能表达
+- policy、context、artifact、service 长期沦为二等公民
+- projection 逻辑开始比系统本体更复杂
+- 为了贴合目录而不断改坏概念边界
 
+### 15.4 当前仓库适合承载什么
+
+当前 monorepo 非常适合承载以下内容：
+
+- `agents/`
+  - 只承载那些真正值得被包装成 agent family 的角色级 package
+- `skills/`
+  - 承载可复用 workflow、判断框架、工具使用约定、输出 contract
+- `packs/`
+  - 承载 capability bundles 和 projection bundles
 - `docs/architecture/`
-  承载体系蓝图、对象模型、状态平面、治理原则、平台关系等长寿命设计文档
+  - 承载系统蓝图、对象模型、治理原则和平台关系
 - `docs/plans/`
-  承载后续更细的实施计划、运行规格、阶段性执行方案，但不替代本蓝图文档
+  - 承载后续更细的优化计划和实施计划
 - `docs/examples/`
-  承载 issue forms、labels、projects fields、GitHub 映射、specialist contract 示例、artifact 示例
+  - 承载 issue forms、artifact 示例、specialist contract 示例和平台映射示例
 - `research/`
-  承载外部框架、类似项目、平台能力的调研记录
+  - 承载外部研究与实践对齐材料
+- `scripts/`
+  - 承载投影、构建、安装、同步和确定性辅助逻辑
 
-如果后续需要更细颗粒度的运行协议或实现规范，再分别落到更细的 docs 页面，而不是继续让蓝图文档膨胀。
+### 15.5 当前仓库不应被强行承载什么
 
-### 15.6 当前仓库中 Context Pack、Policy、Script 的实际承载方式
+当前 monorepo 不应被默认理解为以下对象的唯一宿主：
 
-当前仓库的顶层 package 类型只有 `skill / agent / pack`，没有单独的 `context-pack` 或 `policy-pack` 类型。
-因此在本仓库中，建议这样投影：
+- canonical issue graph runtime
+- run store
+- workspace / sandbox lifecycle manager
+- trace / artifact operational store
+- external control-plane services
 
+这些对象未来完全可能存在于：
+
+- 外部 orchestrator
+- 独立 runtime service
+- GitHub + external service 的 hybrid 部署中
+
+因此，当前仓库更像“作者视角与分发视角的中心”，而不是“整个系统运行时的唯一体内器官”。
+
+### 15.6 当前仓库中的具体投影方式
+
+在当前仓库中，建议这样投影：
+
+- `Agent`
+  - 只在确实需要角色级安装与投影时，落到 `agents/<name>/`
+- `Skill`
+  - 优先落到 `skills/<name>/`
+- `Pack`
+  - 落到 `packs/<name>/`
 - `Context Pack`
-  先通过 skill 内文档、references、assets、docs/examples 以及 pack 组合来承载
+  - 通过 skill 文档、`references/`、`assets/`、`docs/examples/` 和 pack 组合承载
 - `Policy`
-  先通过 agent platform docs、skill docs、architecture 文档、examples 与 project manifest 规则承载
+  - 通过 architecture docs、skill docs、agent platform docs、examples 和 projection metadata 承载
 - `Script`
-  优先承载在 skill package 的 `scripts/`、agent 支撑脚本或仓库级 `scripts/` 中
+  - 优先落到 skill package 的 `scripts/`、agent 支撑脚本或仓库级 `scripts/`
+- `Service`
+  - 在蓝图中作为 runtime 类型存在；只有在确实需要 repo-level 作者化时，才寻找对应 projection 形式
 
-换句话说：
-蓝图里的概念层次不需要被当前仓库的顶层 package 类型一一镜像。
-只要投影规则清晰，就不影响系统本体成立。
+因此，蓝图里的类型体系不需要和当前仓库的顶层 package 类型一一镜像。
 
-### 15.7 与当前现有角色资产的关系
+### 15.7 与当前现有资产的关系
 
 当前仓库已经存在一些通用角色与能力，例如：
 
@@ -1923,14 +2068,15 @@ GitHub 更像这套系统的主要外部控制面承载平台之一。
 - `debugger`
 - `researcher`
 
-这些资产不应反过来决定蓝图本体，但它们可以成为后续映射时的参考风格与过渡性承载。
+这些资产的正确位置是：
 
-更准确地说：
+- 作为现有 capability inventory
+- 作为命名和风格参考
+- 作为过渡期的可利用投影
 
-- 蓝图先定义未来系统需要哪些角色与能力域
-- 当前已有 package 只负责提供命名、风格和实现切入口
+它们不应反过来决定蓝图本体应该长成什么样。
 
-### 15.8 运行时投影与 canonical source 的关系
+### 15.8 Canonical Source 与 Projection Copies
 
 本仓库的 canonical source 在：
 
@@ -1938,13 +2084,19 @@ GitHub 更像这套系统的主要外部控制面承载平台之一。
 - `skills/<name>/`
 - `packs/<name>/`
 
-而投影后的运行时副本会出现在：
+运行时和平台投影会出现在：
 
 - `.agents/`
 - `.codex/`
 - `.claude/`
+- GitHub surface
 
-因此，未来如果把这套蓝图正式落为 package，设计与维护都应发生在 canonical source，而不是投影副本。
+因此需要坚持以下原则：
+
+- canonical source 负责定义与维护
+- projection copy 负责适配与运行
+- projection copy 不应成为反向编辑源
+- 当 projection 和 canonical source 冲突时，以 canonical source 为准
 
 ---
 
@@ -2000,7 +2152,21 @@ GitHub 更像这套系统的主要外部控制面承载平台之一。
 - review、verification、merge、cleanup 有明确 gate
 - 系统在少人工参与下能持续运行而不明显漂移
 - 随着模型能力增强，系统可以减少 specialist 介入频率，而不需要推翻整体结构
-- 系统能自然映射到本仓库的 `agents / skills / packs / docs` 结构，而无需引入不必要的新顶层 package 类型
+- 系统能投影到本仓库的 `agents / skills / packs / docs` 结构，同时保留 runtime 独立演进的空间
+
+### 17.1 文档验收清单
+
+当以下条件同时成立时，可以认为这份蓝图文档已经达到本轮优化目标：
+
+- 每个核心组件都能被明确归类为 role、agent、skill、script、policy、artifact、context pack、service 或 repo package 之一
+- 默认 issue runtime 读起来是最小 execution cell，而不是多 agent 常驻清单
+- `Role` 与 `Agent` 的边界在正文和矩阵中都足够清楚
+- `Service` 已成为一等类型，但没有沦为杂项桶
+- `Issue / Run / Change` 三套状态平面的命名边界干净
+- source-of-truth 与 conflict resolution 已经写成正式规则
+- 当前仓库被表述为 host / projection layer，而不是 system body
+- 文档包含至少两张核心图：对象关系图、host/runtime/projection 图
+- 文档既能指导未来 package 设计，又不会被 package 结构反向塑形
 
 ---
 
@@ -2034,9 +2200,21 @@ GitHub 更像这套系统的主要外部控制面承载平台之一。
 
 稳定可加载的上下文集合。
 
+### Service
+
+承担系统级运行责任的组件，例如 router、manager、store、controller。
+
 ### Policy
 
 系统的规则、边界与约束定义。
+
+### Pack
+
+能力的装配与分发对象，而不是运行时治理对象。
+
+### Repo Package
+
+当前 monorepo 中的作者视角组织与发布单元。
 
 ### Gate
 
@@ -2063,6 +2241,7 @@ GitHub 更像这套系统的主要外部控制面承载平台之一。
 - 专家单元按“工具域 + 判断域”定义，并按需介入
 - 专家介入后的动作严格限制为 `advisory / gate / delegated subtask / escalation`
 - 将事实写权限与控制写权限分离
+- 将当前 monorepo 视为 host 与 projection layer，而不是系统本体的唯一宿主
 - 用显式 contracts、memory、gate、trace 和 policies 构建系统，而不是只堆 prompt
 - 保持平台中立本体，同时明确映射到 GitHub、Codex、Claude Code 和当前仓库的 package 结构
 
