@@ -30,6 +30,7 @@ const USAGE = `Usage:
   npx my-agents uninstall <skill|agent|pack> <name> [options]
   npx my-agents uninstall <skill|agent|pack> --all [options]
   npx my-agents project sync [options]
+  npx my-agents issue-driven-os <command> [options]
   npx my-agents references <command> [options]
 
 Options:
@@ -46,6 +47,7 @@ Examples:
   npx my-agents install pack product-manager --platform codex --scope project
   npx my-agents project sync --manifest docs/examples/my-agents.project.example.json
   npx my-agents project sync --prune
+  npx my-agents issue-driven-os pipeline G1
   npx my-agents references add https://github.com/example/agent-reference-repo
 
 Compatibility aliases:

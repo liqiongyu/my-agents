@@ -26,6 +26,7 @@ test("top-level CLI help documents the canonical command surface", () => {
 
   assert.match(output, /npx my-agents install <skill\|agent\|pack> <name> \[options\]/);
   assert.match(output, /npx my-agents project sync \[options\]/);
+  assert.match(output, /npx my-agents issue-driven-os <command> \[options\]/);
   assert.match(output, /npx my-agents references <command> \[options\]/);
   assert.match(output, /Compatibility aliases:/);
 });
@@ -64,4 +65,29 @@ test("incomplete canonical project command exits nonzero", () => {
 
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Missing project command/);
+});
+
+test("issue-driven-os help documents the unified runtime flow surface", () => {
+  const output = runNodeScript(cliPath, ["issue-driven-os", "--help"]);
+
+  assert.match(output, /npx my-agents issue-driven-os bundle <scenario-id> \[--json\]/);
+  assert.match(
+    output,
+    /npx my-agents issue-driven-os pipeline <scenario-id> \[--out-dir <path>\] \[--json\]/
+  );
+});
+
+test("issue-driven-os pipeline runs the end-to-end reference flow", () => {
+  const tempBase = path.join(__dirname, "..", "..", ".tmp", "cli-pipeline-test");
+  const result = runNodeScriptWithStatus(cliPath, [
+    "issue-driven-os",
+    "pipeline",
+    "G1",
+    "--out-dir",
+    tempBase
+  ]);
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Issue-Driven OS pipeline completed for G1/);
+  assert.match(result.stdout, /Projection artifact:/);
 });

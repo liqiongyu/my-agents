@@ -57,6 +57,30 @@ This slice is meant to answer three questions quickly:
 The walkthrough page answers those questions first.
 The scenario and object files then provide the concrete fixtures behind that story.
 
+## Unified CLI Surface
+
+You no longer need to remember the individual helper scripts to exercise this
+reference runtime.
+The canonical entrypoint is now:
+
+```bash
+npx my-agents issue-driven-os <command> ...
+```
+
+Available commands:
+
+- `bundle`
+- `simulate`
+- `run`
+- `project`
+- `pipeline`
+
+The most direct end-to-end path is:
+
+```bash
+npx my-agents issue-driven-os pipeline G1
+```
+
 ## Runtime Bundle Helper
 
 This slice now includes a thin reference-runtime helper.
