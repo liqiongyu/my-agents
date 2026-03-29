@@ -113,6 +113,10 @@ function buildActorSummary(actorName) {
   };
 }
 
+function resolveRuntimeActor(actorName) {
+  return buildActorSummary(actorName);
+}
+
 function resolveFixtureReference(scenarioEntry, ref, objectsByPath) {
   if (!looksLikeFixturePath(ref)) {
     return {
@@ -226,6 +230,7 @@ function formatScenarioBundle(bundle) {
 module.exports = {
   REFERENCE_RUNTIME_ACTORS,
   SCENARIO_PHASES,
+  resolveRuntimeActor,
   loadScenarioBundle,
   formatScenarioBundle
 };

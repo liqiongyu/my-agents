@@ -81,6 +81,29 @@ For machine-readable output:
 npm run issue-driven-os:bundle -- GT1 --json
 ```
 
+## Scenario Simulation Helper
+
+The repo now also includes a thin phase-driven simulation helper.
+It still does not run a real orchestrator.
+It takes one reference bundle and turns it into a structured transcript showing:
+
+- which runtime actor owns each phase
+- which current repo stand-in is used
+- which inputs and expected artifacts are visible in that phase
+- which state outcomes the phase is expected to drive
+
+Run it with:
+
+```bash
+npm run issue-driven-os:simulate -- G1
+```
+
+For machine-readable output:
+
+```bash
+npm run issue-driven-os:simulate -- F1 --json
+```
+
 ## Reference Stand-Ins
 
 This slice does not claim that the existing repo already contains the real Agent OS runtime.
