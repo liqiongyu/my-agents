@@ -137,6 +137,38 @@ For stdout-only JSON:
 npm run issue-driven-os:run -- GT1 --json
 ```
 
+## Reference Projection Helper
+
+The repo now includes a thin projection helper that consumes a persisted
+reference runtime session and derives a GitHub-like projection payload.
+
+This helper is still adapter-facing and reference-only.
+It does not write to GitHub or redefine canonical state.
+It only produces a derived outward payload for:
+
+- issue labels and visible state
+- PR review state and merge eligibility
+- check conclusions
+- artifact links and comment intents
+
+Run it with:
+
+```bash
+npm run issue-driven-os:project -- .tmp/issue-driven-os-runs/g1-session.json
+```
+
+To choose an output path:
+
+```bash
+npm run issue-driven-os:project -- .tmp/issue-driven-os-runs/f1-session.json --out .tmp/f1-projection.json
+```
+
+For stdout-only JSON:
+
+```bash
+npm run issue-driven-os:project -- .tmp/issue-driven-os-runs/gt1-session.json --json
+```
+
 ## Reference Stand-Ins
 
 This slice does not claim that the existing repo already contains the real Agent OS runtime.

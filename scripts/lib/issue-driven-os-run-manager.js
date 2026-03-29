@@ -29,7 +29,21 @@ function buildArtifactTrail(transcript) {
       kind: artifact.kind,
       id: artifact.id ?? null,
       ref: artifact.ref ?? null,
-      state: artifact.state ?? null
+      state: artifact.state ?? null,
+      title: artifact.title ?? null,
+      summary: artifact.summary ?? null,
+      type: artifact.type ?? null,
+      priority: artifact.priority ?? null,
+      riskLevel: artifact.riskLevel ?? null,
+      issueId: artifact.issueId ?? null,
+      runId: artifact.runId ?? null,
+      changeId: artifact.changeId ?? null,
+      branchRef: artifact.branchRef ?? null,
+      prRef: artifact.prRef ?? null,
+      terminationReason: artifact.terminationReason ?? null,
+      overallResult: artifact.overallResult ?? null,
+      gateResults: artifact.gateResults ?? null,
+      filePath: artifact.filePath ?? null
     }))
   );
 }
@@ -41,7 +55,18 @@ function buildStartingObjectSummary(simulation) {
     label: input.label,
     kind: input.kind,
     id: input.id,
-    state: input.state ?? null
+    state: input.state ?? null,
+    title: input.title ?? null,
+    summary: input.summary ?? null,
+    type: input.type ?? null,
+    priority: input.priority ?? null,
+    riskLevel: input.riskLevel ?? null,
+    issueId: input.issueId ?? null,
+    runId: input.runId ?? null,
+    changeId: input.changeId ?? null,
+    branchRef: input.branchRef ?? null,
+    prRef: input.prRef ?? null,
+    filePath: input.filePath ?? null
   }));
 }
 

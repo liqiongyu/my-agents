@@ -140,7 +140,18 @@ function selectStartingObjects(bundle, inputLabels) {
         label,
         kind: entry.kind,
         id: entry.id,
-        state: entry.state ?? null
+        state: entry.state ?? null,
+        title: entry.title ?? null,
+        summary: entry.summary ?? null,
+        type: entry.type ?? null,
+        priority: entry.priority ?? null,
+        riskLevel: entry.riskLevel ?? null,
+        issueId: entry.issueId ?? null,
+        runId: entry.runId ?? null,
+        changeId: entry.changeId ?? null,
+        branchRef: entry.branchRef ?? null,
+        prRef: entry.prRef ?? null,
+        filePath: entry.filePath ?? null
       };
     })
     .filter(Boolean);
@@ -169,7 +180,21 @@ function selectArtifacts(bundle, artifactKinds) {
       return {
         kind: artifact.kind,
         id: artifact.id,
-        state: artifact.state ?? null
+        state: artifact.state ?? null,
+        title: artifact.title ?? null,
+        summary: artifact.summary ?? null,
+        type: artifact.type ?? null,
+        priority: artifact.priority ?? null,
+        riskLevel: artifact.riskLevel ?? null,
+        issueId: artifact.issueId ?? null,
+        runId: artifact.runId ?? null,
+        changeId: artifact.changeId ?? null,
+        branchRef: artifact.branchRef ?? null,
+        prRef: artifact.prRef ?? null,
+        terminationReason: artifact.terminationReason ?? null,
+        overallResult: artifact.overallResult ?? null,
+        gateResults: artifact.gateResults ?? null,
+        filePath: artifact.filePath ?? null
       };
     });
 }

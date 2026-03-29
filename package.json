@@ -14,6 +14,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "issue-driven-os:bundle": "node scripts/issue-driven-os-reference-runtime.js",
+    "issue-driven-os:project": "node scripts/issue-driven-os-project.js",
     "issue-driven-os:run": "node scripts/issue-driven-os-run.js",
     "issue-driven-os:simulate": "node scripts/issue-driven-os-simulate.js",
     "test:node": "node --test scripts/tests/*.test.js",

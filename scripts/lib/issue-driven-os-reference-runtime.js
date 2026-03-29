@@ -90,6 +90,19 @@ function buildObjectSummary(entry) {
     kind: entry.kind,
     id: entry.data.id,
     state: entry.data.state ?? null,
+    summary: entry.data.summary ?? null,
+    title: entry.data.title ?? null,
+    type: entry.data.type ?? null,
+    priority: entry.data.priority ?? null,
+    riskLevel: entry.data.risk_level ?? null,
+    issueId: entry.data.issue_id ?? null,
+    runId: entry.data.run_id ?? null,
+    changeId: entry.data.change_id ?? null,
+    branchRef: entry.data.branch_ref ?? null,
+    prRef: entry.data.pr_ref ?? null,
+    terminationReason: entry.data.termination_reason ?? null,
+    overallResult: entry.data.overall_result ?? null,
+    gateResults: entry.data.gate_results ?? null,
     filePath: entry.filePath
   };
 }
