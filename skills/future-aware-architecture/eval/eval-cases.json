@@ -1,0 +1,212 @@
+{
+  "version": "0.2.3",
+  "skill": "future-aware-architecture",
+  "description": "Evaluation suite for the future-aware-architecture skill. The suite checks whether the methodology stays problem-first, classifies the decision shape, includes baseline alternatives, checks social-technical fit, routes to specialist evidence when needed, handles uncertainty and reversibility explicitly, and ends with a governed decision artifact or the correct neighboring workflow.",
+  "assertions": [
+    "problem_first_framing_present",
+    "decision_shape_classified",
+    "baseline_or_current_alternative_present",
+    "social_technical_fit_checked",
+    "specialist_evidence_path_correct",
+    "uncertainty_and_reversibility_present",
+    "decision_governance_present",
+    "artifact_or_handoff_explicit",
+    "neighbor_redirect_correct"
+  ],
+  "assertion_definitions": {
+    "problem_first_framing_present": "The response frames the architecture problem, goals, constraints, and affected users or workflows before recommending a technology or architecture style.",
+    "decision_shape_classified": "The response identifies the decision shape or process intensity, such as clear/complicated/complex, one-way door/two-way door, or equivalent rigor framing.",
+    "baseline_or_current_alternative_present": "The response includes the status quo, a manual workaround, a do-less path, or another explicit baseline instead of forcing only shiny new options.",
+    "social_technical_fit_checked": "The response examines team fit, ownership, dependency hotspots, decision rights, or operational maturity rather than treating architecture as pure box-and-arrow design.",
+    "specialist_evidence_path_correct": "When the case depends on time-sensitive or domain-specific facts, the response says to gather fresh evidence or run a specialist workflow instead of pretending current-state knowledge is certain.",
+    "uncertainty_and_reversibility_present": "The response surfaces top unknowns, assumptions, reversibility, pilot/spike needs, impact ranges, or explicit revisit/stop criteria.",
+    "decision_governance_present": "The output includes decision owner, review date, review triggers, or an equivalent governance loop.",
+    "artifact_or_handoff_explicit": "The response ends with a concrete decision artifact or the next workflow handoff rather than stopping at generic advice.",
+    "neighbor_redirect_correct": "When the task belongs to implementation planning, review, or pure research, the response redirects to the correct neighboring workflow instead of stretching this skill out of scope."
+  },
+  "cases": [
+    {
+      "id": "eval-1",
+      "name": "Cross-domain AI support architecture engages the full method",
+      "description": "A deep, high-ambiguity architecture decision that spans system shape, cloud/runtime choices, and AI stack choices. The skill should stay problem-first, call for current evidence, and produce a governed decision artifact.",
+      "prompt": "Use future-aware-architecture to design the architecture for a multilingual AI customer-support platform for a mid-market SaaS company. We are deciding between extending our existing Rails monolith, adding a separate event-driven service layer, or buying more platform capability. Constraints: PII is present, we need 99.9% reliability, the team is 8 engineers, and the decision should hold for the next 12-18 months. We will likely need current evidence on model vendors and cloud primitives. Produce the architecture decision brief, not code.",
+      "mode": "deep",
+      "expected_phases": [
+        "Classify and Frame",
+        "Define Criteria and Guardrails",
+        "Map the Current System",
+        "Build the Option Space",
+        "Gather Specialist Evidence",
+        "Evaluate Trade-Offs and Uncertainty",
+        "Decide and Govern",
+        "Capture and Handoff"
+      ],
+      "assertions": {
+        "problem_first_framing_present": {
+          "check": "The response should frame the support problem, goals, constraints, and affected workflows before recommending architecture components."
+        },
+        "decision_shape_classified": {
+          "check": "The response should treat this as a high-rigor architecture decision with explicit classification or equivalent process framing."
+        },
+        "baseline_or_current_alternative_present": {
+          "check": "The response should include the current monolith/status quo or a defer path as one of the considered baselines."
+        },
+        "social_technical_fit_checked": {
+          "check": "The answer should consider the team's size, operability, coordination cost, or ownership model rather than only technical elegance."
+        },
+        "specialist_evidence_path_correct": {
+          "check": "Because model vendors and cloud capabilities are time-sensitive, the response should explicitly route to fresh evidence gathering for those branches."
+        },
+        "uncertainty_and_reversibility_present": {
+          "check": "The response should surface unknowns, reversibility, pilot or spike needs, or revisit triggers."
+        },
+        "decision_governance_present": {
+          "check": "The output should include a decision owner, review date, or equivalent governance loop."
+        },
+        "artifact_or_handoff_explicit": {
+          "check": "The result should take the shape of an architecture decision brief or equivalent artifact."
+        }
+      }
+    },
+    {
+      "id": "eval-2",
+      "name": "Monolith scaling case checks social-technical fit",
+      "description": "An existing-system architecture case where the biggest risk is coordination and dependency friction. The skill should not reduce the answer to technology fashion.",
+      "prompt": "Use future-aware-architecture to help us decide whether to keep our TypeScript monolith, split one bounded context into a service, or build an internal platform layer first. Symptoms: release coordination is painful, two teams own overlapping modules, and on-call load is rising. We do not want a migration plan yet; we want the architecture decision and rationale.",
+      "mode": "standard",
+      "expected_phases": [
+        "Classify and Frame",
+        "Define Criteria and Guardrails",
+        "Map the Current System",
+        "Build the Option Space",
+        "Evaluate Trade-Offs and Uncertainty",
+        "Decide and Govern",
+        "Capture and Handoff"
+      ],
+      "assertions": {
+        "problem_first_framing_present": {
+          "check": "The response should start from release pain, overlapping ownership, and on-call burden instead of jumping straight to services."
+        },
+        "baseline_or_current_alternative_present": {
+          "check": "The monolith/status quo should remain a real option, not a dismissed strawman."
+        },
+        "social_technical_fit_checked": {
+          "check": "The response should analyze team boundaries, ownership, dependency hotspots, or decision rights."
+        },
+        "uncertainty_and_reversibility_present": {
+          "check": "The answer should discuss reversibility, migration risk, or revisit conditions."
+        },
+        "decision_governance_present": {
+          "check": "The output should include a review loop or decision owner."
+        },
+        "artifact_or_handoff_explicit": {
+          "check": "The response should produce a decision brief or equivalent architecture artifact."
+        }
+      }
+    },
+    {
+      "id": "eval-3",
+      "name": "Emerging technology selection requires specialist evidence and a pilot path",
+      "description": "A technology-selection case for an emerging AI-adjacent tool where current facts matter and certainty should stay bounded.",
+      "prompt": "Use future-aware-architecture to decide whether we should adopt an agent framework, stay with our current in-house orchestration, or defer for now. The team supports internal ops workflows today, but leadership wants a more ambitious multi-agent roadmap. We care about current ecosystem maturity, long-term lock-in, and whether we should run a bounded pilot first.",
+      "mode": "standard",
+      "expected_phases": [
+        "Classify and Frame",
+        "Define Criteria and Guardrails",
+        "Build the Option Space",
+        "Gather Specialist Evidence",
+        "Evaluate Trade-Offs and Uncertainty",
+        "Decide and Govern",
+        "Capture and Handoff"
+      ],
+      "assertions": {
+        "problem_first_framing_present": {
+          "check": "The response should define the ops workflow problem and roadmap pressure before naming frameworks."
+        },
+        "baseline_or_current_alternative_present": {
+          "check": "The current in-house orchestration and a defer option should be treated as real alternatives."
+        },
+        "specialist_evidence_path_correct": {
+          "check": "Because ecosystem maturity and vendor/framework movement are time-sensitive, the response should call for fresh evidence."
+        },
+        "uncertainty_and_reversibility_present": {
+          "check": "The answer should recommend a pilot/spike, bounded adoption, or explicit stop/continue conditions."
+        },
+        "artifact_or_handoff_explicit": {
+          "check": "The response should end in a decision brief, radar view, or equivalent artifact."
+        }
+      }
+    },
+    {
+      "id": "eval-4",
+      "name": "Direction already chosen redirects to implementation planning",
+      "description": "The user now needs rollout sequencing, not architecture methodology. The skill should redirect cleanly.",
+      "prompt": "We already decided to move from our monolith to a modular monolith with one extracted service. Use future-aware-architecture to write the rollout plan, migration phases, and verification checklist.",
+      "mode": "quick",
+      "expected_phases": [
+        "Boundary refusal"
+      ],
+      "assertions": {
+        "neighbor_redirect_correct": {
+          "check": "The response should redirect to implementation-planning because the architecture direction is already chosen."
+        },
+        "artifact_or_handoff_explicit": {
+          "check": "The answer should name implementation-planning as the next step rather than partially doing the rollout plan here."
+        }
+      }
+    },
+    {
+      "id": "eval-5",
+      "name": "Pure current-state model comparison redirects to research",
+      "description": "The request is for latest facts, not an architecture decision process.",
+      "prompt": "Use future-aware-architecture to tell me the latest best models for coding, reasoning, and multilingual support right now. I just want the current comparison and sources.",
+      "mode": "quick",
+      "expected_phases": [
+        "Boundary refusal"
+      ],
+      "assertions": {
+        "neighbor_redirect_correct": {
+          "check": "The response should redirect to deep-research or a lighter browse-and-answer flow because the task is pure current-state research."
+        },
+        "artifact_or_handoff_explicit": {
+          "check": "The answer should make the next workflow explicit instead of pretending this is an architecture decision."
+        }
+      }
+    },
+    {
+      "id": "eval-6",
+      "name": "Existing design critique redirects to review",
+      "description": "A request to critique an already-written design should route to review instead of forcing architecture creation mode.",
+      "prompt": "Use future-aware-architecture to review our architecture proposal and tell us what is wrong with it. We already have the document and want findings, risks, and regressions.",
+      "mode": "quick",
+      "expected_phases": [
+        "Boundary refusal"
+      ],
+      "assertions": {
+        "neighbor_redirect_correct": {
+          "check": "The response should redirect to review because the task is critique of an existing artifact."
+        },
+        "artifact_or_handoff_explicit": {
+          "check": "The answer should say the next step is a review workflow, not re-run architecture design."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this suite as a manual behavior review for the future-aware-architecture skill. The goal is to confirm the method stays problem-first, uncertainty-aware, and boundary-correct rather than drifting into generic advice or neighboring workflows."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical future-aware-architecture package is discoverable on the target surface. For realism, allow web access on cases that mention current ecosystem maturity or fast-moving AI/model choices.",
+    "execution": "Run each prompt in a session where the skill can activate. Capture both routing behavior and, for in-scope cases, the full architecture artifact or methodology-shaped response.",
+    "evaluation": "Score each assertion as pass, partial, or fail. Pay special attention to whether the response stays problem-first, names a baseline, treats uncertainty honestly, and redirects cleanly when the task belongs to research, review, or implementation planning.",
+    "environment": "Filesystem write access is optional unless the result is being saved to a repository file as part of the evaluation."
+  }
+}

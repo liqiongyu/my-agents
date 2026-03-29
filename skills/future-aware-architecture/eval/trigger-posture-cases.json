@@ -1,0 +1,160 @@
+{
+  "version": "0.2.3",
+  "skill": "future-aware-architecture",
+  "type": "trigger-posture",
+  "description": "Posture-aware routing suite for future-aware-architecture. The suite checks whether the skill behaves like a manual-first architecture methodology: it should activate only for explicit architecture or technology-selection decisions, insist on problem-first framing, and redirect review, pure research, or direction-already-chosen work to the correct neighboring workflow.",
+  "assertions": [
+    "routing_verdict_correct",
+    "manual_first_boundary_respected",
+    "first_method_step_correct",
+    "neighboring_workflow_redirect_correct",
+    "research_escalation_noted_when_needed",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response makes the right top-level routing call: route to future-aware-architecture only for explicit architecture or technology-selection decisions, and decline or redirect adjacent requests.",
+    "manual_first_boundary_respected": "For routed cases, the response keeps the skill in architecture-method mode rather than collapsing immediately into implementation, review, or generic research.",
+    "first_method_step_correct": "For routed cases, the response identifies the correct first move, such as framing the problem, classifying the decision, or defining constraints before discussing tools.",
+    "neighboring_workflow_redirect_correct": "For non-routed cases, the response points to the correct neighboring workflow such as implementation-planning, review, brainstorming, or deep-research.",
+    "research_escalation_noted_when_needed": "When the in-scope request depends on fast-moving or domain-specific facts, the response notes that fresh evidence gathering is part of the architecture flow.",
+    "next_step_explicit": "The response closes with a concrete next step such as start framing, gather constraints, or switch to the neighboring workflow."
+  },
+  "cases": [
+    {
+      "id": "tp-explicit-architecture-selection",
+      "name": "Explicit cross-project architecture decision should trigger",
+      "description": "A direct request for architecture and selection work. The skill should route and start with framing rather than technology answers.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "prompt": "A user says: 'Use future-aware-architecture to help us choose the system architecture and core technology stack for a new workflow platform. We need a real decision method, not implementation steps.' Using future-aware-architecture, answer in one short paragraph whether this should route to the skill and what the next step is. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to future-aware-architecture."
+        },
+        "manual_first_boundary_respected": {
+          "check": "The answer should position the skill as an explicit architecture methodology rather than generic planning."
+        },
+        "first_method_step_correct": {
+          "check": "The first step should be framing the problem, constraints, and decision shape before discussing stacks."
+        },
+        "next_step_explicit": {
+          "check": "The answer should say the next step is to define the architecture problem and criteria."
+        }
+      }
+    },
+    {
+      "id": "tp-technology-selection-with-current-facts",
+      "name": "Technology selection with fast-moving facts should trigger and note research",
+      "description": "A clear in-scope selection request that depends on current ecosystem facts.",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "prompt": "A user says: 'Use future-aware-architecture to choose between several agent frameworks and our current in-house orchestration. Current ecosystem maturity matters.' Using future-aware-architecture, answer in one short paragraph whether this should route to the skill and what the next step is. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to future-aware-architecture."
+        },
+        "manual_first_boundary_respected": {
+          "check": "The answer should keep the skill in architecture-selection mode, not jump straight into framework advocacy."
+        },
+        "first_method_step_correct": {
+          "check": "The next step should be to frame the problem, decision criteria, and baseline options."
+        },
+        "research_escalation_noted_when_needed": {
+          "check": "The answer should note that fresh evidence will likely be needed for the current ecosystem branch."
+        },
+        "next_step_explicit": {
+          "check": "The answer should clearly state the next action."
+        }
+      }
+    },
+    {
+      "id": "tn-direction-already-chosen",
+      "name": "Rollout plan request should not trigger",
+      "description": "The architecture is already chosen, so the skill should redirect to implementation planning.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'We already chose the architecture. Use future-aware-architecture to write the migration phases and verification checklist.' Using future-aware-architecture, answer in one short paragraph whether this should route to the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to future-aware-architecture."
+        },
+        "neighboring_workflow_redirect_correct": {
+          "check": "The answer should redirect to implementation-planning."
+        },
+        "next_step_explicit": {
+          "check": "The answer should state that the next step is a planning workflow, not more architecture design."
+        }
+      }
+    },
+    {
+      "id": "tn-pure-current-research",
+      "name": "Pure latest-status research should not trigger",
+      "description": "The request asks only for current facts and sources, not an architecture decision.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Use future-aware-architecture to tell me the latest model and database rankings right now with sources.' Using future-aware-architecture, answer in one short paragraph whether this should route to the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to future-aware-architecture."
+        },
+        "neighboring_workflow_redirect_correct": {
+          "check": "The answer should redirect to deep-research or a lighter current-state research flow."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the research-oriented next step."
+        }
+      }
+    },
+    {
+      "id": "tn-review-existing-design",
+      "name": "Review of an existing architecture doc should not trigger",
+      "description": "The user wants critique, not architecture creation or selection.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Use future-aware-architecture to review our architecture doc and find risks.' Using future-aware-architecture, answer in one short paragraph whether this should route to the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to future-aware-architecture."
+        },
+        "neighboring_workflow_redirect_correct": {
+          "check": "The answer should redirect to review."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the review workflow as the next step."
+        }
+      }
+    },
+    {
+      "id": "tn-open-ended-ideation",
+      "name": "Pure ideation should not trigger",
+      "description": "The user is still asking what to build, so architecture methodology is premature.",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'We want to do something with AI. What are some interesting product ideas?' Using future-aware-architecture, answer in one short paragraph whether this should route to the skill and why or why not. Do not browse or edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to future-aware-architecture."
+        },
+        "neighboring_workflow_redirect_correct": {
+          "check": "The answer should redirect to brainstorming because the user is still in idea exploration."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to the ideation step before architecture design."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this suite as a manual routing review after description, boundary, or invocation-posture edits. A case passes if it scores at least 75% of the possible points for the assertions that apply to that case."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical future-aware-architecture package is discoverable. These prompts are intentionally routing-focused and should not require editing files.",
+    "execution": "Run each prompt through a surface where the skill can activate. Capture whether the answer routes correctly, stays manual-first, and identifies the right first step or redirect.",
+    "evaluation": "Score each assertion as pass, partial, or fail after reading the captured response. Pay special attention to false positives on pure research, review, ideation, or rollout-planning requests.",
+    "environment": "Filesystem write access is useful for workspace artifacts, but the prompts themselves should stay read-only."
+  }
+}

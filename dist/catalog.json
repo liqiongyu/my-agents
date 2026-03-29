@@ -132,6 +132,33 @@
       ]
     },
     {
+      "name": "future-aware-architecture",
+      "path": "skills/future-aware-architecture",
+      "displayName": "Future-Aware Architecture",
+      "description": "Manual-first architecture methodology for system design and technology selection using problem-first framing, stack-agnostic trade-offs, uncertainty handling, future-aware decision lenses, and context-aware grounding.",
+      "version": "0.2.4",
+      "maturity": "experimental",
+      "categories": [
+        "design",
+        "workflow",
+        "research"
+      ],
+      "tags": [
+        "architecture",
+        "system-design",
+        "technology-selection",
+        "trade-off-analysis",
+        "problem-framing",
+        "context-grounding",
+        "decision-governance",
+        "uncertainty-planning",
+        "decision-matrix",
+        "adr",
+        "technical-strategy",
+        "future-aware"
+      ]
+    },
+    {
       "name": "git-worktree-workflows",
       "path": "skills/git-worktree-workflows",
       "displayName": "Git Worktree Workflows",
@@ -542,5 +569,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-28T17:01:37.392Z"
+  "generatedAt": "2026-03-29T09:38:01.912Z"
 }

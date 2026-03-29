@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "name": "future-aware-architecture",
+  "displayName": "Future-Aware Architecture",
+  "description": "Manual-first architecture methodology for system design and technology selection using problem-first framing, stack-agnostic trade-offs, uncertainty handling, future-aware decision lenses, and context-aware grounding.",
+  "version": "0.2.4",
+  "maturity": "experimental",
+  "categories": ["design", "workflow", "research"],
+  "tags": [
+    "architecture",
+    "system-design",
+    "technology-selection",
+    "trade-off-analysis",
+    "problem-framing",
+    "context-grounding",
+    "decision-governance",
+    "uncertainty-planning",
+    "decision-matrix",
+    "adr",
+    "technical-strategy",
+    "future-aware"
+  ],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "requirements": {
+    "network": "optional"
+  },
+  "capabilities": {
+    "shell": true,
+    "network": true,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

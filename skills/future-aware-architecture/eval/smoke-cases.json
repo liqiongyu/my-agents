@@ -1,0 +1,100 @@
+{
+  "version": "0.2.4",
+  "skill": "future-aware-architecture",
+  "type": "smoke",
+  "description": "Lightweight smoke suite for future-aware-architecture. The suite checks a small set of high-signal behaviors quickly: problem-first framing, baseline inclusion, uncertainty/research escalation when needed, and clean redirect to neighboring workflows when architecture design is no longer the right mode.",
+  "assertions": [
+    "problem_first_or_baseline_present",
+    "research_or_uncertainty_noted",
+    "artifact_or_next_step_present",
+    "neighbor_redirect_correct"
+  ],
+  "assertion_definitions": {
+    "problem_first_or_baseline_present": "The response starts from the problem/constraints or explicitly includes the current approach/baseline instead of jumping straight to shiny technology advice.",
+    "research_or_uncertainty_noted": "When the case depends on fast-moving or uncertain facts, the response acknowledges the need for fresh evidence, a pilot, or explicit uncertainty rather than presenting certainty without support.",
+    "artifact_or_next_step_present": "The response either produces a compact decision artifact or clearly states the next step in the architecture workflow.",
+    "neighbor_redirect_correct": "When the request belongs to implementation planning, review, or pure research, the response redirects to the correct adjacent workflow."
+  },
+  "cases": [
+    {
+      "id": "smoke-1",
+      "name": "Short architecture selection still starts with framing",
+      "description": "Checks that an in-scope architecture request does not skip straight to stack advice.",
+      "prompt": "Use future-aware-architecture to give a short recommendation for choosing the architecture of a new internal workflow platform. We need a concise answer, but it should still be method-driven rather than stack-first.",
+      "mode": "quick",
+      "assertions": {
+        "problem_first_or_baseline_present": {
+          "check": "The answer should start from the problem, constraints, or evaluation criteria instead of immediately naming a stack."
+        },
+        "artifact_or_next_step_present": {
+          "check": "The response should produce a quick recommendation or clearly frame the next architecture step."
+        }
+      }
+    },
+    {
+      "id": "smoke-2",
+      "name": "Emerging technology question notes evidence or pilot",
+      "description": "Checks that time-sensitive ecosystem questions stay architecture-shaped without pretending certainty.",
+      "prompt": "Use future-aware-architecture to decide whether we should adopt an agent framework or keep our in-house orchestration. Keep it short. Current ecosystem maturity matters, and we may need a bounded pilot.",
+      "mode": "quick",
+      "assertions": {
+        "problem_first_or_baseline_present": {
+          "check": "The response should still mention the current in-house approach or the real problem being solved."
+        },
+        "research_or_uncertainty_noted": {
+          "check": "The answer should note fresh evidence, ecosystem uncertainty, or a bounded pilot path."
+        },
+        "artifact_or_next_step_present": {
+          "check": "The response should end in a compact recommendation or explicit next step."
+        }
+      }
+    },
+    {
+      "id": "smoke-3",
+      "name": "Chosen direction redirects to implementation planning",
+      "description": "Checks the common boundary where the architecture decision is already made.",
+      "prompt": "Use future-aware-architecture to write the migration phases and verification checklist for the architecture we already chose.",
+      "mode": "quick",
+      "assertions": {
+        "neighbor_redirect_correct": {
+          "check": "The response should redirect to implementation-planning rather than continue as architecture design."
+        },
+        "artifact_or_next_step_present": {
+          "check": "The response should name the handoff explicitly."
+        }
+      }
+    },
+    {
+      "id": "smoke-4",
+      "name": "Pure latest-status request redirects to research",
+      "description": "Checks the boundary against direct current-state lookups.",
+      "prompt": "Use future-aware-architecture to tell me the latest best model and database choices right now with sources.",
+      "mode": "quick",
+      "assertions": {
+        "neighbor_redirect_correct": {
+          "check": "The response should redirect to deep-research or a lighter current-state research flow."
+        },
+        "artifact_or_next_step_present": {
+          "check": "The answer should make the research-oriented next step explicit."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Use this suite for quick regression checks after small body, reference, or handoff changes. It is intentionally lighter than the full methodology suite and broader than trigger-only checks."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the canonical future-aware-architecture package is discoverable on the target surface. These prompts should be fast and may run without browsing unless the surface chooses to inspect live sources.",
+    "execution": "Run each prompt through the target surface with the skill available. Capture whether the response preserves core method signals without requiring a full long-form architecture artifact.",
+    "evaluation": "Score each assertion as pass, partial, or fail. Focus on whether the response still shows problem-first discipline, acknowledges uncertainty when relevant, and redirects cleanly when the request belongs to a neighboring workflow.",
+    "environment": "Filesystem write access is optional unless results are being saved into a seeded workspace."
+  }
+}
