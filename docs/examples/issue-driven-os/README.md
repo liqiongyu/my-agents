@@ -7,6 +7,8 @@ Its purpose is to make the bridge-layer documents tangible before building a ful
 
 ## What Is Here
 
+- `runtime-walkthrough.md`
+  - Phase 2 walkthrough for the minimal runtime path and the three deviation paths
 - `objects/`
   - canonical object examples aligned with the bridge-layer schema
 - `scenarios/`
@@ -23,19 +25,48 @@ Its purpose is to make the bridge-layer documents tangible before building a ful
 - `D1`
   - pre-execution decomposition
 
+## Recommended Reading Order
+
+1. Read [runtime-walkthrough.md](./runtime-walkthrough.md)
+2. Pick one scenario under [scenarios/](./scenarios/)
+3. Follow the referenced objects under [objects/](./objects/)
+4. Compare the object shapes against:
+   - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md)
+5. Compare the actor and handoff boundaries against:
+   - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md)
+6. Compare the scenario intent against:
+   - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md)
+
 ## How To Read This Slice
 
-1. Start from the scenario file under `scenarios/`
-2. Follow the object references into `objects/`
-3. Compare the object shapes against:
-   - `/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md`
-4. Compare the actor expectations against:
-   - `/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md`
-5. Compare the pass/fail shape against:
-   - `/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md`
+This slice is meant to answer three questions quickly:
+
+- What is the smallest runtime form the architecture expects?
+- Which existing repository assets can stand in for that runtime today?
+- Where are services still conceptual rather than implemented?
+
+The walkthrough page answers those questions first.
+The scenario and object files then provide the concrete fixtures behind that story.
+
+## Reference Stand-Ins
+
+This slice does not claim that the existing repo already contains the real Agent OS runtime.
+Instead, it uses existing repository assets only as narrow stand-ins:
+
+- primary execution path
+  - `agents/implementer`
+- evaluator path
+  - `agents/reviewer`
+- optional exploration support
+  - `agents/explorer`
+- optional shaping or planning support
+  - `agents/planner`
+
+These are stand-ins for the reference slice only.
+They are not a commitment that future runtime roles must map 1:1 to these package names.
 
 ## Notes
 
 - These examples are canonical-side fixtures, not GitHub-native projections.
 - The slice is intentionally small and does not imply a full orchestrator exists yet.
-- Existing repository agents such as `implementer`, `reviewer`, and `explorer` may later act as temporary stand-ins, but this directory does not hard-bind to them yet.
+- Runtime services such as admission, budget checks, verification gates, workspace management, and adapters are still described conceptually in this slice unless a file explicitly shows otherwise.
