@@ -9,6 +9,8 @@ Its purpose is to make the bridge-layer documents tangible before building a ful
 
 - `runtime-walkthrough.md`
   - Phase 2 walkthrough for the minimal runtime path and the three deviation paths
+- `projection-boundary-demonstration.md`
+  - Phase 3 example showing how canonical objects derive GitHub-like projection surfaces
 - `objects/`
   - canonical object examples aligned with the bridge-layer schema
 - `scenarios/`
@@ -28,13 +30,14 @@ Its purpose is to make the bridge-layer documents tangible before building a ful
 ## Recommended Reading Order
 
 1. Read [runtime-walkthrough.md](./runtime-walkthrough.md)
-2. Pick one scenario under [scenarios/](./scenarios/)
-3. Follow the referenced objects under [objects/](./objects/)
-4. Compare the object shapes against:
+2. Read [projection-boundary-demonstration.md](./projection-boundary-demonstration.md)
+3. Pick one scenario under [scenarios/](./scenarios/)
+4. Follow the referenced objects under [objects/](./objects/)
+5. Compare the object shapes against:
    - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md)
-5. Compare the actor and handoff boundaries against:
+6. Compare the actor and handoff boundaries against:
    - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md)
-6. Compare the scenario intent against:
+7. Compare the scenario intent against:
    - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md)
 
 ## How To Read This Slice
@@ -70,3 +73,4 @@ They are not a commitment that future runtime roles must map 1:1 to these packag
 - These examples are canonical-side fixtures, not GitHub-native projections.
 - The slice is intentionally small and does not imply a full orchestrator exists yet.
 - Runtime services such as admission, budget checks, verification gates, workspace management, and adapters are still described conceptually in this slice unless a file explicitly shows otherwise.
+- Projection examples in this directory are illustrative only and remain derived from canonical objects.
