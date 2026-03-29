@@ -1,0 +1,1751 @@
+# Issue-Driven Agent Operating System
+
+## 一份以 Issue 为核心、以控制面为治理中枢、以通才执行为默认路径、并能自然映射到本仓库结构的 AI Agent 系统蓝图
+
+> 本文档是一份体系级架构蓝图。
+> 它讨论的是“未来完整系统应当长成什么样”，而不是实施排期、V1 范围或某个 workflow 脚本的细节。
+> 它回答的是系统的整体构成、核心概念、理论基础、角色与组件、运行机制、治理方式，以及它与 Codex / Claude Code / GitHub / 本仓库 package 体系之间的关系。
+
+---
+
+## 0. 文档定义与定位
+
+### 0.1 这份文档是什么
+
+这是一份面向未来的软件研发 Agent 系统蓝图。
+它定义一套 `Issue-Driven Agent Operating System`，用于在尽量少人工介入的前提下，持续发现、整形、拆分、执行、验证、合并并收尾软件项目中的工作项。
+
+这份蓝图融合了两个维度：
+
+- 一套完整、平台中立的系统本体设计
+- 一套与当前仓库 `agents / skills / packs / docs` 结构兼容的落点映射
+
+它既不是脱离现实的抽象白皮书，也不是过早收缩到某个具体平台或脚本实现的施工说明。
+
+### 0.2 这份文档不是什么
+
+它不是：
+
+- 单一 Agent 的提示词草案
+- 一份只面向 GitHub Actions 或某一种 orchestrator 的实施说明
+- 人类组织结构到 AI 组织结构的简单翻译
+- 一份按优先级排实施计划的 roadmap
+- 一个只强调“多 Agent 数量”的 swarm 宣言
+- 一个围绕当前仓库现状做局部优化的窄文档
+
+### 0.3 这套系统的本体是什么
+
+这套系统的本体不是“一个更强的 coding agent”。
+它本质上是一个任务操作系统：
+
+- 以 `issue` 为统一任务对象
+- 以控制面为治理中枢
+- 以 per-issue runtime 为执行容器
+- 以验证、证据、状态机和策略为稳定性来源
+- 以 Codex / Claude Code 这类 coding agent 作为执行引擎
+- 以 skills / subagents / context / scripts / policies 作为能力装配方式
+
+### 0.4 这份蓝图的设计前提
+
+这份蓝图建立在我们此前讨论确认的前提之上：
+
+- 候选需求可以来自多来源，例如外部反馈、评审发现、 Bug 信号、规划事项等。
+- 这些候选需求最终应统一落到 `issue` 中，`issue` 是主要任务对象和控制面载体。
+- 系统不能只有“生产者-消费者”这一个抽象，还必须包含整形、拆分、调度、验证、收尾等关键环节。
+- 顶层不采用纯 swarm 式完全自治结构，而采用更稳健的“控制面 + issue 内执行单元”结构。
+- 单个 issue 的执行更适合“带回环的工作组”而不是严格单向流水线。
+- 大 issue 需要可拆分，而且拆分既应发生在执行前，也应允许发生在执行中。
+- 面向未来时，不应再按人类岗位直接设计大量常驻 Agent，而应更多地按“执行、判断、控制、拆分”和“工具域、判断域”来设计。
+- 系统应尽量符合当前主流的 harness engineering 思路。
+
+### 0.5 这套系统的评判标准
+
+这套系统不是为了“看起来先进”，而是为了满足三个硬标准：
+
+1. 系统要稳定。
+2. 系统要尽量减少人工参与。
+3. 架构必须面向未来，既适配现在，也适配模型和 Agent 能力进一步增强后的形态。
+
+---
+
+## 1. 背景、使命与最终目标
+
+### 1.1 为什么要做这件事
+
+传统软件研发流程中，需求管理、任务拆分、研发执行、测试验证、合并发布、收尾归档通常由多人协作完成。历史上之所以需要较强的人类岗位分工，很大程度上是因为：
+
+- 单个执行者的上下文容量有限。
+- 前端、后端、架构、测试、设计、产品等能力分布在不同人身上。
+- 不同岗位掌握的工具、环境、标准和判断框架不同。
+- 任务推进需要持续的人工协调、追踪、回收和修正。
+
+但在当前模型与 coding agent 能力持续增强的背景下，情况已经发生变化：
+
+- 通才型 coding agent 已具备较强的全栈执行能力。
+- Agent 可以在较长上下文中保持任务记忆与执行连续性。
+- 工具调用、浏览器自动化、代码搜索、测试执行、环境隔离能力越来越成熟。
+- 多 Agent 协作、handoff、trace、guardrail、evaluation 等基础设施正在快速完善。
+
+这意味着，系统设计的重心不再是简单地把人类组织结构一比一翻译成 Agent 组织结构，而是要重新定义：
+
+- 什么是统一任务对象。
+- 什么是系统的控制面与执行面。
+- 什么是默认执行单元，什么是按需触发的专家单元。
+- 何时需要拆分任务，何时需要升级或人工兜底。
+- 如何让系统既稳定又能随着模型能力提升而自然演化。
+
+### 1.2 系统使命
+
+这套系统的使命是：
+
+1. 把分散、模糊、异构的工作信号统一收敛成结构化任务对象。
+2. 让任务能够被稳定地整形、拆分、调度和推进。
+3. 让大多数研发工作由通才型 coding agent 自动完成。
+4. 让特殊工具域和判断域由专家单元按需介入。
+5. 让高风险动作由规则化 gate 和治理层控制，而不是靠自由语言拍板。
+6. 让整个过程可追踪、可恢复、可交接、可学习、可演化。
+
+### 1.3 最终效果
+
+当系统成熟后，一个工作项应当能够经历如下生命周期：
+
+```text
+多来源信号
+  -> Intake / Normalization
+  -> Canonical Issue Graph
+  -> Shaping / Decomposition
+  -> Admission / Triage / Scheduling
+  -> Issue Cell Runtime
+  -> Verification / Gate
+  -> Merge / Close / Recycle
+  -> Cleanup / Learn / Memory Writeback
+```
+
+理想状态下，系统应能达到以下效果：
+
+- 候选需求稳定进入统一任务模型
+- 大任务在执行前或执行中都能合法拆分
+- 多个任务能并行推进而互不污染
+- 每个任务都有独立上下文、独立证据、独立 trace
+- 关键状态推进都有结构化依据
+- 长任务可以跨 run 延续，而不是依赖单次会话记忆
+- 系统能把失败经验回流为后续能力
+
+---
+
+## 2. 核心设计思想与方法论
+
+### 2.1 Issue-Driven：先把工作对象化，再谈自动化
+
+系统中的一切自动化都建立在一个前提上：
+**工作必须先被对象化，才能被稳定自动化。**
+
+因此，这套系统选择 `issue` 作为统一任务对象。
+无论任务来自用户反馈、 Bug 信号、规划项、 PR review 还是运行中衍生问题，它们进入系统后都应先被收敛为同一种任务语义。
+
+### 2.2 Control Plane / Execution Plane Separation：控制与执行必须分离
+
+系统明确区分：
+
+- `控制面`：负责准入、调度、状态推进、资源限制、重试、合并门禁、关闭与回收
+- `执行面`：负责研究、编码、修改、测试、回改、局部判断与证据生成
+
+这种分离不是为了增加抽象层，而是为了获得三件事：
+
+- 稳定性
+- 可观测性
+- 可恢复性
+
+执行可以灵活，控制必须克制。
+
+### 2.3 Generalist-First：默认一个强通才，按需调用专家
+
+系统默认由一个强通才 coding agent 主导 issue 执行。
+不应把“前端 Agent、后端 Agent、测试 Agent、产品 Agent”设为默认常驻组织形式。
+
+只有在以下情况出现时，才调用专家单元：
+
+- 需要特殊工具
+- 需要特殊约束
+- 需要特殊判断标准
+- 需要特殊风险 gate
+
+因此，专家是补充路径，而不是默认世界观。
+
+### 2.4 Specialists Defined By Tooling And Judgment：专家按工具域与判断域定义
+
+专家单元的差异主要来源于：
+
+- 使用什么工具
+- 读取什么上下文
+- 输出什么结构化结论
+- 在什么条件下触发
+- 拥有什么写权限
+
+因此，未来系统中“设计专家”“浏览器 QA 专家”“架构专家”等的本质，应是不同的 `tool profile + context pack + decision contract`，而不是更强的“人格”。
+
+### 2.5 Decomposition as First-Class：拆分不是补丁，而是系统主干
+
+大任务不是异常，而是常态。
+所以拆分不能只靠人工，也不能只靠执行者临场发挥。系统必须把拆分能力提升为一等能力，并支持两种触发方式：
+
+- `预执行拆分`：进入执行前先做整形与拆分
+- `执行中拆分`：执行中暴露复杂度后再回流拆分
+
+### 2.6 Contract-First：先定义对象和契约，再装配 Agent
+
+系统不应从“先写几个 Agent 看能不能聊起来”开始。
+正确顺序应当是：
+
+1. 先定义任务对象和状态语言
+2. 再定义运行时对象与角色契约
+3. 再定义 skills、context packs、policies、scripts
+4. 最后才把它们装配成具体实现
+
+### 2.7 Evidence-First：证据比自述更重要
+
+系统里不能依赖一句“我觉得已经修好了”。
+任何状态推进都应尽量建立在结构化证据之上，例如：
+
+- 测试结果
+- 浏览器截图与日志
+- review 结论
+- 验收报告
+- diff 摘要
+- benchmark
+- 风险分析
+
+### 2.8 Explicit Memory：记忆必须写成工件，而不是赌会话连续
+
+真正能长期运行的 Agent 系统，不应该把记忆只放在会话上下文里。
+计划、约束、当前状态、失败原因、下一步、专家结论、handoff 信息，都应该写进系统工件中，成为可以读取、交接、复用、审计的显式对象。
+
+### 2.9 Bounded Autonomy：自治必须有边界、有预算、有出口
+
+这套系统允许任务局部自治推进，但每个自治循环都必须有：
+
+- 终止条件
+- 升级路径
+- 预算边界
+- 策略边界
+
+没有边界的自治不是智能，而是漂移。
+
+### 2.10 Platform-Neutral Ontology：内部本体先独立于平台
+
+虽然系统可以映射到 GitHub Issues、PR、labels、projects、checks，但平台不应成为系统的本体。
+系统本体应先定义自己的内部对象，再映射到具体平台。
+
+### 2.11 Harness Engineering：靠环境、契约与验证稳定系统
+
+本方案中的 harness engineering 指的是：通过环境、工具、contracts、workflows、verification、trace 和 policies 来约束与提升 agent 的稳定表现，而不是仅依赖 prompt 调优。
+
+从方法论上说，这套系统并不把 agent 看成“拟人化员工”，而把 agent 看成：
+
+- 在特定工具与上下文中运行的执行器
+- 被控制面编排和约束的局部自主体
+- 可以被 contracts、gates 和 traces 治理的系统单元
+
+---
+
+## 3. 核心概念与对象模型
+
+这一部分定义系统真正操作的对象，而不只是 UI 层面的卡片或 PR。
+
+### 3.1 Canonical Issue
+
+`Canonical Issue` 是系统的统一任务对象。
+它表达“要解决什么”，而不是“某个平台上的一条记录”。
+
+一个 canonical issue 至少应包含：
+
+- 唯一标识
+- 来源类型
+- 描述与背景
+- 当前问题或目标
+- 初始证据
+- 风险等级
+- 验收标准
+- 依赖关系
+- parent / child 关系
+- 当前生命周期状态
+
+### 3.2 Issue Graph
+
+系统不操作孤立 issue，而是操作 `Issue Graph`。
+图中的关系至少包括：
+
+- parent / child
+- blocks / blocked_by
+- follow_up
+- duplicate_of
+- relates_to
+
+Issue Graph 让系统能真正表达“整体任务”和“子任务”之间的关系，而不是把所有东西都扁平塞进 backlog。
+
+### 3.3 Run / Attempt
+
+同一个 issue 可能会经历多次执行尝试。
+因此必须区分：
+
+- `Issue`：长期业务对象
+- `Run` 或 `Attempt`：某次具体执行尝试
+
+这样系统才能表达：
+
+- 重试
+- 换策略重跑
+- 超时回收再排期
+- 人工介入后重新派发
+
+### 3.4 Workspace
+
+每个 run 都应拥有独立 `Workspace`。
+Workspace 的作用不是存文件本身，而是提供：
+
+- 上下文隔离
+- 副作用隔离
+- 并行执行隔离
+- 失败后可回收性
+- 证据与日志的归档空间
+
+它可以映射为 worktree、分支、沙箱目录、容器或其他执行环境。
+
+### 3.5 Change Object
+
+系统中应把代码变更对象单独建模，而不让它隐含在 issue 里。
+它至少包括：
+
+- branch / worktree 标识
+- diff 摘要
+- 关联 PR
+- 变更范围
+- 相关验证状态
+
+### 3.6 Execution Brief
+
+`Execution Brief` 是 issue 进入执行前的标准简报。
+它不是原始 issue 文本，而是适合执行者消费的版本，应包含：
+
+- 当前任务边界
+- 本轮目标
+- 不做什么
+- 依赖与风险
+- 验收重点
+- 当前策略或建议路径
+
+### 3.7 Evidence Packet
+
+`Evidence Packet` 是执行过程中的结构化证据集合。
+它可以由执行者、专家或验证器产出。
+
+典型内容包括：
+
+- 命令结果摘要
+- 测试输出摘要
+- 截图、浏览器日志、网络日志
+- 变更前后行为对比
+- reproduction steps
+- 风险点
+
+### 3.8 Decision Packet
+
+`Decision Packet` 是判断单元或治理单元产出的结构化决策对象。
+它描述的不是“发生了什么”，而是“根据什么判断，建议系统怎么走下一步”。
+
+典型字段包括：
+
+- decision type
+- rationale
+- evidence references
+- next action
+- required gate
+- escalation requirement
+
+### 3.9 Verification Report
+
+`Verification Report` 是系统对“完成度”与“可合并性”的正式结论对象。
+它与普通 review 评论不同，应明确说明：
+
+- 检查了什么
+- 如何检查
+- 是否满足 done contract
+- 是否满足 gate
+- 未解决风险
+
+### 3.10 Handoff Bundle
+
+`Handoff Bundle` 是跨 run 或跨角色交接的最小必要信息集合。
+它至少应包含：
+
+- 当前状态
+- 已完成事项
+- 未完成事项
+- 当前阻塞
+- 下一步建议
+- 关键证据索引
+- 当前预算消耗摘要
+
+### 3.11 Skill
+
+`Skill` 是可复用能力模块。
+它关注的是某种稳定的工作模式、判断方法、工具用法、输出契约，而不是某个具体任务本身。
+
+### 3.12 Context Pack
+
+`Context Pack` 是某类任务或专家常用上下文的稳定封装。
+它可以包含：
+
+- 规则文档
+- 设计系统说明
+- 架构约束
+- 历史缺陷模式
+- 领域术语
+
+### 3.13 Script
+
+`Script` 是确定性、可重复执行的辅助操作。
+它承担“不要让 LLM 重复发明轮子”的部分，例如：
+
+- 运行验证命令
+- 导出日志
+- 生成报告骨架
+- 收集证据
+- 执行 cleanup
+
+### 3.14 Policy
+
+`Policy` 是系统的明确规则与边界定义。
+它规定：
+
+- 哪些动作允许自动推进
+- 哪些状态必须经过 gate
+- 哪些风险必须升级
+- 哪些写权限属于控制面
+
+### 3.15 Pack
+
+`Pack` 是一组能力装配单元。
+它把 agents、skills、policy 约定、示例配置和文档一起装成可安装、可复用、可投影的系统集合。
+
+### 3.16 Budget Envelope
+
+`Budget Envelope` 是自治边界的一部分。
+它描述某个 issue / run 在本轮执行中可使用的资源预算，例如：
+
+- token 或模型预算
+- 时间预算
+- specialist 调用预算
+- 回环次数预算
+- sandbox / CI 资源预算
+
+### 3.17 Trace
+
+`Trace` 是系统对运行过程的可观测记录。
+它至少要帮助回答：
+
+- 这个任务经过了哪些步骤
+- 谁做了哪些判断
+- 哪些证据支撑了状态推进
+- 失败发生在哪里
+
+### 3.18 Lesson / Failure Pattern
+
+`Lesson` 或 `Failure Pattern` 是系统学习的基本产物。
+它可以沉淀为：
+
+- 下次可复用的经验
+- 失败模式归纳
+- 新的 specialist trigger
+- 新的 policy 调整
+- 新的 skill 优化方向
+
+---
+
+## 4. 系统整体架构
+
+### 4.1 总体结构
+
+```mermaid
+flowchart TD
+    S[Sources] --> I[Intake / Normalization]
+    I --> G[Canonical Issue Graph]
+    G --> D[Shaping / Decomposition]
+    D --> A[Admission / Triage / Scheduling]
+    A --> C[Control Plane]
+    C --> R[Issue Cell Runtime]
+    R --> V[Verification / Gate Engine]
+    V --> M[Merge / Close / Recycle]
+    M --> L[Cleanup / Learn / Memory Writeback]
+    R -.specialist routing.-> SR[Specialist Registry & Router]
+    R -.workspace isolation.-> W[Workspace / Sandbox Manager]
+    R -.evidence and traces.-> T[Trace & Artifact Store]
+    R -.through adapters.-> E[Agent Engine Adapters]
+```
+
+### 4.2 架构分层
+
+#### 第一层：治理层
+
+治理层负责：
+
+- task admission
+- triage
+- priority / risk 控制
+- 状态推进
+- gate 判定
+- merge / close / recycle
+- 预算与策略边界
+
+这一层的关键词是“可治理”，不是“更聪明”。
+
+#### 第二层：运行层
+
+运行层负责：
+
+- per-issue run
+- issue cell loop
+- specialist 调用
+- evidence 生成
+- verification 执行
+- handoff 与 retry
+
+这一层的关键词是“可执行”。
+
+#### 第三层：能力层
+
+能力层负责提供：
+
+- skills
+- context packs
+- scripts
+- policies
+- experts
+
+这一层是系统的能力装配层，而不是工作对象本身。
+
+### 4.3 系统视图
+
+从系统视角看，这套蓝图同时包含四种视图：
+
+- `任务视图`
+  系统如何接住、组织和推进 issue。
+- `运行视图`
+  系统如何拉起 run、隔离 workspace、记录 trace、形成 handoff。
+- `能力视图`
+  系统如何通过 skill、context pack、policy、specialist 组合完成任务。
+- `平台视图`
+  系统如何映射到 GitHub、Codex、Claude Code 以及本仓库的 package 结构。
+
+---
+
+## 5. 主要系统组件
+
+### 5.1 Sources
+
+Sources 是候选信号的来源层。
+它们可以来自：
+
+- 外部反馈
+- bug 报告
+- roadmap 规划
+- PR review 发现
+- runtime learn 回流
+- 人工录入
+
+Sources 的目标不是直接发起代码执行，而是把原始信号送入 Intake。
+
+### 5.2 Intake & Normalization
+
+Intake 的职责是把原始信号转成结构化任务草案。
+它负责：
+
+- 补齐基础字段
+- 去除明显噪音
+- 标注来源
+- 提取初始证据
+- 形成 issue draft
+
+它不负责复杂拆分，也不负责正式进入执行。
+
+### 5.3 Canonical Issue Graph
+
+Canonical Issue Graph 是系统的任务知识骨架。
+它负责：
+
+- 持久化 canonical issue
+- 维护 issue 之间的关系
+- 表达 parent / child / dependency / duplicate
+- 为后续 shaping、dispatch、learn 提供全局结构
+
+没有 Issue Graph，系统就只能操作孤立 issue，而不能操作任务结构。
+
+### 5.4 Shaping & Decomposition
+
+这一层是系统的一等单元，不是附属流程。
+它负责回答：
+
+- 这个 issue 是否已经足够清晰
+- 是否可直接执行
+- 是否过大、过杂、边界不清
+- 是否应拆成 parent / child issue
+- 是否应先补 acceptance criteria
+- 是否应先调用探索工具再正式拆分
+
+它的输出通常包括：
+
+- shaped issue
+- decomposition proposal
+- updated issue graph
+- execution brief 草稿
+
+### 5.5 Admission / Triage / Scheduling
+
+这一层负责治理上的准入与排序：
+
+- 是否进入 backlog
+- 当前优先级和风险级别
+- 是否可立即进入执行
+- 是否需要等待依赖
+- 是否需要预算审批
+
+它回答的是“现在值不值得做、能不能做、排在哪”。
+
+### 5.6 Control Plane
+
+Control Plane 是系统治理内核。
+它负责：
+
+- 认领与派发
+- 状态推进
+- 运行预算
+- retry / recycle
+- gate 写入
+- merge / close / reopen
+- 升级与人工兜底
+
+这里最重要的原则是：
+
+- LLM 可以辅助判断
+- 但高风险状态推进应尽量由确定性脚本、规则和 policy 落盘
+
+### 5.7 Issue Cell Runtime
+
+Issue Cell Runtime 是围绕单个 issue 拉起的局部执行环境。
+它负责：
+
+- 加载 execution brief
+- 维护本轮 issue context
+- 运行 builder / critic / verifier loop
+- 请求 specialist
+- 生成 evidence、handoff、verification report
+
+它不是整个系统的顶层组织方式，而是单个 issue 的作战室。
+
+### 5.8 Specialist Registry & Router
+
+这一层维护专家目录，并回答：
+
+- 有哪些 specialist
+- 各自的 trigger policy 是什么
+- 各自能用什么工具
+- 各自输出什么 contract
+- 当前 issue 该调用哪一类 specialist
+
+它不必是一个拟人化 agent，也可以主要由注册表和路由规则组成。
+
+### 5.9 Verification & Gate Engine
+
+这一层负责把“我觉得差不多了”转成结构化 gate。
+它负责：
+
+- 运行 done contract 检查
+- 汇总验证证据
+- 生成 verification report
+- 判断是否通过 merge gate / close gate / recycle gate
+
+### 5.10 Merge / Close / Recycle Controller
+
+这一层负责终局动作的安全推进：
+
+- merge
+- close
+- reopen
+- recycle
+- cleanup trigger
+
+它不应依赖自然语言评论中的模糊暗示，而应依赖结构化状态和 gate 结果。
+
+### 5.11 Cleanup / Learn / Memory
+
+这一层负责系统收口与学习：
+
+- 写回结果摘要
+- 清理 workspace / branch / 临时工件
+- 形成 failure pattern
+- 形成 follow-up issue
+- 更新 repo / project / issue / run memory
+
+### 5.12 Workspace / Sandbox Manager
+
+这一层负责执行隔离。
+它至少要定义：
+
+- 何时新开 workspace
+- 何时复用 workspace
+- 多 issue 并行时如何隔离
+- worktree / branch / sandbox 的命名规则
+- 资源和生命周期管理
+
+### 5.13 Trace & Artifact Store
+
+这一层负责沉淀执行过程中的结构化工件：
+
+- evidence packet
+- decision packet
+- verification report
+- handoff bundle
+- logs
+- screenshots
+- test output
+
+它是系统可追溯性的基础。
+
+### 5.14 Agent Engine Adapters
+
+系统本体不应写死在某一个执行引擎上。
+因此应有一层 adapter，把内部 contract 映射到具体引擎，例如：
+
+- Codex
+- Claude Code
+- 未来的其他 coding agent runtime
+
+Adapter 的作用是把内部世界翻译成外部运行时可执行的形式。
+
+---
+
+## 6. Issue Cell：核心执行单元
+
+### 6.1 Issue Cell 的定义
+
+Issue Cell 是围绕单个 issue 临时形成的执行单元。
+它的目标不是“模拟一个完整人类团队”，而是：
+
+- 为单个 issue 集中上下文
+- 让执行与评估在局部回环中收敛
+- 让专家只在必要时插入
+- 为控制面提供结构化证据和状态建议
+
+### 6.2 Issue Cell 的逻辑角色
+
+#### Case Owner
+
+Case Owner 是 issue 的当前负责人。
+它负责：
+
+- 理解 shaped issue 与 execution brief
+- 决定本轮执行策略
+- 判断是否需要调用 specialist
+- 汇总当前 run 的上下文
+
+Case Owner 不一定总是一个独立的物理 agent；它经常可以与 Builder 合并。
+
+#### Builder
+
+Builder 负责：
+
+- 读代码
+- 改代码
+- 补测试
+- 处理 critic 反馈
+- 形成新一轮 evidence
+
+它是通才执行路径的主体。
+
+#### Critic
+
+Critic 负责：
+
+- 审 diff
+- 找缺漏
+- 找与 issue / acceptance criteria 的偏差
+- 标记 blocking / non-blocking 问题
+
+Critic 不等于普通 reviewer，它是 Issue Cell 内部的质量对抗角色。
+
+#### Verifier
+
+Verifier 负责：
+
+- 对照 done contract 验证结果
+- 汇总测试与验证证据
+- 判断是否满足 merge / close 的前置条件
+
+Verifier 关注的是“这件事能不能安全进入下一状态”，而不是“代码风格是否优雅”。
+
+#### Closer
+
+Closer 负责：
+
+- 触发 merge / close / recycle 的收口逻辑
+- 写回结果摘要
+- 触发 cleanup
+
+Closer 更适合由规则和脚本主导，而不是高自由度推理。
+
+#### Explore Utility
+
+Explore Utility 是按需调用的探索能力：
+
+- 代码库结构分析
+- 影响面分析
+- 未知依赖定位
+- 失败点侦察
+
+它通常不是常驻角色，而是辅助工具单元。
+
+#### Planning Utility
+
+Planning Utility 负责在 issue 内部做局部计划收敛，例如：
+
+- 分解当前 run 的子步骤
+- 形成短周期 plan
+- 评估是否超出本轮预算
+
+### 6.3 Issue Cell 主回环
+
+Issue Cell 的主回环通常是：
+
+```text
+Execution Brief
+  -> Case Owner
+  -> Builder
+  -> Critic
+  -> Builder (revise)
+  -> Critic (re-check)
+  -> Verifier
+  -> Closer
+```
+
+必要时，回环中会插入：
+
+- specialist advisory
+- specialist gate
+- delegated subtask
+- decomposition / escalation
+
+### 6.4 回环终止条件
+
+#### 成功终止
+
+满足以下条件时可成功终止：
+
+- done contract 满足
+- required gates 通过
+- verification report 明确通过
+- close / merge 条件成立
+
+#### 失败终止
+
+满足以下条件时应失败终止：
+
+- 预算耗尽
+- 回环次数超限
+- 风险超阈值
+- 环境或依赖阻塞未解
+- change quality 未收敛
+
+#### 升级终止
+
+满足以下条件时应升级终止：
+
+- issue 边界明显失真
+- 需要重新 shaping / decomposition
+- 需要人工裁决
+- 需要更高权限动作
+
+### 6.5 逻辑角色与物理实例的区别
+
+Issue Cell 中的角色首先是逻辑角色，不一定等于独立运行实例。
+
+例如在更轻的实现中，可以收敛为：
+
+- 一个主执行单元承担 Case Owner + Builder
+- 一个独立评估单元承担 Critic
+- 一个更规则化的验证与收口层承担 Verifier + Closer 的大部分动作
+
+这让蓝图既完整，又不被“必须一角色一 agent”绑死。
+
+---
+
+## 7. Agent 体系
+
+### 7.1 Agent 体系的设计原则
+
+系统里的 Agent 设计应遵循以下原则：
+
+- 先按系统职责设计，再映射到具体 agent
+- 先明确 contract，再决定是否值得做成独立实例
+- 能由 skill、script、policy 完成的，不必强行人格化
+- 专家的核心不是“更会想”，而是“带不同工具和判断标准”
+
+### 7.2 核心任务代理
+
+#### Intake Normalizer
+
+负责把原始信号转成结构化 issue draft。
+
+#### Shaper / Decomposer
+
+负责 issue 整形、边界收敛和拆分提案。
+
+#### Case Owner
+
+负责单 issue 的策略持有与执行协调。
+
+#### Builder
+
+负责核心代码执行。
+
+#### Critic
+
+负责实现回环中的评审。
+
+#### Verifier
+
+负责 done contract 与 gate 级验证。
+
+#### Learn Synthesizer
+
+负责从执行结果中提炼 failure pattern、follow-up issue 和可复用经验。
+
+### 7.3 运行辅助代理
+
+#### Explore Utility
+
+负责快速 repo reconnaissance、影响面分析、未知问题侦察。
+
+#### Planning Utility
+
+负责 issue 内局部计划组织。
+
+#### Diff / Impact Analyst
+
+负责分析变更范围、潜在影响、测试建议。
+
+#### Trace Summarizer
+
+负责把长 trace 压缩成可消费的摘要和 handoff 信息。
+
+### 7.4 领域专家代理
+
+#### Browser QA Specialist
+
+负责浏览器自动化验证、截图、DOM / console / network 证据采集。
+
+#### Architecture Specialist
+
+负责跨模块边界、接口约束、系统一致性判断。
+
+#### Product / Acceptance Specialist
+
+负责需求边界、验收标准、非目标与 issue shaping 强化。
+
+#### Design / UI Specialist
+
+负责设计系统一致性、界面与交互判断。
+
+#### Security Specialist
+
+负责安全风险识别与 gate。
+
+#### Performance Specialist
+
+负责性能分析与性能相关验证。
+
+#### Data Migration Specialist
+
+负责数据迁移、schema change、数据一致性相关问题。
+
+#### Release / Infra Specialist
+
+负责发布、环境、部署、CI / CD、运行基础设施相关判断。
+
+### 7.5 逻辑角色与物理实例的区别
+
+一个好的蓝图不应把“逻辑角色”直接等同于“物理实例”。
+
+例如：
+
+- `Builder` 可以是一个常驻逻辑角色，但在实现上可能只是 Case Owner 的一种模式
+- `Critic` 可以是独立 agent，也可以由专门的 review loop 承担
+- `Specialist Registry` 本身可能不是 agent，而是由 policy + manifest + router 组成
+
+这一区分让系统既保有体系完整性，也能避免过早做成重型 swarm。
+
+---
+
+## 8. Specialist 体系设计
+
+### 8.1 为什么专家仍然长期有价值
+
+即使通才 coding agent 越来越强，专家仍然长期有价值，因为：
+
+- 工具差异会长期存在
+- 约束差异会长期存在
+- 判断标准差异会长期存在
+- 风险门槛差异会长期存在
+
+因此，专家不必围绕“模型智力差”存在，而是围绕“工具与判断域差”存在。
+
+### 8.2 专家的统一定义模板
+
+#### Tool Profile
+
+它拥有哪些工具，能访问哪些执行环境，能产出哪些类型的工件。
+
+#### Context Pack
+
+它默认读取哪些领域上下文、规则文档、设计规范、风险清单。
+
+#### Decision Contract
+
+它输出什么结构化结论，包含哪些字段，如何被控制面或 Issue Cell 消费。
+
+#### Trigger Policy
+
+什么条件下调用它，什么条件下跳过，什么条件下必须经过它。
+
+#### Permission Boundary
+
+它可以写什么，不能写什么，能否直接修改代码，能否触发 gate，能否触发升级。
+
+### 8.3 专家介入后的四种标准后继动作
+
+#### Advisory
+
+专家给出建议，主执行单元继续推进。
+
+#### Gate
+
+专家输出通过 / 不通过结论，主执行单元必须满足后才能继续。
+
+#### Delegated Subtask
+
+专家短暂接手一个局部子任务，产出结构化结果后回交主执行单元整合。
+
+#### Escalation
+
+专家判断当前问题超出本轮自治边界，回到控制面、shaping 层或人工治理层。
+
+### 8.4 推荐的专家目录模板
+
+建议长期维护一份专家目录，每个条目至少说明：
+
+- name
+- category
+- tool profile
+- default context pack
+- triggers
+- outputs
+- permissions
+- typical evidence
+- gate semantics
+
+---
+
+## 9. Skill、Context Pack、Script、Policy、Pack 的分层
+
+### 9.1 Skill
+
+Skill 表达一种稳定可复用的工作模式。
+它通常包含：
+
+- 方法
+- 约束
+- 输出格式
+- 工具使用规范
+
+### 9.2 Context Pack
+
+Context Pack 表达“这类任务常用的上下文集合”。
+它不是临时聊天记录，而是可重复加载的稳定上下文包。
+
+### 9.3 Script
+
+Script 负责确定性动作。
+它适合承载：
+
+- collect evidence
+- run checks
+- summarize outputs
+- cleanup
+- apply standard transforms
+
+### 9.4 Policy
+
+Policy 负责系统边界。
+它定义：
+
+- 允许哪些自动推进
+- 哪些必须 gate
+- 哪些必须人工兜底
+- 预算与风险阈值
+
+### 9.5 Pack
+
+Pack 负责把 skills、agents、docs、policies 组合成完整能力集合。
+
+### 9.6 推荐的 Skill 目录
+
+#### 治理类 Skill
+
+- issue-normalization
+- issue-prioritization
+- issue-routing
+- gate-evaluation
+- escalation-decision
+
+#### 执行类 Skill
+
+- issue-execution
+- codebase-exploration
+- change-implementation
+- evidence-capture
+- handoff-bundle-writing
+
+#### 评估类 Skill
+
+- critic-review
+- acceptance-verification
+- regression-check
+- browser-qa
+- architecture-review
+
+#### 控制面支撑类 Skill
+
+- issue-state-sync
+- run-budget-check
+- trace-summarization
+- workspace-cleanup-trigger
+
+#### 收尾与学习类 Skill
+
+- cleanup-and-closeout
+- failure-pattern-extraction
+- follow-up-issue-generation
+- memory-writeback
+
+### 9.7 四层映射原则
+
+这套系统里的常见映射应理解为：
+
+- `Agent`
+  负责承担某类逻辑职责或运行时角色
+- `Skill`
+  负责提供复用能力
+- `Tool`
+  负责提供执行与观测手段
+- `Artifact`
+  负责沉淀系统状态、证据和交接信息
+
+一个稳定系统不是把所有东西都塞进 agent，而是让四层各司其职。
+
+---
+
+## 10. 状态模型、权限模型与 Gate 机制
+
+### 10.1 为什么要拆成三套状态平面
+
+如果把所有状态都压进一个 issue status，系统会很快失真。
+更合理的方式是拆成三套状态平面：
+
+- `Issue Lifecycle`
+- `Run Lifecycle`
+- `Change / PR Lifecycle`
+
+这样系统才既能表达长期任务状态，也能表达某次执行尝试和具体代码变更。
+
+### 10.2 Issue Lifecycle
+
+Issue 生命周期表达“任务对象现在处于什么阶段”。
+可参考：
+
+- candidate
+- normalized
+- shaped
+- decomposed
+- admitted
+- scheduled
+- in_execution
+- waiting_gate
+- closed
+- recycled
+
+### 10.3 Run Lifecycle
+
+Run 生命周期表达“本次具体执行尝试正在发生什么”。
+可参考：
+
+- created
+- brief_ready
+- running
+- blocked
+- needs_specialist
+- awaiting_gate
+- succeeded
+- failed
+- escalated
+- cancelled
+
+### 10.4 Change / PR Lifecycle
+
+Change 生命周期表达“这次代码变更在评审和交付上的状态”。
+可参考：
+
+- no_change_yet
+- branch_opened
+- patch_ready
+- pr_opened
+- review_requested
+- changes_requested
+- verified
+- merge_ready
+- merged
+- abandoned
+
+### 10.5 权限模型
+
+#### 执行与专家单元拥有
+
+- 事实生产权
+- 建议权
+- 证据写入权
+- 结构化报告写入权
+
+#### 控制面拥有
+
+- 状态推进权
+- merge / close / recycle 裁决权
+- 预算裁决权
+- 高风险动作的最终写入权
+
+### 10.6 Done Contract
+
+`Done Contract` 用于回答“什么叫真的做完了”。
+它不应只是抽象文字，而应尽量结构化，至少包含：
+
+- required outcomes
+- required checks
+- required evidence
+- known accepted risks
+- merge preconditions
+- close preconditions
+
+### 10.7 Gate 类型
+
+系统中常见 gate 应包括：
+
+- review gate
+- acceptance gate
+- browser QA gate
+- architecture gate
+- security gate
+- performance gate
+- merge gate
+- close gate
+
+并非每个 issue 都需要全部 gate，但每个 issue 应明确自己需要哪些 gate。
+
+---
+
+## 11. 运行机制：系统如何工作
+
+### 11.1 从信号到 issue
+
+系统先从 Sources 中接收原始信号，经由 Intake 标准化为 issue 草案，再写入 Canonical Issue Graph。
+
+### 11.2 从 issue 到 execution brief
+
+进入 Shaping / Decomposition 后，系统判断：
+
+- 是否可直接执行
+- 是否需补验收标准
+- 是否需拆分
+
+之后输出 `Execution Brief` 和初始 `Done Contract`。
+
+### 11.3 从 brief 到 run
+
+Control Plane 根据：
+
+- 优先级
+- 风险
+- 依赖
+- 预算
+
+决定是否创建 run，并通过 Workspace / Sandbox Manager 准备执行环境。
+
+### 11.4 Issue Cell 执行
+
+Issue Cell 读取 execution brief 后：
+
+- Case Owner 决定本轮推进策略
+- Builder 执行实现
+- Critic 进行内部回环评审
+- 必要时调用 specialist
+- 持续产出 evidence packet、decision packet、handoff bundle
+
+### 11.5 进入 Gate
+
+当执行达到“可判断完成度”的阶段后，系统进入 Verification & Gate Engine：
+
+- 检查 done contract
+- 检查 required gates
+- 生成 verification report
+
+### 11.6 收口
+
+若满足条件，Merge / Close / Recycle Controller 推动收口：
+
+- merge
+- close
+- cleanup
+- memory writeback
+- learn synthesis
+
+### 11.7 执行中的拆分回流
+
+如果执行中发现：
+
+- 边界失真
+- 复杂度严重超预期
+- 出现多个独立子问题
+
+Issue Cell 不应硬扛到底，而应回流到 Shaping / Decomposition，形成新的 child issue 或 follow-up issue。
+
+---
+
+## 12. 记忆、交接与 Learn 闭环
+
+### 12.1 为什么记忆系统是主干，不是附属品
+
+长任务系统如果没有显式记忆，就只能依赖当前会话上下文。
+这会导致：
+
+- run 之间断裂
+- 失败原因丢失
+- handoff 质量不稳定
+- learn 无法形成闭环
+
+因此，记忆系统是主干，不是锦上添花。
+
+### 12.2 四层记忆
+
+#### Repo Memory
+
+仓库级长期知识，例如：
+
+- 架构约束
+- 设计系统
+- 常见失败模式
+- 项目级质量标准
+
+#### Project Memory
+
+项目运行层面的共享知识，例如：
+
+- 当前 roadmap 主题
+- 重点风险区
+- 当前开放中的 issue cluster
+- 当前启用的专家与 policy
+
+#### Issue Memory
+
+单 issue 相关长期信息，例如：
+
+- issue 历史
+- shaping 结论
+- acceptance criteria
+- decomposition 结果
+- 关键 decision packets
+
+#### Run Memory
+
+单次运行相关短周期信息，例如：
+
+- 当前 run 目标
+- 已做事项
+- 当前 blockers
+- 当前预算
+- handoff bundle
+
+### 12.3 Learn 的产物
+
+#### Failure Pattern
+
+把失败归纳成可识别、可复用的模式。
+
+#### Reusable Playbook / Skill Improvement
+
+把成功或失败经验回写成可复用的 skill、policy 或 playbook 改进。
+
+#### Follow-up Issue
+
+把本轮未完成但值得继续追踪的问题写回 issue graph，而不是让信息停留在会话里。
+
+---
+
+## 13. 人工治理与升级点
+
+### 13.1 低人工，不等于无人治理
+
+这套系统追求的是“尽量少人工”，不是“彻底无人类”。
+治理仍然需要存在，只是应尽量出现在高价值决策点上。
+
+### 13.2 建议保留的人工介入点
+
+建议长期保留以下人工升级点：
+
+- 高风险 issue 的 admission
+- 高影响架构变更
+- 复杂拆分争议
+- 多轮回环不收敛
+- merge / close 前的高风险人工审阅
+
+### 13.3 人工在系统中的角色
+
+人工更像：
+
+- 风险兜底者
+- 规则维护者
+- escalation 裁决者
+- memory / policy 的最终维护者
+
+而不是默认的一线搬运执行者。
+
+---
+
+## 14. 这套系统与 Codex、Claude Code、GitHub 的关系
+
+### 14.1 与 Codex / Claude Code 的关系
+
+Codex / Claude Code 更像这套系统的执行引擎，而不是这套系统本身。
+
+它们提供的是：
+
+- 代码理解与修改能力
+- 工具调用能力
+- worktree / sandbox / long-running task 基础能力
+- skill / subagent / instruction 装配能力
+
+本蓝图是在这些能力之上再加一层任务治理与运行时系统。
+
+### 14.2 与 GitHub 的关系
+
+GitHub 更像这套系统的主要外部控制面承载平台之一。
+它可以承载：
+
+- issues
+- labels
+- projects
+- PR
+- reviews
+- checks
+
+但 GitHub 不应成为系统本体。
+系统应先有自己的对象模型，再把它映射到 GitHub。
+
+### 14.3 为什么这套蓝图高度契合“基于 Codex / Claude Code 的稳健 Agent 系统”
+
+因为它同时利用了这些执行引擎的长处：
+
+- 通才 coding agent 作为默认主执行者
+- specialist 通过工具域与 context pack 按需介入
+- worktree / sandbox 隔离运行
+- 显式 trace、evidence、handoff 支持长任务
+
+同时又避免了常见失稳点：
+
+- 把所有东西都交给自然语言协商
+- 把状态机散落在 prompt 里
+- 把岗位人格化当成系统设计
+
+### 14.4 平台中立与平台映射的关系
+
+系统内部应坚持平台中立对象：
+
+- canonical issue
+- run
+- workspace
+- change object
+- evidence packet
+- decision packet
+- verification report
+- handoff bundle
+
+然后再映射到：
+
+- GitHub issue / PR / labels / checks
+- Codex 的 AGENTS / skills / runtime
+- Claude Code 的 CLAUDE / subagents / hooks
+
+这样架构不会因为某个平台能力变化而整体失效。
+
+---
+
+## 15. 与当前仓库结构的映射
+
+### 15.1 为什么当前仓库适合作为这套系统的宿主
+
+当前仓库已经是一个围绕 `skills / agents / packs` 建立的 monorepo。
+它天然适合承载这种“先定义体系，再投影到可安装能力包”的系统设计。
+
+它已经具备的结构包括：
+
+- `agents/`：角色级 package
+- `skills/`：复用能力 package
+- `packs/`：装配 package
+- `docs/architecture/`：体系设计文档
+- `docs/examples/`：参考映射与示例
+- `research/`：研究沉淀
+- `scripts/`：脚手架、构建、安装、投影相关工具
+
+### 15.2 `agents/` 的映射
+
+`agents/` 适合承载具有明确角色边界的高层单元，例如：
+
+- `issue-intake-normalizer`
+- `issue-shaper-decomposer`
+- `issue-case-owner`
+- `issue-critic`
+- `issue-verifier`
+- `learn-synthesizer`
+- `browser-qa-specialist`
+- `architecture-specialist`
+- `product-acceptance-specialist`
+- `design-ui-specialist`
+
+这里的关键不是“一开始要建这么多”，而是：
+如果这些角色需要成为正式、可安装、可投影的角色级 package，`agents/` 是它们的自然落点。
+
+### 15.3 `skills/` 的映射
+
+`skills/` 适合承载可复用、可跨角色调用的能力模块，例如：
+
+- `issue-normalization`
+- `issue-shaping`
+- `issue-decomposition`
+- `execution-briefing`
+- `critic-review`
+- `acceptance-verification`
+- `browser-qa-regression`
+- `architecture-review`
+- `handoff-bundle-writing`
+- `memory-writeback`
+- `failure-pattern-extraction`
+- `issue-graph-hygiene`
+- `budget-governance`
+
+这类内容不应被过度人格化，而应偏向：
+
+- 方法
+- 工具使用规范
+- 输出 contract
+- 结构化检查模式
+
+### 15.4 `packs/` 的映射
+
+`packs/` 适合承载整套系统装配。
+例如未来可以存在这样的 pack：
+
+- `issue-driven-os-core`
+- `issue-driven-os-specialists`
+- `issue-driven-os-github-surface`
+- `issue-driven-os-browser-qa`
+
+其中一个核心 pack 可以把首批核心单元组装起来：
+
+- control plane 相关 agents
+- shaping / decomposition 相关 agents / skills
+- case owner / critic / verifier 相关 agents / skills
+- browser QA / architecture 等 specialist
+- 必要的 docs、examples、projection metadata
+
+### 15.5 `docs/architecture/`、`docs/examples/`、`research/` 的映射
+
+建议分工如下：
+
+- `docs/architecture/`
+  承载体系蓝图、对象模型、状态平面、治理原则、平台关系等长寿命设计文档
+- `docs/plans/`
+  承载后续更细的实施计划、运行规格、阶段性执行方案，但不替代本蓝图文档
+- `docs/examples/`
+  承载 issue forms、labels、projects fields、GitHub 映射、specialist contract 示例、artifact 示例
+- `research/`
+  承载外部框架、类似项目、平台能力的调研记录
+
+如果后续需要更细颗粒度的运行协议或实现规范，再分别落到更细的 docs 页面，而不是继续让蓝图文档膨胀。
+
+### 15.6 当前仓库中 Context Pack、Policy、Script 的实际承载方式
+
+当前仓库的顶层 package 类型只有 `skill / agent / pack`，没有单独的 `context-pack` 或 `policy-pack` 类型。
+因此在本仓库中，建议这样投影：
+
+- `Context Pack`
+  先通过 skill 内文档、references、assets、docs/examples 以及 pack 组合来承载
+- `Policy`
+  先通过 agent platform docs、skill docs、architecture 文档、examples 与 project manifest 规则承载
+- `Script`
+  优先承载在 skill package 的 `scripts/`、agent 支撑脚本或仓库级 `scripts/` 中
+
+换句话说：
+蓝图里的概念层次不需要被当前仓库的顶层 package 类型一一镜像。
+只要投影规则清晰，就不影响系统本体成立。
+
+### 15.7 与当前现有角色资产的关系
+
+当前仓库已经存在一些通用角色与能力，例如：
+
+- `explorer`
+- `planner`
+- `reviewer`
+- `docs-researcher`
+- `implementer`
+- `debugger`
+- `researcher`
+
+这些资产不应反过来决定蓝图本体，但它们可以成为后续映射时的参考风格与过渡性承载。
+
+更准确地说：
+
+- 蓝图先定义未来系统需要哪些角色与能力域
+- 当前已有 package 只负责提供命名、风格和实现切入口
+
+### 15.8 运行时投影与 canonical source 的关系
+
+本仓库的 canonical source 在：
+
+- `agents/<name>/`
+- `skills/<name>/`
+- `packs/<name>/`
+
+而投影后的运行时副本会出现在：
+
+- `.agents/`
+- `.codex/`
+- `.claude/`
+
+因此，未来如果把这套蓝图正式落为 package，设计与维护都应发生在 canonical source，而不是投影副本。
+
+---
+
+## 16. 这套蓝图是否符合目标概念
+
+总体判断是：符合，而且是高度符合。
+
+原因在于它真正设计的是一套“项目级 Agent 运行系统”，而不是一个“更会写代码的单一 Agent”。
+它能够同时覆盖：
+
+- 任务对象化
+- 治理与执行分层
+- 默认通才执行
+- 按需专家介入
+- 拆分与回流
+- 验证与 gate
+- 显式记忆与 learn 闭环
+- 平台中立与仓库映射
+
+### 16.1 真正需要警惕的问题
+
+真正需要警惕的不是“agent 不够多”，而是：
+
+- 过度人格化
+- 过度去中心化
+- 没有显式 memory 与 handoff
+- 没有 done contract
+- 把 merge / close 交给自然语言拍板
+- 用当前仓库现状反向绑死未来系统本体
+
+---
+
+## 17. 成功标志
+
+当以下条件成立时，可以认为这套系统的架构方向是正确的：
+
+- 候选需求可以稳定地落到统一 issue 模型中
+- 大 issue 可以在执行前或执行中被系统化拆分
+- 通才执行单元能完成大多数日常 coding 任务
+- specialist 只在必要时介入，并且输出可被控制面直接消费
+- issue、run、change 三套状态平面能稳定协同
+- review、verification、merge、cleanup 有明确 gate
+- 系统在少人工参与下能持续运行而不明显漂移
+- 随着模型能力增强，系统可以减少 specialist 介入频率，而不需要推翻整体结构
+- 系统能自然映射到本仓库的 `agents / skills / packs / docs` 结构，而无需引入不必要的新顶层 package 类型
+
+---
+
+## 18. 名词速查
+
+### Issue-Driven
+
+先把工作收敛成统一任务对象，再谈自动化。
+
+### Control Plane
+
+负责状态、调度、gate、merge / close / recycle、预算和治理。
+
+### Execution Plane
+
+负责研究、编码、测试、回改、证据生成和 issue 内回环。
+
+### Issue Cell
+
+围绕单个 issue 拉起的局部执行单元。
+
+### Specialist
+
+在特定工具域和判断域内介入的专家单元。
+
+### Skill
+
+可复用能力模块。
+
+### Context Pack
+
+稳定可加载的上下文集合。
+
+### Policy
+
+系统的规则、边界与约束定义。
+
+### Gate
+
+状态推进前的结构化前置条件。
+
+### Run
+
+某个 issue 的一次具体执行尝试。
+
+### Handoff Bundle
+
+跨 run 或跨角色交接的最小必要信息集合。
+
+---
+
+## 19. 最终结论
+
+这套系统的最终结论可以压缩为以下几点：
+
+- 统一使用 `issue` 作为任务对象和主要控制面载体
+- 采用“控制面 + per-issue execution cell”的稳健运营型总架构
+- 将 `Shaping / Decomposition` 设为独立一等单元
+- 默认由通才 coding agent 主导 issue 执行
+- 专家单元按“工具域 + 判断域”定义，并按需介入
+- 专家介入后的动作严格限制为 `advisory / gate / delegated subtask / escalation`
+- 将事实写权限与控制写权限分离
+- 用显式 contracts、memory、gate、trace 和 policies 构建系统，而不是只堆 prompt
+- 保持平台中立本体，同时明确映射到 GitHub、Codex、Claude Code 和当前仓库的 package 结构
+
+因此，这不是一个“多造几个 AI 岗位”的方案。
+它是一套真正面向项目级持续运行、可治理、可扩展、可落地到当前仓库结构中的 Agent 操作系统蓝图。
