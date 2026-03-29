@@ -48,6 +48,8 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 - [docs/metadata/project-manifest-policy.md](docs/metadata/project-manifest-policy.md) explains how to use `my-agents.project.json` for repository bootstrap.
 - [docs/cli/README.md](docs/cli/README.md) is the operator-facing command reference index.
 - [docs/architecture/tooling-layout.md](docs/architecture/tooling-layout.md) explains how the tooling and docs are organized as the command surface grows.
+- [docs/architecture/official-agent-best-practices.md](docs/architecture/official-agent-best-practices.md) distills official OpenAI, Anthropic, MCP, and Agent Skills guidance into repository design defaults.
+- [research/OpenAI_Anthropic_Codex_Claude_Code_Best_Practices_20260329.md](research/OpenAI_Anthropic_Codex_Claude_Code_Best_Practices_20260329.md) keeps the longer source-backed research basis for those defaults.
 - [instructions/root/shared.md](instructions/root/shared.md) is the source of truth for rules shared by Codex and Claude Code.
 - [AGENTS.md](AGENTS.md), [CLAUDE.md](CLAUDE.md), and [CONTRIBUTING.md](CONTRIBUTING.md) cover contributor workflow, release hygiene, and local conventions.
 

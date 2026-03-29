@@ -48,6 +48,8 @@ npm test
 - [docs/metadata/project-manifest-policy.md](docs/metadata/project-manifest-policy.md) 说明了如何使用 `my-agents.project.json` 做项目级引导。
 - [docs/cli/README.md](docs/cli/README.md) 是面向操作方的命令参考索引。
 - [docs/architecture/tooling-layout.md](docs/architecture/tooling-layout.md) 说明了随着命令面增长，工具脚本和文档应如何组织。
+- [docs/architecture/official-agent-best-practices.md](docs/architecture/official-agent-best-practices.md) 把 OpenAI、Anthropic、MCP 与 Agent Skills 的官方最佳实践压缩成仓库默认设计规则。
+- [research/OpenAI_Anthropic_Codex_Claude_Code_Best_Practices_20260329.md](research/OpenAI_Anthropic_Codex_Claude_Code_Best_Practices_20260329.md) 保存这些规则背后的长版研究与来源依据。
 - [instructions/root/shared.md](instructions/root/shared.md) 是 Codex 与 Claude Code 共享规则的唯一来源。
 - [AGENTS.md](AGENTS.md)、[CLAUDE.md](CLAUDE.md) 与 [CONTRIBUTING.md](CONTRIBUTING.md) 负责对贡献者说明工作流、发布卫生和本地约定。
 
