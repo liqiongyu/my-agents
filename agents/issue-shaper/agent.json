@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "name": "issue-shaper",
+  "displayName": "Issue Shaper",
+  "description": "Issue shaping agent that tightens scope, non-goals, acceptance criteria, and decomposition boundaries before admission or execution.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": ["workflow", "design", "productivity"],
+  "tags": ["issue-shaping", "scope", "acceptance", "decomposition"],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "archetype": "planner",
+  "skills": ["issue-shaping"],
+  "agents": ["explorer"],
+  "capabilities": {
+    "shell": true,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  },
+  "entrypoints": {
+    "changelog": "CHANGELOG.md"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "name": "issue-cell-executor",
+  "displayName": "Issue Cell Executor",
+  "description": "Primary execution agent for one issue cell. It turns an accepted issue and run brief into code, evidence, and handoff-safe execution outputs.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": ["coding", "workflow", "productivity"],
+  "tags": ["issue-cell", "execution", "builder", "case-owner"],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "archetype": "implementer",
+  "skills": ["clarify", "execution-briefing", "handoff-bundle-writing"],
+  "agents": ["explorer"],
+  "capabilities": {
+    "shell": true,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  },
+  "entrypoints": {
+    "changelog": "CHANGELOG.md"
+  }
+}

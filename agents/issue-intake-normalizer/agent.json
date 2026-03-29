@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "name": "issue-intake-normalizer",
+  "displayName": "Issue Intake Normalizer",
+  "description": "Issue intake agent that turns raw signals, review residue, and bug reports into normalized issue drafts ready for shaping.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": ["workflow", "productivity", "design"],
+  "tags": ["issue-intake", "normalization", "triage", "backlog"],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "archetype": "custom",
+  "skills": ["issue-normalization"],
+  "agents": ["explorer"],
+  "capabilities": {
+    "shell": true,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  },
+  "entrypoints": {
+    "changelog": "CHANGELOG.md"
+  }
+}

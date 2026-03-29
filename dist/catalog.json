@@ -202,6 +202,27 @@
       ]
     },
     {
+      "name": "handoff-bundle-writing",
+      "path": "skills/handoff-bundle-writing",
+      "displayName": "Handoff Bundle Writing",
+      "description": "Manual-first workflow for turning an in-progress, paused, interrupted, or transferred run into a structured handoff bundle with current state, completed work, remaining work, blockers, next step, and artifact references for safe resume. Use when execution has already started and the next need is transfer, pause, or recovery context. Do not use for pre-execution briefing, memory writeback, generic summarization, or run-state sync.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "coding",
+        "productivity"
+      ],
+      "tags": [
+        "handoff-bundle-writing",
+        "handoff-bundle",
+        "handoff",
+        "resume",
+        "transfer-context",
+        "artifact"
+      ]
+    },
+    {
       "name": "implementation-planning",
       "path": "skills/implementation-planning",
       "displayName": "Implementation Planning",
@@ -512,6 +533,128 @@
       ]
     },
     {
+      "name": "issue-cell-critic",
+      "path": "agents/issue-cell-critic",
+      "displayName": "Issue Cell Critic",
+      "description": "Independent critic path for an issue cell. It reviews execution results against the issue boundary, brief, and done contract without taking over formal state progression.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "review",
+        "coding",
+        "workflow"
+      ],
+      "tags": [
+        "issue-cell",
+        "critic",
+        "review",
+        "evaluation"
+      ],
+      "archetype": "reviewer",
+      "skills": [
+        "review"
+      ],
+      "agents": [
+        "explorer"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
+      "name": "issue-cell-executor",
+      "path": "agents/issue-cell-executor",
+      "displayName": "Issue Cell Executor",
+      "description": "Primary execution agent for one issue cell. It turns an accepted issue and run brief into code, evidence, and handoff-safe execution outputs.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "coding",
+        "workflow",
+        "productivity"
+      ],
+      "tags": [
+        "issue-cell",
+        "execution",
+        "builder",
+        "case-owner"
+      ],
+      "archetype": "implementer",
+      "skills": [
+        "clarify",
+        "execution-briefing",
+        "handoff-bundle-writing"
+      ],
+      "agents": [
+        "explorer"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
+      "name": "issue-intake-normalizer",
+      "path": "agents/issue-intake-normalizer",
+      "displayName": "Issue Intake Normalizer",
+      "description": "Issue intake agent that turns raw signals, review residue, and bug reports into normalized issue drafts ready for shaping.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "productivity",
+        "design"
+      ],
+      "tags": [
+        "issue-intake",
+        "normalization",
+        "triage",
+        "backlog"
+      ],
+      "archetype": "custom",
+      "skills": [
+        "issue-normalization"
+      ],
+      "agents": [
+        "explorer"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
+      "name": "issue-shaper",
+      "path": "agents/issue-shaper",
+      "displayName": "Issue Shaper",
+      "description": "Issue shaping agent that tightens scope, non-goals, acceptance criteria, and decomposition boundaries before admission or execution.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "design",
+        "productivity"
+      ],
+      "tags": [
+        "issue-shaping",
+        "scope",
+        "acceptance",
+        "decomposition"
+      ],
+      "archetype": "planner",
+      "skills": [
+        "issue-shaping"
+      ],
+      "agents": [
+        "explorer"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
       "name": "planner",
       "path": "agents/planner",
       "displayName": "Planner",
@@ -602,6 +745,44 @@
   ],
   "packs": [
     {
+      "name": "issue-driven-os-core",
+      "path": "packs/issue-driven-os-core",
+      "displayName": "Issue-Driven OS Core Pack",
+      "description": "Core intake, shaping, execution, and critique team for the Issue-Driven Agent OS implementation path.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "packType": "agent-team",
+      "persona": "issue-driven-agent-os",
+      "categories": [
+        "workflow",
+        "coding",
+        "review",
+        "productivity"
+      ],
+      "tags": [
+        "issue-driven",
+        "agent-os",
+        "execution",
+        "governance"
+      ],
+      "skills": [
+        "issue-normalization",
+        "issue-shaping",
+        "execution-briefing",
+        "handoff-bundle-writing",
+        "clarify",
+        "review"
+      ],
+      "agents": [
+        "issue-intake-normalizer",
+        "issue-shaper",
+        "issue-cell-executor",
+        "issue-cell-critic",
+        "explorer"
+      ],
+      "leadAgent": "issue-cell-executor"
+    },
+    {
       "name": "product-manager",
       "path": "packs/product-manager",
       "displayName": "Product Manager Pack",
@@ -634,5 +815,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-29T13:20:35.335Z"
+  "generatedAt": "2026-03-29T13:29:41.324Z"
 }

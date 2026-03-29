@@ -1,0 +1,84 @@
+{
+  "version": "0.1.0",
+  "skill": "handoff-bundle-writing",
+  "type": "qualitative-output",
+  "description": "Lightweight qualitative output suite for the handoff-bundle-writing skill. These cases are meant for human review after running the skill on representative paused-run, transfer, quick-handoff, and route-back scenarios.",
+  "assertions": [
+    "current_state_clear",
+    "completed_remaining_balanced",
+    "blockers_and_warnings_visible",
+    "next_step_actionable",
+    "artifact_refs_usable",
+    "authority_boundary_clear",
+    "resume_safe"
+  ],
+  "assertion_definitions": {
+    "current_state_clear": "The output defines the current run state explicitly instead of leaving the receiver to infer where the run stopped.",
+    "completed_remaining_balanced": "Completed and remaining work are both visible so the next owner can avoid rework and can see what is still pending.",
+    "blockers_and_warnings_visible": "Known blockers, warnings, or pending specialist work are named instead of buried.",
+    "next_step_actionable": "The next step is specific enough that another execution owner can start from it directly.",
+    "artifact_refs_usable": "Artifact refs or equivalent resume context are concrete enough to find the evidence, decisions, or change surfaces that matter.",
+    "authority_boundary_clear": "The handoff is clearly framed as transfer context rather than canonical issue, run, or verification state.",
+    "resume_safe": "The artifact would let another owner resume safely without replaying the whole chat or re-asking obvious questions."
+  },
+  "cases": [
+    {
+      "id": "quality-standard-handoff-from-paused-run",
+      "name": "Turn a paused run into a usable standard handoff bundle",
+      "repo_archetype": "Engineering repo with issue-driven execution, change artifacts, and structured verification",
+      "task_mode": "Standard handoff bundle",
+      "prompt": "Take this interrupted run and draft the standard handoff bundle for the next execution owner.",
+      "success_criteria": [
+        "Defines the current state clearly and separates completed from remaining work.",
+        "Keeps artifact refs and the next step visible.",
+        "Does not drift into generic summary or canonical state sync."
+      ]
+    },
+    {
+      "id": "quality-quick-handoff-user-takeover",
+      "name": "A short user takeover can use the quick handoff lane without losing recovery safety",
+      "repo_archetype": "Repo with browser or auth work that occasionally requires user takeover",
+      "task_mode": "Quick handoff bundle",
+      "prompt": "Produce a quick handoff bundle for a short pause where the user must solve MFA and the run should continue immediately after resume.",
+      "success_criteria": [
+        "Uses a shorter artifact shape without becoming vague.",
+        "Still preserves current state, next step, and minimum resume context.",
+        "Does not overbuild a heavy bundle for a simple pause."
+      ]
+    },
+    {
+      "id": "quality-handoff-with-blockers-and-specialists",
+      "name": "A handoff with blockers and pending specialist work stays honest",
+      "repo_archetype": "Repo where browser QA, security review, or other specialist input may still be pending",
+      "task_mode": "Blocked transfer",
+      "prompt": "Draft a handoff bundle for a run that is paused because specialist evidence and one merge gate are still pending.",
+      "success_criteria": [
+        "Makes blockers, warnings, and specialist-pending work explicit.",
+        "Names the next actionable step despite the paused state.",
+        "Preserves the refs another owner needs to continue."
+      ]
+    },
+    {
+      "id": "quality-route-away-when-no-run-context",
+      "name": "The skill should route away when no real run handoff exists yet",
+      "repo_archetype": "Repo where the user only has issue-level intent or scattered notes, not a real in-progress run",
+      "task_mode": "Route-back",
+      "prompt": "Write the handoff bundle even though execution has not started and there is no run record yet.",
+      "success_criteria": [
+        "Does not fake a handoff-ready artifact.",
+        "Explains why the real missing workflow is elsewhere.",
+        "Points to the smallest honest next move."
+      ]
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  }
+}

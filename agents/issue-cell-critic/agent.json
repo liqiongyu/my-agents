@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "name": "issue-cell-critic",
+  "displayName": "Issue Cell Critic",
+  "description": "Independent critic path for an issue cell. It reviews execution results against the issue boundary, brief, and done contract without taking over formal state progression.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": ["review", "coding", "workflow"],
+  "tags": ["issue-cell", "critic", "review", "evaluation"],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "archetype": "reviewer",
+  "skills": ["review"],
+  "agents": ["explorer"],
+  "capabilities": {
+    "shell": true,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": false
+  },
+  "entrypoints": {
+    "changelog": "CHANGELOG.md"
+  }
+}
