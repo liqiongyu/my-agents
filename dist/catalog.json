@@ -22,6 +22,26 @@
       ]
     },
     {
+      "name": "admission-routing",
+      "path": "skills/admission-routing",
+      "displayName": "Admission Routing",
+      "description": "Manual-first workflow for deciding the next governance route for a normalized or shaped issue: admit now, hold, send back for shaping or clarify, or escalate. Use when the issue exists and the next need is an explicit routing verdict rather than execution or queue scoring.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "productivity",
+        "design"
+      ],
+      "tags": [
+        "admission",
+        "routing",
+        "triage",
+        "governance",
+        "queue"
+      ]
+    },
+    {
       "name": "agent-lifecycle-manager",
       "path": "skills/agent-lifecycle-manager",
       "displayName": "Agent Lifecycle Manager",
@@ -40,6 +60,26 @@
         "agent-validation",
         "agent-audit",
         "codex-runtime-controls"
+      ]
+    },
+    {
+      "name": "artifact-linking",
+      "path": "skills/artifact-linking",
+      "displayName": "Artifact Linking",
+      "description": "Manual-first workflow for linking issue, run, change, verification, and handoff artifacts together and exposing those refs cleanly on projection surfaces. Use when artifact traceability matters more than generic synchronization or summary writing.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "documentation",
+        "productivity"
+      ],
+      "tags": [
+        "artifact",
+        "linking",
+        "traceability",
+        "refs",
+        "projection"
       ]
     },
     {
@@ -81,6 +121,26 @@
         "decision-making",
         "requirements",
         "architecture"
+      ]
+    },
+    {
+      "name": "budget-decision",
+      "path": "skills/budget-decision",
+      "displayName": "Budget Decision",
+      "description": "Manual-first workflow for proposing or revising a run budget envelope, including loop limits, specialist-call limits, and escalation thresholds. Use when governance needs an explicit execution budget decision rather than issue shaping, risk gating, or implementation planning.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "productivity",
+        "business"
+      ],
+      "tags": [
+        "budget",
+        "run-budget",
+        "limits",
+        "escalation",
+        "governance"
       ]
     },
     {
@@ -370,6 +430,26 @@
         "docs-navigation",
         "information-architecture",
         "knowledge-base"
+      ]
+    },
+    {
+      "name": "projection-sync",
+      "path": "skills/projection-sync",
+      "displayName": "Projection Sync",
+      "description": "Manual-first workflow for synchronizing canonical issue-driven objects to projection surfaces such as GitHub issue, PR, and check metadata without letting projections become the source of truth. Use for explicit projection updates, not canonical state mutation.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "documentation",
+        "productivity"
+      ],
+      "tags": [
+        "projection",
+        "sync",
+        "github",
+        "state",
+        "control-plane"
       ]
     },
     {
@@ -865,6 +945,46 @@
       "leadAgent": "issue-cell-executor"
     },
     {
+      "name": "issue-driven-os-governance",
+      "path": "packs/issue-driven-os-governance",
+      "displayName": "Issue-Driven OS Governance Pack",
+      "description": "Governance, routing, budgeting, verification, curation, and projection toolkit for the Issue-Driven Agent OS.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "packType": "role-pack",
+      "persona": "issue-governance",
+      "categories": [
+        "workflow",
+        "review",
+        "productivity",
+        "design"
+      ],
+      "tags": [
+        "issue-driven",
+        "governance",
+        "control-plane",
+        "verification"
+      ],
+      "skills": [
+        "issue-shaping",
+        "clarify",
+        "review",
+        "priority-scoring",
+        "risk-gating",
+        "admission-routing",
+        "budget-decision",
+        "acceptance-verification",
+        "backlog-curation",
+        "projection-sync",
+        "artifact-linking"
+      ],
+      "agents": [
+        "issue-shaper",
+        "issue-cell-critic",
+        "explorer"
+      ]
+    },
+    {
       "name": "product-manager",
       "path": "packs/product-manager",
       "displayName": "Product Manager Pack",
@@ -897,5 +1017,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-29T13:36:33.885Z"
+  "generatedAt": "2026-03-29T13:43:02.625Z"
 }

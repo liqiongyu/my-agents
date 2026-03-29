@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "skill": "projection-sync",
+  "type": "qualitative-output",
+  "assertions": [
+    "canonical_source_named",
+    "target_surface_named",
+    "fields_to_sync_explicit",
+    "drift_handling_visible"
+  ],
+  "cases": [
+    {
+      "id": "projection-sync-core",
+      "name": "Project canonical verification state outward without mutating the source of truth",
+      "prompt": "Plan the sync from canonical verification state to the outward PR and issue surfaces.",
+      "success_criteria": [
+        "Names source and target clearly.",
+        "Lists the fields to sync.",
+        "Handles drift honestly."
+      ]
+    }
+  ]
+}

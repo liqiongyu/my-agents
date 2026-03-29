@@ -1,0 +1,22 @@
+{
+  "version": "0.1.0",
+  "skill": "admission-routing",
+  "type": "qualitative-output",
+  "assertions": [
+    "readiness_summary_clear",
+    "verdict_actionable",
+    "route_back_specific"
+  ],
+  "cases": [
+    {
+      "id": "admission-route-shaped-issue",
+      "name": "Route a shaped issue into the smallest honest next workflow",
+      "prompt": "Assess whether this issue should admit now or go back for shaping.",
+      "success_criteria": [
+        "Summarizes readiness clearly.",
+        "Returns an actionable route.",
+        "Keeps route-back specific when needed."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0",
+  "skill": "projection-sync",
+  "description": "Trigger suite for the projection-sync skill.",
+  "assertions": [
+    "projection_scope_detected",
+    "sync_intent_present",
+    "routes_to_adjacent_workflow_when_needed"
+  ],
+  "cases": [
+    {
+      "id": "projection-explicit-sync",
+      "prompt": "Sync the canonical verification result to the GitHub PR checks and issue labels.",
+      "assertions": {
+        "projection_scope_detected": {
+          "check": "Recognizes an explicit projection-sync request."
+        },
+        "sync_intent_present": {
+          "check": "Returns a sync plan or payload intent."
+        }
+      }
+    },
+    {
+      "id": "projection-near-miss-linking",
+      "prompt": "Link this verification report and handoff bundle to the issue so reviewers can find them.",
+      "assertions": {
+        "routes_to_adjacent_workflow_when_needed": {
+          "check": "Routes to artifact linking rather than claiming a broader projection sync."
+        }
+      }
+    }
+  ]
+}

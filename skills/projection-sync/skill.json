@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "name": "projection-sync",
+  "displayName": "Projection Sync",
+  "description": "Manual-first workflow for synchronizing canonical issue-driven objects to projection surfaces such as GitHub issue, PR, and check metadata without letting projections become the source of truth. Use for explicit projection updates, not canonical state mutation.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": ["workflow", "documentation", "productivity"],
+  "tags": ["projection", "sync", "github", "state", "control-plane"],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "capabilities": {
+    "shell": true,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

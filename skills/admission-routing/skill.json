@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "name": "admission-routing",
+  "displayName": "Admission Routing",
+  "description": "Manual-first workflow for deciding the next governance route for a normalized or shaped issue: admit now, hold, send back for shaping or clarify, or escalate. Use when the issue exists and the next need is an explicit routing verdict rather than execution or queue scoring.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": ["workflow", "productivity", "design"],
+  "tags": ["admission", "routing", "triage", "governance", "queue"],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "capabilities": {
+    "shell": true,
+    "network": false,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}

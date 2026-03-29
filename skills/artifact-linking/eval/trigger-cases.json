@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0",
+  "skill": "artifact-linking",
+  "description": "Trigger suite for the artifact-linking skill.",
+  "assertions": [
+    "linking_scope_detected",
+    "link_set_present",
+    "routes_to_adjacent_workflow_when_needed"
+  ],
+  "cases": [
+    {
+      "id": "artifact-linking-explicit-request",
+      "prompt": "Link the issue, run, change, verification report, and handoff bundle so the trace is easy to follow.",
+      "assertions": {
+        "linking_scope_detected": {
+          "check": "Recognizes an artifact-linking request."
+        },
+        "link_set_present": {
+          "check": "Returns explicit artifact links or missing refs."
+        }
+      }
+    },
+    {
+      "id": "artifact-linking-near-miss-sync",
+      "prompt": "Sync canonical state to GitHub labels and PR metadata.",
+      "assertions": {
+        "routes_to_adjacent_workflow_when_needed": {
+          "check": "Routes to projection sync rather than pretending the task is only artifact linking."
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0",
+  "skill": "admission-routing",
+  "description": "Trigger suite for the admission-routing skill.",
+  "assertions": [
+    "routing_scope_detected",
+    "routing_verdict_present",
+    "routes_to_adjacent_workflow_when_needed"
+  ],
+  "cases": [
+    {
+      "id": "admission-explicit-route",
+      "prompt": "Tell me whether this shaped issue should admit now, hold, or go back for clarify.",
+      "assertions": {
+        "routing_scope_detected": {
+          "check": "Recognizes an admission-routing request."
+        },
+        "routing_verdict_present": {
+          "check": "Returns an explicit routing verdict."
+        }
+      }
+    },
+    {
+      "id": "admission-near-miss-priority",
+      "prompt": "Which issue should be p0 this week?",
+      "assertions": {
+        "routes_to_adjacent_workflow_when_needed": {
+          "check": "Routes to priority scoring rather than pretending to do admission routing."
+        }
+      }
+    }
+  ]
+}
