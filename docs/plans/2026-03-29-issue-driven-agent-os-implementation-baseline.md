@@ -9,6 +9,8 @@
 Freeze the default implementation baseline for the first engineering pass of the Issue-Driven Agent OS so that downstream bridge documents and reference implementations all assume the same starting point.
 
 This document is intentionally narrow. It does **not** replace the master blueprint, runtime contracts, schemas, or evaluation design.
+It also does **not** define the complete target architecture.
+The complete target architecture remains in the master blueprint; this document only defines the first engineering-pass contraction of that larger system.
 
 ## Why This Baseline Exists
 
