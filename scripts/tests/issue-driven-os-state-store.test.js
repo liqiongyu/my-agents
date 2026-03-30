@@ -14,6 +14,7 @@ const {
   persistRunRecord,
   readLease,
   recordRunUpdate,
+  renewIssueLease,
   releaseIssueLease
 } = require("../lib/issue-driven-os-state-store");
 
@@ -38,6 +39,44 @@ test("issue-driven-os state store acquires and releases issue leases", async () 
     const released = await releaseIssueLease(runtimePaths, 123, "run-1");
     assert.equal(released, true);
     assert.equal(await readLease(runtimePaths, 123), null);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("issue-driven-os state store renews only the active holder lease", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-state-renew-"));
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const acquired = await acquireIssueLease(
+      runtimePaths,
+      124,
+      {
+        holderId: "run-1",
+        holderType: "worker"
+      },
+      {
+        now: new Date("2026-03-30T00:00:00.000Z"),
+        ttlMs: 60_000
+      }
+    );
+
+    const renewed = await renewIssueLease(runtimePaths, 124, "run-1", {
+      now: new Date("2026-03-30T00:00:30.000Z"),
+      ttlMs: 60_000
+    });
+    const rejected = await renewIssueLease(runtimePaths, 124, "run-2", {
+      now: new Date("2026-03-30T00:00:40.000Z"),
+      ttlMs: 60_000
+    });
+
+    assert.equal(acquired.acquired, true);
+    assert.equal(renewed.renewed, true);
+    assert.equal(rejected.renewed, false);
+    assert.equal(renewed.lease.holderId, "run-1");
+    assert.equal(renewed.lease.expiresAt, new Date("2026-03-30T00:01:30.000Z").toISOString());
+    assert.equal((await readLease(runtimePaths, 124)).holderId, "run-1");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

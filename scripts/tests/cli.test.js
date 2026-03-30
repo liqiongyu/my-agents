@@ -91,15 +91,19 @@ test("issue-driven-os help documents the unified runtime flow surface", () => {
   );
   assert.match(
     output,
-    /npx my-agents issue-driven-os github run <owner>\/<repo> --repo-path <path> --issue <number> \[--follow\] \[--json\] \[--no-resume\]/
+    /npx my-agents issue-driven-os github run <owner>\/<repo> --repo-path <path> --issue <number> \[--follow\] \[--json\] \[--no-resume\] \[--review-loops-max <n>\]/
   );
   assert.match(
     output,
-    /npx my-agents issue-driven-os github resume <owner>\/<repo> --repo-path <path> --issue <number> \[--follow\] \[--json\]/
+    /npx my-agents issue-driven-os github resume <owner>\/<repo> --repo-path <path> --issue <number> \[--follow\] \[--json\] \[--review-loops-max <n>\]/
   );
   assert.match(
     output,
     /npx my-agents issue-driven-os github recover <owner>\/<repo> --issue <number> \[--json\]/
+  );
+  assert.match(
+    output,
+    /npx my-agents issue-driven-os github daemon <owner>\/<repo> --repo-path <path> \[--concurrency <n>\] \[--poll-seconds <n>\] \[--once\] \[--json\] \[--review-loops-max <n>\]/
   );
 });
 

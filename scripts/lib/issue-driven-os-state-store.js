@@ -157,6 +157,63 @@ async function acquireIssueLease(runtimePaths, issueNumber, leaseData, options =
   return { acquired: false, lease: await readLease(runtimePaths, issueNumber), leasePath };
 }
 
+async function renewIssueLease(runtimePaths, issueNumber, holderId, options = {}) {
+  const now = options.now ?? new Date();
+  const ttlMs = options.ttlMs ?? DEFAULT_LEASE_TTL_MS;
+  const leasePath = leasePathForIssue(runtimePaths, issueNumber);
+
+  await ensureRuntimeLayout(runtimePaths);
+
+  let handle;
+  try {
+    handle = await fs.open(leasePath, "r+");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return {
+        renewed: false,
+        lease: null,
+        leasePath
+      };
+    }
+    throw error;
+  }
+
+  try {
+    const raw = await handle.readFile("utf8");
+    let existing = null;
+    try {
+      existing = raw.trim() ? JSON.parse(raw) : null;
+    } catch {
+      existing = null;
+    }
+
+    if (!existing || (holderId && existing.holderId !== holderId)) {
+      return {
+        renewed: false,
+        lease: existing,
+        leasePath
+      };
+    }
+
+    const renewedLease = {
+      ...existing,
+      issueNumber,
+      expiresAt: new Date(now.getTime() + ttlMs).toISOString()
+    };
+
+    await handle.truncate(0);
+    await handle.write(`${JSON.stringify(renewedLease, null, 2)}\n`, 0, "utf8");
+
+    return {
+      renewed: true,
+      lease: renewedLease,
+      leasePath
+    };
+  } finally {
+    await handle.close();
+  }
+}
+
 async function releaseIssueLease(runtimePaths, issueNumber, holderId) {
   const leasePath = leasePathForIssue(runtimePaths, issueNumber);
   const existing = await readLease(runtimePaths, issueNumber);
@@ -202,6 +259,12 @@ function buildRunId(issueNumber, options = {}) {
 
 function buildRunRecord(issueNumber, data = {}) {
   const startedAt = data.startedAt ?? new Date().toISOString();
+  const reviewLoopCount = Number.isFinite(Number(data.reviewLoopCount))
+    ? Number(data.reviewLoopCount)
+    : 0;
+  const reviewLoopsMax = Number.isFinite(Number(data.reviewLoopsMax))
+    ? Number(data.reviewLoopsMax)
+    : null;
   return {
     id: data.id ?? buildRunId(issueNumber, { startedAt }),
     issueNumber,
@@ -219,7 +282,10 @@ function buildRunRecord(issueNumber, data = {}) {
     lastCompletedPhase: data.lastCompletedPhase ?? null,
     summary: data.summary ?? null,
     artifacts: data.artifacts ?? [],
-    notes: data.notes ?? []
+    notes: data.notes ?? [],
+    reviewLoopCount,
+    reviewLoopsMax,
+    terminationReason: data.terminationReason ?? null
   };
 }
 
@@ -499,6 +565,7 @@ module.exports = {
   readRunRecord,
   readRuntimeState,
   recordRunUpdate,
+  renewIssueLease,
   releaseIssueLease,
   sanitizeRepoSlug,
   writeRuntimeState
