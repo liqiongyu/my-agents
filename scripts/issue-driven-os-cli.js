@@ -18,6 +18,7 @@ const {
   formatGitHubRuntimeInspection,
   inspectGitHubRuntime
 } = require("./lib/issue-driven-os-github-inspection");
+const { buildRuntimePaths, listRuntimeEvents } = require("./lib/issue-driven-os-state-store");
 const {
   produceGitHubIssue,
   reconcileIssue,
@@ -32,8 +33,9 @@ const ISSUE_DRIVEN_OS_USAGE = `Usage:
   npx my-agents issue-driven-os project <session-path> [--out <path>] [--json]
   npx my-agents issue-driven-os pipeline <scenario-id> [--out-dir <path>] [--json]
   npx my-agents issue-driven-os github produce <owner>/<repo> --repo-path <path> --from <path|->
-  npx my-agents issue-driven-os github inspect <owner>/<repo> [--runtime-root <path>] [--run <id>] [--limit <n>] [--json]
-  npx my-agents issue-driven-os github run <owner>/<repo> --repo-path <path> --issue <number> [--json]
+  npx my-agents issue-driven-os github inspect <owner>/<repo> [--run <id>] [--limit <n>] [--events <n>] [--runtime-root <path>] [--json]
+  npx my-agents issue-driven-os github run <owner>/<repo> --repo-path <path> --issue <number> [--follow] [--json] [--no-resume]
+  npx my-agents issue-driven-os github resume <owner>/<repo> --repo-path <path> --issue <number> [--follow] [--json]
   npx my-agents issue-driven-os github daemon <owner>/<repo> --repo-path <path> [--concurrency <n>] [--poll-seconds <n>] [--once] [--json]
   npx my-agents issue-driven-os github reconcile <owner>/<repo> --issue <number> [--branch <name>] [--json]
 
@@ -44,8 +46,9 @@ Examples:
   npx my-agents issue-driven-os project .tmp/f1-session.json
   npx my-agents issue-driven-os pipeline G1
   npx my-agents issue-driven-os pipeline GT1 --out-dir .tmp/gt1-pipeline
-  npx my-agents issue-driven-os github inspect owner/repo --run run_issue_123_20260329T151315Z
-  npx my-agents issue-driven-os github run owner/repo --repo-path /path/to/repo --issue 123
+  npx my-agents issue-driven-os github inspect owner/repo --events 20
+  npx my-agents issue-driven-os github run owner/repo --repo-path /path/to/repo --issue 123 --follow
+  npx my-agents issue-driven-os github resume owner/repo --repo-path /path/to/repo --issue 123 --follow
   npx my-agents issue-driven-os github daemon owner/repo --repo-path /path/to/repo --concurrency 4 --once`;
 
 function printUsage() {
@@ -209,6 +212,93 @@ function requireRepoPath(args) {
   return path.resolve(process.cwd(), repoPath);
 }
 
+function formatInspection(payload) {
+  const base = formatGitHubRuntimeInspection(payload).trimEnd();
+  const lines = [base];
+
+  if ((payload.recentEvents ?? []).length > 0) {
+    lines.push("", "Recent events");
+    for (const event of payload.recentEvents) {
+      lines.push(
+        `- ${event.timestamp} | ${event.phase}/${event.event} | issue #${event.issueNumber ?? "n/a"} | run ${event.runId ?? "n/a"} | ${event.message}`
+      );
+    }
+  }
+
+  if ((payload.warnings ?? []).length > 0) {
+    lines.push("", "Warnings");
+    for (const warning of payload.warnings) {
+      lines.push(`- ${warning}`);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function formatRuntimeEventLine(event) {
+  return [
+    `[${event.timestamp}]`,
+    `${event.phase}/${event.event}`,
+    `actor=${event.actor ?? "runtime"}`,
+    `issue=#${event.issueNumber ?? "n/a"}`,
+    `run=${event.runId ?? "n/a"}`,
+    event.message
+  ].join(" | ");
+}
+
+async function followRuntimeEvents(runtimePaths, options = {}) {
+  const onEvent =
+    options.onEvent ??
+    ((event) => {
+      process.stdout.write(`${formatRuntimeEventLine(event)}\n`);
+    });
+  const matches = options.matches ?? (() => true);
+  const minTimestamp = Date.parse(options.startedAt ?? new Date().toISOString());
+  const intervalMs = Math.max(100, Number(options.intervalMs ?? 250));
+  const eventWindow = Math.max(50, Number(options.eventWindow ?? 1000));
+  const seenIds = new Set();
+
+  async function pump() {
+    const events = await listRuntimeEvents(runtimePaths, { limit: eventWindow });
+    const ordered = [...events].sort((left, right) => {
+      const leftTime = Date.parse(left.timestamp ?? "");
+      const rightTime = Date.parse(right.timestamp ?? "");
+      const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
+      const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
+      return safeLeft - safeRight;
+    });
+
+    for (const event of ordered) {
+      if (seenIds.has(event.id)) {
+        continue;
+      }
+      seenIds.add(event.id);
+
+      const eventTime = Date.parse(event.timestamp ?? "");
+      if (Number.isFinite(minTimestamp) && Number.isFinite(eventTime) && eventTime < minTimestamp) {
+        continue;
+      }
+
+      if (!matches(event)) {
+        continue;
+      }
+
+      await onEvent(event);
+    }
+  }
+
+  await pump();
+  const timer = setInterval(() => {
+    void pump();
+  }, intervalMs);
+  timer.unref?.();
+
+  return async () => {
+    clearInterval(timer);
+    await pump();
+  };
+}
+
 async function runGitHubProduce(repoRoot, args) {
   const asJson = args.includes("--json");
   const repoSlug = firstPositionalArg(args, excludedFlagValues(args, ["--repo-path", "--from"]));
@@ -233,33 +323,32 @@ async function runGitHubProduce(repoRoot, args) {
 
 async function runGitHubInspect(_repoRoot, args) {
   const asJson = args.includes("--json");
-  const runtimeRoot = parseValueFlag(args, "--runtime-root");
-  const runId = parseValueFlag(args, "--run");
   const repoSlug = firstPositionalArg(
     args,
-    excludedFlagValues(args, ["--runtime-root", "--run", "--limit"])
+    excludedFlagValues(args, ["--runtime-root", "--run", "--limit", "--events"])
   );
   if (!repoSlug) throw new Error("Missing owner/repo.");
-  if (args.includes("--run") && !runId) {
-    throw new Error("Missing --run value.");
-  }
 
-  const result = await inspectGitHubRuntime(repoSlug, {
+  const runtimeRoot = parseValueFlag(args, "--runtime-root");
+  const runId = parseValueFlag(args, "--run");
+  const payload = await inspectGitHubRuntime(repoSlug, {
     runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined,
     runId,
-    limit: parseIntegerFlag(args, "--limit", 10)
+    limit: parseIntegerFlag(args, "--limit", 10),
+    eventLimit: parseIntegerFlag(args, "--events", 20)
   });
 
   if (asJson) {
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(payload, null, 2));
     return;
   }
 
-  process.stdout.write(formatGitHubRuntimeInspection(result));
+  process.stdout.write(`${formatInspection(payload)}\n`);
 }
 
-async function runGitHubSingleIssue(repoRoot, args) {
+async function runGitHubSingleIssue(repoRoot, args, options = {}) {
   const asJson = args.includes("--json");
+  const follow = args.includes("--follow");
   const issueNumber = parseIntegerFlag(args, "--issue");
   if (!issueNumber) throw new Error("Missing --issue.");
   const repoSlug = firstPositionalArg(
@@ -272,10 +361,31 @@ async function runGitHubSingleIssue(repoRoot, args) {
   if (!repoSlug) throw new Error("Missing owner/repo.");
   const repoPath = requireRepoPath(args);
   const runtimeRoot = parseValueFlag(args, "--runtime-root");
+  if (asJson && follow) {
+    throw new Error("Cannot combine --follow with --json.");
+  }
 
-  const result = await runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, {
-    runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined
-  });
+  const resolvedRuntimeRoot = runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined;
+  const runtimePaths = buildRuntimePaths(repoSlug, { runtimeRoot: resolvedRuntimeRoot });
+  const startedAt = new Date().toISOString();
+  const stopFollowing = follow
+    ? await followRuntimeEvents(runtimePaths, {
+        startedAt,
+        matches: (event) => Number(event.issueNumber) === issueNumber
+      })
+    : null;
+
+  let result;
+  try {
+    result = await runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, {
+      runtimeRoot: resolvedRuntimeRoot,
+      resume: options.forceResume ? true : !args.includes("--no-resume")
+    });
+  } finally {
+    if (stopFollowing) {
+      await stopFollowing();
+    }
+  }
 
   if (asJson) {
     console.log(JSON.stringify(result, null, 2));
@@ -385,6 +495,11 @@ async function runGitHub(repoRoot, args) {
     return;
   }
 
+  if (subcommand === "resume") {
+    await runGitHubSingleIssue(repoRoot, rest, { forceResume: true });
+    return;
+  }
+
   if (subcommand === "daemon") {
     await runGitHubDaemonMode(repoRoot, rest);
     return;
@@ -451,5 +566,8 @@ if (require.main === module) {
 
 module.exports = {
   ISSUE_DRIVEN_OS_USAGE,
+  followRuntimeEvents,
+  formatInspection,
+  formatRuntimeEventLine,
   main
 };

@@ -1,14 +1,17 @@
+const fs = require("node:fs/promises");
 const path = require("node:path");
 
 const {
   buildRuntimePaths,
-  compareIssueNumbers,
-  listIssueLeases,
-  listRunArtifactFiles,
-  listRunRecords,
-  readRunRecord,
-  readRuntimeState
+  inspectRuntimeState: inspectStoredRuntimeState,
+  listIssueLeases
 } = require("./issue-driven-os-state-store");
+
+function compareIssueNumbers(left, right) {
+  const safeLeft = Number.isInteger(Number(left)) ? Number(left) : Number.MAX_SAFE_INTEGER;
+  const safeRight = Number.isInteger(Number(right)) ? Number(right) : Number.MAX_SAFE_INTEGER;
+  return safeLeft - safeRight;
+}
 
 function compareIssueSummaryRecords(left, right) {
   const issueCompare = compareIssueNumbers(left.issueNumber, right.issueNumber);
@@ -168,7 +171,12 @@ async function inspectGitHubRuntime(repoSlug, options = {}) {
   const runtimePaths = buildRuntimePaths(repoSlug, {
     runtimeRoot: options.runtimeRoot
   });
-  const state = await readRuntimeState(runtimePaths, repoSlug);
+  const snapshot = await inspectStoredRuntimeState(runtimePaths, repoSlug, {
+    runId: options.runId,
+    limit: options.limit,
+    eventLimit: options.eventLimit
+  });
+  const state = snapshot.state;
   const allLeaseRecords = (await listIssueLeases(runtimePaths, { includeExpired: true })).map(
     normalizeLease
   );
@@ -176,16 +184,41 @@ async function inspectGitHubRuntime(repoSlug, options = {}) {
   const staleLeases = allLeaseRecords.filter((lease) => lease?.leaseStatus === "expired");
 
   if (options.runId) {
-    const runRecord = await readRunRecord(runtimePaths, options.runId);
+    const runRecord = snapshot.run
+      ? {
+          ...snapshot.run,
+          runPath: path.join(runtimePaths.runsDir, `${options.runId}.json`)
+        }
+      : null;
     if (!runRecord) {
       throw new Error(`Run record not found: ${options.runId}`);
     }
 
-    const artifactFiles = (await listRunArtifactFiles(runtimePaths, options.runId)).map(
-      normalizeArtifactFile
+    const artifactFiles = await Promise.all(
+      (snapshot.artifacts ?? []).map(async (artifact) => {
+        let sizeBytes = null;
+        let updatedAt = null;
+        let name = path.basename(artifact.path ?? "");
+
+        try {
+          const stats = await fs.stat(artifact.path);
+          sizeBytes = stats.size;
+          updatedAt = stats.mtime.toISOString();
+        } catch {
+          // Preserve inspection output even if a file disappears mid-read.
+        }
+
+        return normalizeArtifactFile({
+          ...artifact,
+          name,
+          sizeBytes,
+          updatedAt
+        });
+      })
     );
 
     return {
+      ...snapshot,
       mode: "run",
       repoSlug,
       runtimeRoot: runtimePaths.baseDir,
@@ -211,11 +244,17 @@ async function inspectGitHubRuntime(repoSlug, options = {}) {
   const issueSummaries = Object.values(state.issues ?? {})
     .map(normalizeIssueSummary)
     .sort(compareIssueSummaryRecords);
-  const allRuns = await listRunRecords(runtimePaths);
+  const allRuns = Object.keys(state.runs ?? {});
   const recentRunLimit = Math.max(1, Number(options.limit ?? 10));
-  const recentRuns = allRuns.slice(0, recentRunLimit).map(normalizeRunSummary);
+  const recentRuns = (snapshot.recentRuns ?? []).map((runRecord) =>
+    normalizeRunSummary({
+      ...runRecord,
+      runPath: path.join(runtimePaths.runsDir, `${runRecord.id}.json`)
+    })
+  );
 
   return {
+    ...snapshot,
     mode: "summary",
     repoSlug,
     runtimeRoot: runtimePaths.baseDir,

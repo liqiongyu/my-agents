@@ -1,7 +1,7 @@
 name = "issue-intake-normalizer"
 description = "Issue intake agent that turns raw signals, review residue, and bug reports into normalized issue drafts ready for shaping."
 model = "gpt-5.4"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """

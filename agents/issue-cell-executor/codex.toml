@@ -1,7 +1,7 @@
 name = "issue-cell-executor"
 description = "Primary execution agent for one issue cell. It turns an accepted issue and run brief into code, evidence, and handoff-safe execution outputs."
 model = "gpt-5.4"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """

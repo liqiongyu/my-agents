@@ -1,7 +1,7 @@
 name = "issue-cell-critic"
 description = "Independent critic path for an issue cell. It reviews execution results against the issue boundary, brief, and done contract without taking over formal state progression."
 model = "gpt-5.4"
-model_reasoning_effort = "high"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 
 developer_instructions = """

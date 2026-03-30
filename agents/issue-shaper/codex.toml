@@ -1,7 +1,7 @@
 name = "issue-shaper"
 description = "Issue shaping agent that tightens scope, non-goals, acceptance criteria, and decomposition boundaries before admission or execution."
 model = "gpt-5.4"
-model_reasoning_effort = "high"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """

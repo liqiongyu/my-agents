@@ -6,15 +6,13 @@ const assert = require("node:assert/strict");
 
 const {
   acquireIssueLease,
+  appendRuntimeEvent,
   buildRunRecord,
   buildRuntimePaths,
-  listIssueLeases,
-  listRunArtifactFiles,
-  listRunRecords,
+  inspectRuntimeState,
   persistArtifact,
   persistRunRecord,
   readLease,
-  readRunRecord,
   recordRunUpdate,
   releaseIssueLease,
   renewIssueLease
@@ -68,6 +66,14 @@ test("issue-driven-os state store renews leases and records stale plus force rec
       now: new Date("2026-03-29T00:00:30.000Z"),
       ttlMs: 60 * 1000
     });
+    const holderMismatch = await renewIssueLease(runtimePaths, 123, "run-2", {
+      now: new Date("2026-03-29T00:00:31.000Z"),
+      ttlMs: 60 * 1000
+    });
+    const expiredRenewal = await renewIssueLease(runtimePaths, 123, "run-1", {
+      now: new Date("2026-03-29T00:01:31.000Z"),
+      ttlMs: 60 * 1000
+    });
     const expiredRecovery = await acquireIssueLease(
       runtimePaths,
       123,
@@ -99,9 +105,20 @@ test("issue-driven-os state store renews leases and records stale plus force rec
     assert.equal(acquired.acquired, true);
     assert.equal(acquired.action, "acquired");
     assert.equal(renewed.renewed, true);
+    assert.equal(renewed.reason, "renewed");
     assert.equal(renewed.lease.lastOutcome, "renewed");
     assert.equal(renewed.lease.renewalCount, 1);
     assert.equal(renewed.lease.expiresAt, "2026-03-29T00:01:30.000Z");
+
+    assert.equal(holderMismatch.renewed, false);
+    assert.equal(holderMismatch.reason, "holder_mismatch");
+    assert.equal(holderMismatch.lease.holderId, "run-1");
+    assert.equal(holderMismatch.lease.lastOutcome, "renewed");
+
+    assert.equal(expiredRenewal.renewed, false);
+    assert.equal(expiredRenewal.reason, "expired");
+    assert.equal(expiredRenewal.lease.holderId, "run-1");
+    assert.equal(expiredRenewal.lease.leaseStatus, "expired");
 
     assert.equal(expiredRecovery.acquired, true);
     assert.equal(expiredRecovery.action, "expired_recovered");
@@ -150,81 +167,48 @@ test("issue-driven-os state store persists runs, artifacts, and summary state", 
   }
 });
 
-test("issue-driven-os state store lists leases, runs, and run artifacts for inspection", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-state-inspect-"));
+test("issue-driven-os state store exposes inspection snapshots and recent events", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-"));
 
   try {
     const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
-    const olderRun = buildRunRecord(11, {
-      id: "run_issue_11_20260329T010000Z",
+    const runRecord = buildRunRecord(21, {
       repoSlug: "owner/repo",
-      status: "blocked",
-      startedAt: "2026-03-29T01:00:00.000Z",
-      updatedAt: "2026-03-29T01:05:00.000Z"
+      status: "claimed",
+      summary: "Worker claimed the issue."
     });
-    const newerRun = buildRunRecord(12, {
-      id: "run_issue_12_20260329T020000Z",
+
+    await acquireIssueLease(runtimePaths, 21, {
+      holderId: runRecord.id,
+      holderType: "worker",
+      runId: runRecord.id
+    });
+    await persistRunRecord(runtimePaths, runRecord);
+    await persistArtifact(runtimePaths, runRecord.id, "shaping", {
+      route: "execute"
+    });
+    await recordRunUpdate(runtimePaths, "owner/repo", runRecord);
+    await appendRuntimeEvent(runtimePaths, {
       repoSlug: "owner/repo",
-      status: "awaiting_merge",
-      startedAt: "2026-03-29T02:00:00.000Z",
-      updatedAt: "2026-03-29T02:10:00.000Z"
+      issueNumber: 21,
+      runId: runRecord.id,
+      actor: "worker",
+      phase: "claim",
+      event: "issue_claimed",
+      message: "Claimed issue #21."
     });
 
-    await persistRunRecord(runtimePaths, olderRun);
-    await persistRunRecord(runtimePaths, newerRun);
-    await persistArtifact(runtimePaths, newerRun.id, "critic", {
-      verdict: "ready"
+    const snapshot = await inspectRuntimeState(runtimePaths, "owner/repo", {
+      runId: runRecord.id,
+      limit: 5,
+      eventLimit: 5
     });
-    await acquireIssueLease(
-      runtimePaths,
-      12,
-      {
-        holderId: "daemon-1",
-        holderType: "daemon",
-        runId: newerRun.id
-      },
-      {
-        now: new Date("2026-03-29T02:00:00.000Z"),
-        ttlMs: 5 * 60 * 1000
-      }
-    );
-    await acquireIssueLease(
-      runtimePaths,
-      11,
-      {
-        holderId: olderRun.id,
-        holderType: "worker",
-        runId: olderRun.id
-      },
-      {
-        now: new Date("2026-03-29T01:00:00.000Z"),
-        ttlMs: 60 * 1000
-      }
-    );
 
-    const leases = await listIssueLeases(runtimePaths, {
-      now: new Date("2026-03-29T02:01:00.000Z")
-    });
-    const leasesWithExpired = await listIssueLeases(runtimePaths, {
-      now: new Date("2026-03-29T02:01:00.000Z"),
-      includeExpired: true
-    });
-    const runs = await listRunRecords(runtimePaths);
-    const savedRun = await readRunRecord(runtimePaths, newerRun.id);
-    const artifactFiles = await listRunArtifactFiles(runtimePaths, newerRun.id);
-
-    assert.equal(leases.length, 1);
-    assert.equal(leases[0].holderType, "daemon");
-    assert.equal(leases[0].leaseStatus, "active");
-    assert.equal(leasesWithExpired.length, 2);
-    assert.equal(leasesWithExpired[0].leaseStatus, "expired");
-    assert.equal(leasesWithExpired[1].leaseStatus, "active");
-    assert.equal(runs.map((run) => run.id).join(","), `${newerRun.id},${olderRun.id}`);
-    assert.equal(savedRun.runPath.endsWith(`${newerRun.id}.json`), true);
-    assert.deepEqual(
-      artifactFiles.map((file) => file.kind),
-      ["critic"]
-    );
+    assert.equal(snapshot.activeLeases.length, 1);
+    assert.equal(snapshot.recentRuns.length, 1);
+    assert.equal(snapshot.run.id, runRecord.id);
+    assert.equal(snapshot.artifacts[0].kind, "shaping");
+    assert.equal(snapshot.recentEvents[0].event, "issue_claimed");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
