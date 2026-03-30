@@ -120,6 +120,10 @@ async function runNext(args) {
   const limitRaw = flag(args, "--limit");
   const limit = limitRaw !== undefined ? parseInt(limitRaw, 10) : 6;
 
+  if (limitRaw !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
+    throw new Error("--limit must be a positive integer.");
+  }
+
   if (!repoSlug) {
     throw new Error("Missing --repo <owner/repo>.");
   }
