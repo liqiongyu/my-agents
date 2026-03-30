@@ -1735,6 +1735,208 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       await leaseSupervisor.renew(reason);
     }
 
+    async function updateRun(updates) {
+      await checkpointRun(runtimePaths, repoSlug, runRecord, updates);
+    }
+
+    async function checkpointPhaseArtifact(
+      kind,
+      artifactPath,
+      lastCompletedPhase,
+      extraUpdates = {}
+    ) {
+      runRecord.artifacts = mergeArtifactRefs(runRecord.artifacts, [{ kind, path: artifactPath }]);
+      await updateRun({
+        artifacts: runRecord.artifacts,
+        lastCompletedPhase,
+        ...extraUpdates
+      });
+    }
+
+    async function finalizeIssueCommentBlock({
+      actor,
+      eventActor = actor,
+      phase,
+      summary,
+      blockers,
+      executionSummary,
+      event,
+      eventMessage = summary,
+      eventData = {},
+      removeLabels = ["agent:claimed", "agent:ready"],
+      lastCompletedPhase,
+      terminationReason = runRecord.terminationReason
+    }) {
+      const finishedAt = new Date().toISOString();
+      await deps.github.editIssue(repoSlug, issueNumber, {
+        addLabels: ["agent:blocked"],
+        removeLabels,
+        commandOptions: options.commandOptions
+      });
+      await postIssueComment(
+        runtimePaths,
+        deps,
+        repoSlug,
+        issueNumber,
+        buildBlockedComment(summary, blockers),
+        {
+          actor,
+          phase,
+          runId: runRecord.id,
+          executionSummary
+        },
+        options
+      );
+      await updateRun({
+        status: "blocked",
+        finishedAt,
+        summary,
+        lastCompletedPhase,
+        reviewLoopCount: runRecord.reviewLoopCount,
+        reviewLoopsMax: runRecord.reviewLoopsMax,
+        terminationReason
+      });
+      await recordRuntimeEvent(runtimePaths, {
+        repoSlug,
+        issueNumber,
+        runId: runRecord.id,
+        actor: eventActor,
+        phase,
+        event,
+        message: eventMessage,
+        data: eventData
+      });
+
+      return buildRunSummary("blocked", summary, {
+        runId: runRecord.id
+      });
+    }
+
+    async function finalizeSplitRoute(shapingPayload, childIssues) {
+      const finishedAt = new Date().toISOString();
+      runRecord.notes.push(`Created ${childIssues.length} child issues.`);
+      await deps.github.editIssue(repoSlug, issueNumber, {
+        addLabels: ["agent:split"],
+        removeLabels: ["agent:claimed", "agent:ready"],
+        commandOptions: options.commandOptions
+      });
+      await postIssueComment(
+        runtimePaths,
+        deps,
+        repoSlug,
+        issueNumber,
+        buildSplitComment(shapingPayload),
+        {
+          actor: "issue-shaper",
+          phase: "shaping",
+          runId: runRecord.id,
+          executionSummary: buildShaperExecutionSummary("split", {
+            tools: [
+              "codex exec",
+              "github issue create",
+              "github issue edit",
+              "github issue comment"
+            ],
+            limits: "split-required"
+          })
+        },
+        options
+      );
+      await updateRun({
+        status: "split",
+        finishedAt,
+        summary: shapingPayload.summary,
+        lastCompletedPhase: "shaping"
+      });
+      await recordRuntimeEvent(runtimePaths, {
+        repoSlug,
+        issueNumber,
+        runId: runRecord.id,
+        actor: "worker",
+        phase: "shaping",
+        event: "issue_split",
+        message: `Issue split into ${childIssues.length} child issues.`,
+        data: {
+          childIssues
+        }
+      });
+
+      return buildRunSummary("split", shapingPayload.summary, {
+        runId: runRecord.id,
+        childIssues
+      });
+    }
+
+    async function finalizeCriticBlock({
+      summary,
+      event,
+      eventData = {},
+      terminationReason = runRecord.terminationReason,
+      pullRequest,
+      extraSummary = {}
+    }) {
+      const finishedAt = new Date().toISOString();
+      await deps.github.editIssue(repoSlug, issueNumber, {
+        addLabels: ["agent:blocked"],
+        removeLabels: ["agent:claimed", "agent:ready", "agent:review"],
+        commandOptions: options.commandOptions
+      });
+      await updateRun({
+        status: "blocked",
+        finishedAt,
+        summary,
+        lastCompletedPhase: "review_projected",
+        reviewLoopCount: runRecord.reviewLoopCount,
+        reviewLoopsMax: runRecord.reviewLoopsMax,
+        terminationReason
+      });
+      await recordRuntimeEvent(runtimePaths, {
+        repoSlug,
+        issueNumber,
+        runId: runRecord.id,
+        actor: "issue-cell-critic",
+        phase: "review",
+        event,
+        message: summary,
+        data: eventData
+      });
+
+      return buildRunSummary("blocked", summary, {
+        runId: runRecord.id,
+        pullRequest,
+        ...extraSummary
+      });
+    }
+
+    async function submitProjectedCriticReview(pullRequest, criticPayload, body) {
+      await projectVerificationStatus(
+        runtimePaths,
+        deps,
+        repoSlug,
+        issueNumber,
+        runRecord,
+        pullRequest,
+        criticPayload,
+        options
+      );
+      await submitPullRequestReview(
+        runtimePaths,
+        deps,
+        repoSlug,
+        pullRequest,
+        body,
+        {
+          actor: "issue-cell-critic",
+          phase: "review",
+          runId: runRecord.id,
+          issueNumber,
+          reviewEvent: getProjectedCriticReviewEvent(criticPayload, options),
+          executionSummary: buildCriticExecutionSummary(criticPayload)
+        },
+        options
+      );
+    }
+
     let shaping;
     let shapingArtifactPath =
       runRecord.artifacts.find((artifact) => artifact.kind === "shaping")?.path ?? null;
@@ -1789,113 +1991,28 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         }
       });
     }
-    runRecord.artifacts = mergeArtifactRefs(runRecord.artifacts, [
-      { kind: "shaping", path: shapingArtifactPath }
-    ]);
-    await checkpointRun(runtimePaths, repoSlug, runRecord, {
-      artifacts: runRecord.artifacts,
-      lastCompletedPhase: "shaping"
-    });
+    await checkpointPhaseArtifact("shaping", shapingArtifactPath, "shaping");
 
     if (shaping.payload.route === "split") {
       await keepLease("split_issue_creation");
       const childIssues = await createSplitIssues(repoSlug, shaping.payload, deps.github);
       await keepLease("split_issue_creation_completed");
-      const finishedAt = new Date().toISOString();
-      runRecord.notes.push(`Created ${childIssues.length} child issues.`);
       await keepLease("split_projection");
-      await deps.github.editIssue(repoSlug, issueNumber, {
-        addLabels: ["agent:split"],
-        removeLabels: ["agent:claimed", "agent:ready"],
-        commandOptions: options.commandOptions
-      });
-      await postIssueComment(
-        runtimePaths,
-        deps,
-        repoSlug,
-        issueNumber,
-        buildSplitComment(shaping.payload),
-        {
-          actor: "issue-shaper",
-          phase: "shaping",
-          runId: runRecord.id,
-          executionSummary: buildShaperExecutionSummary("split", {
-            tools: [
-              "codex exec",
-              "github issue create",
-              "github issue edit",
-              "github issue comment"
-            ],
-            limits: "split-required"
-          })
-        },
-        options
-      );
-      await checkpointRun(runtimePaths, repoSlug, runRecord, {
-        status: "split",
-        finishedAt,
-        summary: shaping.payload.summary,
-        lastCompletedPhase: "shaping"
-      });
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "worker",
-        phase: "shaping",
-        event: "issue_split",
-        message: `Issue split into ${childIssues.length} child issues.`,
-        data: {
-          childIssues
-        }
-      });
-      return buildRunSummary("split", shaping.payload.summary, {
-        runId: runRecord.id,
-        childIssues
-      });
+      return finalizeSplitRoute(shaping.payload, childIssues);
     }
 
     if (shaping.payload.route !== "execute") {
-      const finishedAt = new Date().toISOString();
       await keepLease("shaping_blocked");
-      await deps.github.editIssue(repoSlug, issueNumber, {
-        addLabels: ["agent:blocked"],
-        removeLabels: ["agent:claimed", "agent:ready"],
-        commandOptions: options.commandOptions
-      });
-      await postIssueComment(
-        runtimePaths,
-        deps,
-        repoSlug,
-        issueNumber,
-        buildBlockedComment(shaping.payload.summary),
-        {
-          actor: "issue-shaper",
-          phase: "shaping",
-          runId: runRecord.id,
-          executionSummary: buildShaperExecutionSummary(shaping.payload.route, {
-            limits: shaping.payload.summary
-          })
-        },
-        options
-      );
-      await checkpointRun(runtimePaths, repoSlug, runRecord, {
-        status: "blocked",
-        finishedAt,
-        summary: shaping.payload.summary,
-        lastCompletedPhase: "shaping"
-      });
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "worker",
+      return finalizeIssueCommentBlock({
+        actor: "issue-shaper",
+        eventActor: "worker",
         phase: "shaping",
+        summary: shaping.payload.summary,
+        executionSummary: buildShaperExecutionSummary(shaping.payload.route, {
+          limits: shaping.payload.summary
+        }),
         event: "issue_blocked_after_shaping",
-        message: shaping.payload.summary
-      });
-      return buildRunSummary("blocked", shaping.payload.summary, {
-        runId: runRecord.id
+        lastCompletedPhase: "shaping"
       });
     }
 
@@ -2091,62 +2208,26 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
           }
         });
       }
-      runRecord.artifacts = mergeArtifactRefs(runRecord.artifacts, [
-        { kind: "execution", path: executionArtifactPath }
-      ]);
-      await checkpointRun(runtimePaths, repoSlug, runRecord, {
-        artifacts: runRecord.artifacts,
-        lastCompletedPhase: "execution",
+      await checkpointPhaseArtifact("execution", executionArtifactPath, "execution", {
         reviewLoopCount: runRecord.reviewLoopCount,
         reviewLoopsMax: runRecord.reviewLoopsMax
       });
 
       if (execution.payload.status === "blocked" || execution.payload.status === "split_required") {
-        const finishedAt = new Date().toISOString();
         await keepLease("execution_blocked");
-        await deps.github.editIssue(repoSlug, issueNumber, {
-          addLabels: ["agent:blocked"],
-          removeLabels: ["agent:claimed", "agent:ready"],
-          commandOptions: options.commandOptions
-        });
-        await postIssueComment(
-          runtimePaths,
-          deps,
-          repoSlug,
-          issueNumber,
-          buildBlockedComment(execution.payload.summary, execution.payload.blockers),
-          {
-            actor: "issue-cell-executor",
-            phase: "execution",
-            runId: runRecord.id,
-            executionSummary: buildExecutorExecutionSummary(execution.payload, {
-              tools: ["codex exec", "github issue edit", "github issue comment"]
-            })
-          },
-          options
-        );
-        await checkpointRun(runtimePaths, repoSlug, runRecord, {
-          status: "blocked",
-          finishedAt,
-          summary: execution.payload.summary,
-          lastCompletedPhase: "execution",
-          reviewLoopCount: runRecord.reviewLoopCount,
-          reviewLoopsMax: runRecord.reviewLoopsMax
-        });
-        await recordRuntimeEvent(runtimePaths, {
-          repoSlug,
-          issueNumber,
-          runId: runRecord.id,
+        return finalizeIssueCommentBlock({
           actor: "issue-cell-executor",
           phase: "execution",
+          summary: execution.payload.summary,
+          blockers: execution.payload.blockers,
+          executionSummary: buildExecutorExecutionSummary(execution.payload, {
+            tools: ["codex exec", "github issue edit", "github issue comment"]
+          }),
           event: "execution_blocked",
-          message: execution.payload.summary,
-          data: {
+          eventData: {
             blockers: execution.payload.blockers
-          }
-        });
-        return buildRunSummary("blocked", execution.payload.summary, {
-          runId: runRecord.id
+          },
+          lastCompletedPhase: "execution"
         });
       }
 
@@ -2180,60 +2261,24 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         (!commitResult.changed && !commitResult.commitSha) ||
         execution.payload.status === "no_changes"
       ) {
-        const finishedAt = new Date().toISOString();
         await keepLease("execution_no_changes");
-        await deps.github.editIssue(repoSlug, issueNumber, {
-          addLabels: ["agent:blocked"],
-          removeLabels: ["agent:claimed", "agent:ready"],
-          commandOptions: options.commandOptions
-        });
-        await postIssueComment(
-          runtimePaths,
-          deps,
-          repoSlug,
-          issueNumber,
-          buildBlockedComment(
-            execution.payload.summary || "No code changes were produced.",
-            execution.payload.blockers
-          ),
-          {
-            actor: "issue-cell-executor",
-            phase: "execution",
-            runId: runRecord.id,
-            executionSummary: buildExecutorExecutionSummary(execution.payload, {
-              tools: ["codex exec", "github issue edit", "github issue comment"],
-              limits: execution.payload.summary || "no_changes"
-            })
-          },
-          options
-        );
-        await checkpointRun(runtimePaths, repoSlug, runRecord, {
-          status: "blocked",
-          finishedAt,
-          summary: execution.payload.summary || "No code changes were produced.",
-          lastCompletedPhase: "execution",
-          reviewLoopCount: runRecord.reviewLoopCount,
-          reviewLoopsMax: runRecord.reviewLoopsMax
-        });
-        await recordRuntimeEvent(runtimePaths, {
-          repoSlug,
-          issueNumber,
-          runId: runRecord.id,
-          actor: "workspace",
+        return finalizeIssueCommentBlock({
+          actor: "issue-cell-executor",
+          eventActor: "workspace",
           phase: "execution",
+          summary: execution.payload.summary || "No code changes were produced.",
+          blockers: execution.payload.blockers,
+          executionSummary: buildExecutorExecutionSummary(execution.payload, {
+            tools: ["codex exec", "github issue edit", "github issue comment"],
+            limits: execution.payload.summary || "no_changes"
+          }),
           event: "execution_no_changes",
-          message: runRecord.summary,
-          data: {
+          eventMessage: runRecord.summary,
+          eventData: {
             blockers: execution.payload.blockers
-          }
+          },
+          lastCompletedPhase: "execution"
         });
-        return buildRunSummary(
-          "blocked",
-          execution.payload.summary || "No code changes were produced.",
-          {
-            runId: runRecord.id
-          }
-        );
       }
 
       runRecord.commitSha = commitResult.commitSha;
@@ -2251,7 +2296,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
           commitSha: commitResult.commitSha
         }
       });
-      await checkpointRun(runtimePaths, repoSlug, runRecord, {
+      await updateRun({
         commitSha: commitResult.commitSha,
         lastCompletedPhase: "commit_created",
         reviewLoopCount: runRecord.reviewLoopCount,
@@ -2274,7 +2319,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
           forceWithLease: Boolean(loopResumeContext) || Boolean(activePullRequest)
         }
       });
-      await checkpointRun(runtimePaths, repoSlug, runRecord, {
+      await updateRun({
         lastCompletedPhase: "branch_pushed",
         reviewLoopCount: runRecord.reviewLoopCount,
         reviewLoopsMax: runRecord.reviewLoopsMax
@@ -2318,7 +2363,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       activePullRequest = pullRequest;
       runRecord.prNumber = pullRequest.number;
       runRecord.prUrl = pullRequest.url;
-      await checkpointRun(runtimePaths, repoSlug, runRecord, {
+      await updateRun({
         prNumber: pullRequest.number,
         prUrl: pullRequest.url,
         lastCompletedPhase: "pull_request_prepared",
@@ -2402,44 +2447,17 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         });
       }
 
-      runRecord.artifacts = mergeArtifactRefs(runRecord.artifacts, [
-        { kind: "critic", path: criticArtifactPath }
-      ]);
-      await checkpointRun(runtimePaths, repoSlug, runRecord, {
-        artifacts: runRecord.artifacts,
-        lastCompletedPhase: "critic",
+      await checkpointPhaseArtifact("critic", criticArtifactPath, "critic", {
         reviewLoopCount: runRecord.reviewLoopCount,
         reviewLoopsMax: runRecord.reviewLoopsMax
       });
 
       if (critic.payload.verdict !== "ready") {
-        const finishedAt = new Date().toISOString();
         await keepLease("review_projection");
-        await projectVerificationStatus(
-          runtimePaths,
-          deps,
-          repoSlug,
-          issueNumber,
-          runRecord,
+        await submitProjectedCriticReview(
           pullRequest,
           critic.payload,
-          options
-        );
-        await submitPullRequestReview(
-          runtimePaths,
-          deps,
-          repoSlug,
-          pullRequest,
-          buildCriticComment(critic.payload),
-          {
-            actor: "issue-cell-critic",
-            phase: "review",
-            runId: runRecord.id,
-            issueNumber,
-            reviewEvent: getProjectedCriticReviewEvent(critic.payload, options),
-            executionSummary: buildCriticExecutionSummary(critic.payload)
-          },
-          options
+          buildCriticComment(critic.payload)
         );
         await keepLease("review_projected");
 
@@ -2489,103 +2507,42 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
             reviewLoopsMax
           );
           await keepLease("review_loop_budget_exhausted");
-          await deps.github.editIssue(repoSlug, issueNumber, {
-            addLabels: ["agent:blocked"],
-            removeLabels: ["agent:claimed", "agent:ready", "agent:review"],
-            commandOptions: options.commandOptions
-          });
-          await checkpointRun(runtimePaths, repoSlug, runRecord, {
-            status: "blocked",
-            finishedAt,
+          return finalizeCriticBlock({
             summary: exhaustedSummary,
-            lastCompletedPhase: "review_projected",
-            reviewLoopCount: runRecord.reviewLoopCount,
-            reviewLoopsMax: runRecord.reviewLoopsMax,
-            terminationReason: "review_loop_budget_exhausted"
-          });
-          await recordRuntimeEvent(runtimePaths, {
-            repoSlug,
-            issueNumber,
-            runId: runRecord.id,
-            actor: "issue-cell-critic",
-            phase: "review",
             event: "review_loop_budget_exhausted",
-            message: exhaustedSummary,
-            data: {
+            eventData: {
               pullRequestNumber: pullRequest.number,
               pullRequestUrl: pullRequest.url,
               reviewLoopCount: runRecord.reviewLoopCount,
               reviewLoopsMax
-            }
-          });
-          return buildRunSummary("blocked", exhaustedSummary, {
-            runId: runRecord.id,
+            },
+            terminationReason: "review_loop_budget_exhausted",
             pullRequest,
-            reviewLoopCount: runRecord.reviewLoopCount,
-            reviewLoopsMax
+            extraSummary: {
+              reviewLoopCount: runRecord.reviewLoopCount,
+              reviewLoopsMax
+            }
           });
         }
 
         await keepLease("critic_blocked");
-        await deps.github.editIssue(repoSlug, issueNumber, {
-          addLabels: ["agent:blocked"],
-          removeLabels: ["agent:claimed", "agent:ready", "agent:review"],
-          commandOptions: options.commandOptions
-        });
-        await checkpointRun(runtimePaths, repoSlug, runRecord, {
-          status: "blocked",
-          finishedAt,
+        return finalizeCriticBlock({
           summary: critic.payload.summary,
-          lastCompletedPhase: "review_projected",
-          reviewLoopCount: runRecord.reviewLoopCount,
-          reviewLoopsMax: runRecord.reviewLoopsMax
-        });
-        await recordRuntimeEvent(runtimePaths, {
-          repoSlug,
-          issueNumber,
-          runId: runRecord.id,
-          actor: "issue-cell-critic",
-          phase: "review",
           event: "critic_blocked",
-          message: critic.payload.summary,
-          data: {
+          eventData: {
             pullRequestNumber: pullRequest.number,
             pullRequestUrl: pullRequest.url
-          }
-        });
-        return buildRunSummary("blocked", critic.payload.summary, {
-          runId: runRecord.id,
+          },
           pullRequest
         });
       }
 
       loopResumeContext = null;
       await keepLease("ready_review");
-      await projectVerificationStatus(
-        runtimePaths,
-        deps,
-        repoSlug,
-        issueNumber,
-        runRecord,
+      await submitProjectedCriticReview(
         pullRequest,
         critic.payload,
-        options
-      );
-      await submitPullRequestReview(
-        runtimePaths,
-        deps,
-        repoSlug,
-        pullRequest,
-        buildReadyComment(pullRequest.url, critic.payload),
-        {
-          actor: "issue-cell-critic",
-          phase: "review",
-          runId: runRecord.id,
-          issueNumber,
-          reviewEvent: getProjectedCriticReviewEvent(critic.payload, options),
-          executionSummary: buildCriticExecutionSummary(critic.payload)
-        },
-        options
+        buildReadyComment(pullRequest.url, critic.payload)
       );
       await keepLease("merge_enable");
       await deps.github.editIssue(repoSlug, issueNumber, {
@@ -2612,7 +2569,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
           commitSha: runRecord.commitSha
         }
       });
-      await checkpointRun(runtimePaths, repoSlug, runRecord, {
+      await updateRun({
         lastCompletedPhase: "merge_enabled",
         reviewLoopCount: runRecord.reviewLoopCount,
         reviewLoopsMax: runRecord.reviewLoopsMax

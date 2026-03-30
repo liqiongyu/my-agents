@@ -169,6 +169,167 @@ test("produceGitHubIssue normalizes raw input and creates a ready issue", async 
   assert.deepEqual(calls[0].labels, ["bug", "agent:ready"]);
 });
 
+test("runGitHubIssueWorker preserves the worker actor when shaping blocks execution", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-shaping-blocked-"));
+  const comments = [];
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 17,
+      title: "Needs more shaping",
+      body: "This issue is missing critical context.",
+      labels: ["agent:ready"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/17"
+    }),
+    editIssue: async () => {},
+    commentIssue: async (_repoSlug, _issueNumber, body) => {
+      comments.push(body);
+    },
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    }
+  };
+
+  try {
+    const result = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      17,
+      {
+        runtimeRoot: tempRoot,
+        github,
+        shapeGitHubIssue: async () => ({
+          payload: {
+            route: "clarify",
+            summary: "The issue needs more context before execution can begin.",
+            acceptanceCriteria: [],
+            nonGoals: [],
+            splitIssues: []
+          }
+        })
+      }
+    );
+
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const events = JSON.parse(
+      `[${(await fs.readFile(runtimePaths.eventsFilePath, "utf8")).trim().replace(/\n/g, ",")}]`
+    );
+
+    assert.equal(result.status, "blocked");
+    assert.ok(
+      events.some(
+        (event) => event.event === "issue_blocked_after_shaping" && event.actor === "worker"
+      )
+    );
+    assert.match(comments.at(-1), /needs more context before execution can begin/i);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker preserves the workspace actor when execution produces no changes", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-no-changes-"));
+  const comments = [];
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 18,
+      title: "No-op fix",
+      body: "Execution may determine the issue is already solved.",
+      labels: ["agent:ready"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/18"
+    }),
+    editIssue: async () => {},
+    commentIssue: async (_repoSlug, _issueNumber, body) => {
+      comments.push(body);
+    },
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    },
+    findPullRequestForBranch: async () => null,
+    editPullRequest: async () => {
+      throw new Error("unexpected pull request edit");
+    },
+    listPullRequestReviews: async () => [],
+    listPullRequestReviewComments: async () => [],
+    createPullRequest: async () => {
+      throw new Error("unexpected pull request creation");
+    },
+    submitPullRequestReview: async () => {
+      throw new Error("unexpected pull request review");
+    },
+    createCommitStatus: async () => {
+      throw new Error("unexpected commit status projection");
+    },
+    enableAutoMerge: async () => {
+      throw new Error("unexpected auto-merge enable");
+    },
+    closeIssue: async () => {}
+  };
+
+  try {
+    const result = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      18,
+      {
+        runtimeRoot: tempRoot,
+        github,
+        createIssueWorktree: async () => ({
+          branchName: "agent/issue-18",
+          baseBranch: "main",
+          worktreePath: "/tmp/fake-no-changes-worktree",
+          reused: false
+        }),
+        commitAllChanges: async () => ({
+          changed: false,
+          commitSha: null
+        }),
+        shapeGitHubIssue: async () => ({
+          payload: {
+            route: "execute",
+            summary: "Ready for execution.",
+            acceptanceCriteria: ["No-op executions still preserve runtime semantics."],
+            nonGoals: [],
+            splitIssues: []
+          }
+        }),
+        executeGitHubIssue: async () => ({
+          payload: {
+            status: "no_changes",
+            summary: "No code changes were produced.",
+            changeSummary: "The repository already matches the requested state.",
+            verificationSummary: "No further validation required.",
+            commitMessage: "chore(issue-os): no-op execution",
+            blockers: []
+          }
+        })
+      }
+    );
+
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const events = JSON.parse(
+      `[${(await fs.readFile(runtimePaths.eventsFilePath, "utf8")).trim().replace(/\n/g, ",")}]`
+    );
+
+    assert.equal(result.status, "blocked");
+    assert.ok(
+      events.some((event) => event.event === "execution_no_changes" && event.actor === "workspace")
+    );
+    assert.match(comments.at(-1), /No code changes were produced/i);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("runGitHubIssueWorker executes, critiques, and records a successful issue run", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-"));
   const comments = [];
