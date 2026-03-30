@@ -8,6 +8,8 @@
  *   node scripts/lib/issue-driven-os-queue.js next --repo owner/repo --limit 6
  */
 
+const fs = require("node:fs");
+const path = require("node:path");
 const { buildGhAdapter } = require("./issue-driven-os-github-adapter");
 
 const PRIORITY_ORDER = ["P0", "P1", "P2", "P3"];
@@ -159,16 +161,48 @@ if (require.main === module) {
     return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
   }
 
-  if (command === "next") {
-    const repo = flag("repo");
-    const limit = parseInt(flag("limit") ?? "6", 10);
-
-    if (!repo) {
-      console.error("Usage: node issue-driven-os-queue.js next --repo owner/repo [--limit N]");
+  function buildDryRunAdapter() {
+    const fixturePath = path.resolve(__dirname, "../fixtures/queue-test.json");
+    let allIssues;
+    try {
+      allIssues = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+    } catch (err) {
+      console.error(`--dry-run: could not load fixture at ${fixturePath}: ${err.message}`);
       process.exit(1);
     }
 
-    const gh = buildGhAdapter();
+    function listIssues(_repoSlug, options) {
+      const state = (options.state ?? "open").toUpperCase();
+      const labelFilter = options.labels ?? [];
+      const limit = options.limit ?? 100;
+
+      const filtered = allIssues.filter((issue) => {
+        if (issue.state.toUpperCase() !== state) return false;
+        for (const label of labelFilter) {
+          if (!issue.labels.includes(label)) return false;
+        }
+        return true;
+      });
+
+      return Promise.resolve(filtered.slice(0, limit));
+    }
+
+    return { listIssues };
+  }
+
+  if (command === "next") {
+    const repo = flag("repo");
+    const limit = parseInt(flag("limit") ?? "6", 10);
+    const dryRun = args.includes("--dry-run");
+
+    if (!repo) {
+      console.error(
+        "Usage: node issue-driven-os-queue.js next --repo owner/repo [--limit N] [--dry-run]"
+      );
+      process.exit(1);
+    }
+
+    const gh = dryRun ? buildDryRunAdapter() : buildGhAdapter();
     const queue = buildQueue({ gh, repoSlug: repo });
 
     queue
