@@ -20,14 +20,7 @@
     "handoff-bundle-writing",
     "issue-shaping"
   ],
-  "agents": [
-    "explorer",
-    "issue-shaper",
-    "issue-cell-executor",
-    "issue-cell-critic",
-    "debugger",
-    "docs-researcher"
-  ],
+  "agents": ["explorer", "docs-researcher"],
   "capabilities": {
     "shell": true,
     "network": false,

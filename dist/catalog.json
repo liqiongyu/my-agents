@@ -838,10 +838,6 @@
       ],
       "agents": [
         "explorer",
-        "issue-shaper",
-        "issue-cell-executor",
-        "issue-cell-critic",
-        "debugger",
         "docs-researcher"
       ],
       "platforms": [
@@ -1081,5 +1077,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-30T09:25:54.706Z"
+  "generatedAt": "2026-03-30T09:28:16.704Z"
 }
