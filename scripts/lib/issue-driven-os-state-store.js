@@ -60,6 +60,17 @@ function compareRunRecords(left, right) {
   return compareStrings(right.id, left.id);
 }
 
+function compareRuntimeEventsDescending(left, right) {
+  const timestampCompare =
+    toTimestamp(right?.timestamp, Number.NEGATIVE_INFINITY) -
+    toTimestamp(left?.timestamp, Number.NEGATIVE_INFINITY);
+  if (timestampCompare !== 0) {
+    return timestampCompare;
+  }
+
+  return compareStrings(right?.id, left?.id);
+}
+
 function buildRuntimePaths(repoSlug, options = {}) {
   const baseDir =
     options.runtimeRoot ??
@@ -723,36 +734,193 @@ async function appendRuntimeEvent(runtimePaths, eventData) {
   return event;
 }
 
-async function readNdjsonFile(filePath, options = {}) {
-  const warnings = options.warnings ?? [];
+function parseNdjsonText(raw, filePath, warnings) {
+  const records = [];
 
-  if (!(await fileExists(filePath))) {
-    return [];
-  }
-
-  let raw;
-  try {
-    raw = await fs.readFile(filePath, "utf8");
-  } catch (error) {
-    warnings.push(`Failed to read event log ${filePath}: ${error.message}`);
-    return [];
-  }
-
-  const events = [];
-  for (const line of raw.split(/\r?\n/)) {
+  for (const line of String(raw ?? "").split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) {
       continue;
     }
 
     try {
-      events.push(JSON.parse(trimmed));
+      records.push(JSON.parse(trimmed));
     } catch (error) {
       warnings.push(`Failed to parse event line in ${filePath}: ${error.message}`);
     }
   }
 
-  return events;
+  return records;
+}
+
+function runtimeEventLogPath(runtimePaths, options = {}) {
+  return options.runId
+    ? path.join(runtimePaths.runEventsDir, `${options.runId}.ndjson`)
+    : runtimePaths.eventsFilePath;
+}
+
+async function readRecentNdjsonRecords(filePath, options = {}) {
+  const warnings = options.warnings ?? [];
+  const limit = Math.max(1, Number(options.limit ?? 20));
+  const chunkSize = Math.max(1024, Number(options.chunkSize ?? 64 * 1024));
+
+  if (!(await fileExists(filePath))) {
+    return [];
+  }
+
+  let handle;
+  try {
+    handle = await fs.open(filePath, "r");
+    const stats = await handle.stat();
+    if (stats.size <= 0) {
+      return [];
+    }
+
+    let position = stats.size;
+    const chunks = [];
+    const records = [];
+
+    while (position > 0 && records.length < limit) {
+      const readSize = Math.min(chunkSize, position);
+      position -= readSize;
+
+      const buffer = Buffer.alloc(readSize);
+      const { bytesRead } = await handle.read(buffer, 0, readSize, position);
+      if (bytesRead <= 0) {
+        break;
+      }
+
+      chunks.unshift(buffer.subarray(0, bytesRead));
+      const text = Buffer.concat(chunks).toString("utf8");
+      const lines = text.split("\n");
+      const firstCompleteLineIndex = position > 0 ? 1 : 0;
+
+      records.length = 0;
+      for (
+        let index = lines.length - 1;
+        index >= firstCompleteLineIndex && records.length < limit;
+        index -= 1
+      ) {
+        const trimmed = lines[index].trim();
+        if (!trimmed) {
+          continue;
+        }
+
+        try {
+          records.push(JSON.parse(trimmed));
+        } catch (error) {
+          warnings.push(`Failed to parse event line in ${filePath}: ${error.message}`);
+        }
+      }
+    }
+
+    return records.reverse();
+  } catch (error) {
+    warnings.push(`Failed to read event log ${filePath}: ${error.message}`);
+    return [];
+  } finally {
+    await handle?.close();
+  }
+}
+
+async function captureRuntimeEventCursor(runtimePaths, options = {}) {
+  const filePath = runtimeEventLogPath(runtimePaths, options);
+
+  if (!(await fileExists(filePath))) {
+    return {
+      offset: 0,
+      runId: options.runId ?? null
+    };
+  }
+
+  try {
+    const stats = await fs.stat(filePath);
+    return {
+      offset: stats.size,
+      runId: options.runId ?? null
+    };
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return {
+        offset: 0,
+        runId: options.runId ?? null
+      };
+    }
+
+    throw error;
+  }
+}
+
+async function readRuntimeEventsSince(runtimePaths, cursor = {}, options = {}) {
+  const warnings = options.warnings ?? [];
+  const runId = options.runId ?? cursor.runId ?? null;
+  const filePath = runtimeEventLogPath(runtimePaths, { runId });
+  const offset = Math.max(0, Number(cursor.offset ?? 0));
+
+  if (!(await fileExists(filePath))) {
+    return {
+      events: [],
+      cursor: {
+        offset: 0,
+        runId
+      }
+    };
+  }
+
+  let handle;
+  try {
+    handle = await fs.open(filePath, "r");
+    const stats = await handle.stat();
+    const startOffset = offset > stats.size ? 0 : offset;
+
+    if (startOffset >= stats.size) {
+      return {
+        events: [],
+        cursor: {
+          offset: stats.size,
+          runId
+        }
+      };
+    }
+
+    const bytesToRead = stats.size - startOffset;
+    const buffer = Buffer.alloc(bytesToRead);
+    const { bytesRead } = await handle.read(buffer, 0, bytesToRead, startOffset);
+    const raw = buffer.toString("utf8", 0, bytesRead);
+    const lastNewline = raw.lastIndexOf("\n");
+
+    if (lastNewline < 0) {
+      return {
+        events: [],
+        cursor: {
+          offset: startOffset,
+          runId
+        }
+      };
+    }
+
+    const committedRaw = raw.slice(0, lastNewline + 1);
+    const nextOffset = startOffset + Buffer.byteLength(committedRaw);
+
+    return {
+      events: parseNdjsonText(committedRaw, filePath, warnings),
+      cursor: {
+        offset: nextOffset,
+        runId
+      }
+    };
+  } catch (error) {
+    warnings.push(`Failed to read event log ${filePath}: ${error.message}`);
+    return {
+      events: [],
+      cursor: {
+        offset,
+        runId
+      }
+    };
+  } finally {
+    await handle?.close();
+  }
 }
 
 async function listActiveLeases(runtimePaths, options = {}) {
@@ -765,20 +933,14 @@ async function listActiveLeases(runtimePaths, options = {}) {
 async function listRuntimeEvents(runtimePaths, options = {}) {
   const warnings = options.warnings ?? [];
   const limit = Math.max(1, Number(options.limit ?? 20));
-  const targetPath = options.runId
-    ? path.join(runtimePaths.runEventsDir, `${options.runId}.ndjson`)
-    : runtimePaths.eventsFilePath;
+  const targetPath = runtimeEventLogPath(runtimePaths, { runId: options.runId });
 
-  const events = await readNdjsonFile(targetPath, { warnings });
-  return events
-    .sort((left, right) => {
-      const leftTime = Date.parse(left.timestamp ?? "");
-      const rightTime = Date.parse(right.timestamp ?? "");
-      const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
-      const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
-      return safeRight - safeLeft;
-    })
-    .slice(0, limit);
+  const events = await readRecentNdjsonRecords(targetPath, {
+    warnings,
+    limit,
+    chunkSize: options.chunkSize
+  });
+  return events.sort(compareRuntimeEventsDescending).slice(0, limit);
 }
 
 async function inspectRuntimeState(runtimePaths, repoSlug, options = {}) {
@@ -832,6 +994,7 @@ module.exports = {
   buildRunRecord,
   buildRuntimePaths,
   buildRuntimeEvent,
+  captureRuntimeEventCursor,
   compareIssueNumbers,
   createEmptyRuntimeState,
   decorateLeaseRecord,
@@ -850,6 +1013,7 @@ module.exports = {
   persistRunRecord,
   readLease,
   readRunRecord,
+  readRuntimeEventsSince,
   readRuntimeState,
   recordRunUpdate,
   releaseIssueLease,

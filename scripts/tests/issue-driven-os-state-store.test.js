@@ -9,10 +9,13 @@ const {
   appendRuntimeEvent,
   buildRunRecord,
   buildRuntimePaths,
+  captureRuntimeEventCursor,
   inspectRuntimeState,
+  listRuntimeEvents,
   persistArtifact,
   persistRunRecord,
   readLease,
+  readRuntimeEventsSince,
   recordRunUpdate,
   releaseIssueLease,
   renewIssueLease
@@ -276,6 +279,134 @@ test("issue-driven-os state store exposes inspection snapshots and recent events
     assert.equal(snapshot.run.id, runRecord.id);
     assert.equal(snapshot.artifacts[0].kind, "shaping");
     assert.equal(snapshot.recentEvents[0].event, "issue_claimed");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("issue-driven-os state store tails recent events without parsing older malformed history", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-tail-"));
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    await fs.mkdir(path.dirname(runtimePaths.eventsFilePath), { recursive: true });
+    await fs.writeFile(
+      runtimePaths.eventsFilePath,
+      [
+        '{"id":"broken-old-event"',
+        JSON.stringify({
+          id: "evt_1",
+          timestamp: "2026-03-30T00:00:01.000Z",
+          event: "one",
+          message: "one"
+        }),
+        JSON.stringify({
+          id: "evt_2",
+          timestamp: "2026-03-30T00:00:02.000Z",
+          event: "two",
+          message: "two"
+        }),
+        JSON.stringify({
+          id: "evt_3",
+          timestamp: "2026-03-30T00:00:03.000Z",
+          event: "three",
+          message: "three"
+        })
+      ].join("\n") + "\n",
+      "utf8"
+    );
+
+    const warnings = [];
+    const recentEvents = await listRuntimeEvents(runtimePaths, {
+      warnings,
+      limit: 2
+    });
+
+    assert.deepEqual(
+      recentEvents.map((event) => event.id),
+      ["evt_3", "evt_2"]
+    );
+    assert.deepEqual(warnings, []);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("issue-driven-os state store tails UTF-8 events across chunk boundaries", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-utf8-tail-"));
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    await fs.mkdir(path.dirname(runtimePaths.eventsFilePath), { recursive: true });
+    await fs.writeFile(
+      runtimePaths.eventsFilePath,
+      [
+        JSON.stringify({
+          id: "evt_1",
+          timestamp: "2026-03-30T00:00:01.000Z",
+          event: "ascii",
+          message: "old event"
+        }),
+        JSON.stringify({
+          id: "evt_2",
+          timestamp: "2026-03-30T00:00:02.000Z",
+          event: "utf8",
+          message: "需要保留多字节字符"
+        })
+      ].join("\n") + "\n",
+      "utf8"
+    );
+
+    const recentEvents = await listRuntimeEvents(runtimePaths, {
+      limit: 1,
+      chunkSize: 5
+    });
+
+    assert.equal(recentEvents[0].id, "evt_2");
+    assert.equal(recentEvents[0].message, "需要保留多字节字符");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("issue-driven-os state store reads appended events from a cursor", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-cursor-"));
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const initialCursor = await captureRuntimeEventCursor(runtimePaths);
+
+    await appendRuntimeEvent(runtimePaths, {
+      id: "evt_1",
+      timestamp: "2026-03-30T00:00:01.000Z",
+      repoSlug: "owner/repo",
+      issueNumber: 31,
+      event: "first",
+      message: "First event."
+    });
+
+    const firstBatch = await readRuntimeEventsSince(runtimePaths, initialCursor);
+    assert.deepEqual(
+      firstBatch.events.map((event) => event.id),
+      ["evt_1"]
+    );
+
+    await fs.appendFile(
+      runtimePaths.eventsFilePath,
+      '{"id":"evt_2","timestamp":"2026-03-30T00:00:02.000Z","message":"partial"',
+      "utf8"
+    );
+    const partialBatch = await readRuntimeEventsSince(runtimePaths, firstBatch.cursor);
+    assert.equal(partialBatch.events.length, 0);
+    assert.equal(partialBatch.cursor.offset, firstBatch.cursor.offset);
+
+    await fs.appendFile(runtimePaths.eventsFilePath, ',"event":"second"}\n', "utf8");
+    const secondBatch = await readRuntimeEventsSince(runtimePaths, firstBatch.cursor);
+    assert.deepEqual(
+      secondBatch.events.map((event) => event.id),
+      ["evt_2"]
+    );
+    assert.ok(secondBatch.cursor.offset > firstBatch.cursor.offset);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
