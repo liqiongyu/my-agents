@@ -156,12 +156,34 @@ function buildGhAdapter(options = {}) {
     });
   }
 
+  async function labelExists(repoSlug, labelName, options = {}) {
+    const { owner, repo } = parseRepoSlug(repoSlug);
+
+    try {
+      await readJson(
+        ["api", `repos/${owner}/${repo}/labels/${encodeURIComponent(labelName)}`],
+        options.commandOptions
+      );
+      return true;
+    } catch (error) {
+      if (/404/i.test(error.message)) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   async function ensureLabels(repoSlug, labels = DEFAULT_AGENT_LABELS, options = {}) {
     const { owner, repo } = parseRepoSlug(repoSlug);
 
+    // Bootstrap label presence idempotently and leave existing metadata untouched.
     for (const label of labels) {
+      if (await labelExists(repoSlug, label.name, options)) {
+        continue;
+      }
+
       try {
-        await run(
+        await capture(
           "gh",
           [
             "api",
@@ -178,6 +200,7 @@ function buildGhAdapter(options = {}) {
           options.commandOptions
         );
       } catch (error) {
+        // A concurrent bootstrap can win the race between our existence check and create call.
         if (!/already_exists|already exists|422/i.test(error.message)) {
           throw error;
         }

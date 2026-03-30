@@ -6,6 +6,7 @@ const assert = require("node:assert/strict");
 
 const {
   produceGitHubIssue,
+  runGitHubDaemon,
   runGitHubIssueWorker
 } = require("../lib/issue-driven-os-github-runtime");
 const { buildRuntimePaths } = require("../lib/issue-driven-os-state-store");
@@ -13,9 +14,11 @@ const { buildRuntimePaths } = require("../lib/issue-driven-os-state-store");
 test("produceGitHubIssue normalizes raw input and creates a ready issue", async () => {
   const calls = [];
   const github = {
-    ensureLabels: async () => {},
+    ensureLabels: async () => {
+      calls.push("ensureLabels");
+    },
     createIssue: async (_repoSlug, draft) => {
-      calls.push(draft);
+      calls.push({ type: "createIssue", draft });
       return { number: 101, url: "https://example.test/issues/101" };
     }
   };
@@ -39,7 +42,11 @@ test("produceGitHubIssue normalizes raw input and creates a ready issue", async 
   );
 
   assert.equal(result.issueNumber, 101);
-  assert.deepEqual(calls[0].labels, ["bug", "agent:ready"]);
+  assert.deepEqual(
+    calls.map((entry) => (typeof entry === "string" ? entry : entry.type)),
+    ["ensureLabels", "createIssue"]
+  );
+  assert.deepEqual(calls[1].draft.labels, ["bug", "agent:ready"]);
 });
 
 test("runGitHubIssueWorker executes, critiques, and records a successful issue run", async () => {
@@ -47,19 +54,25 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
   const comments = [];
   const issueEdits = [];
   const prComments = [];
+  const callOrder = [];
   let findPrCalls = 0;
 
   const github = {
-    ensureLabels: async () => {},
-    viewIssue: async () => ({
-      number: 12,
-      title: "Fix the parser",
-      body: "Parser fails on blank lines.",
-      labels: ["agent:ready"],
-      comments: [],
-      state: "OPEN",
-      url: "https://example.test/issues/12"
-    }),
+    ensureLabels: async () => {
+      callOrder.push("ensureLabels");
+    },
+    viewIssue: async () => {
+      callOrder.push("viewIssue");
+      return {
+        number: 12,
+        title: "Fix the parser",
+        body: "Parser fails on blank lines.",
+        labels: ["agent:ready"],
+        comments: [],
+        state: "OPEN",
+        url: "https://example.test/issues/12"
+      };
+    },
     editIssue: async (_repoSlug, _issueNumber, edit) => {
       issueEdits.push(edit);
     },
@@ -161,8 +174,35 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
     assert.equal(issueEdits.length >= 2, true);
     assert.equal(prComments.length, 1);
     assert.equal(runFiles.length, 1);
+    assert.deepEqual(callOrder.slice(0, 2), ["ensureLabels", "viewIssue"]);
     assert.match(comments[0], /claimed this issue/);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test("runGitHubDaemon bootstraps labels before scanning issues", async () => {
+  const callOrder = [];
+  const result = await runGitHubDaemon(
+    path.resolve(__dirname, "..", ".."),
+    "owner/repo",
+    process.cwd(),
+    {
+      once: true,
+      github: {
+        ensureLabels: async () => {
+          callOrder.push("ensureLabels");
+        },
+        listIssues: async () => {
+          callOrder.push("listIssues");
+          return [];
+        }
+      }
+    }
+  );
+
+  assert.deepEqual(callOrder, ["ensureLabels", "listIssues"]);
+  assert.equal(result.checked, 0);
+  assert.equal(result.consumed, 0);
+  assert.deepEqual(result.results, []);
 });
