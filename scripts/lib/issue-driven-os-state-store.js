@@ -173,6 +173,26 @@ async function releaseIssueLease(runtimePaths, issueNumber, holderId) {
   return true;
 }
 
+async function forceReleaseIssueLease(runtimePaths, issueNumber) {
+  const leasePath = leasePathForIssue(runtimePaths, issueNumber);
+  const existing = await readLease(runtimePaths, issueNumber);
+
+  if (!existing) {
+    return {
+      released: false,
+      lease: null,
+      leasePath
+    };
+  }
+
+  await fs.rm(leasePath, { force: true });
+  return {
+    released: true,
+    lease: existing,
+    leasePath
+  };
+}
+
 function buildRunId(issueNumber, options = {}) {
   const timestamp = (options.startedAt ?? new Date().toISOString())
     .replace(/[-:]/g, "")
@@ -474,6 +494,7 @@ module.exports = {
   listRuntimeEvents,
   persistArtifact,
   persistRunRecord,
+  forceReleaseIssueLease,
   readLease,
   readRunRecord,
   readRuntimeState,

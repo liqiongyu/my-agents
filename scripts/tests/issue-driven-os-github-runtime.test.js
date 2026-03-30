@@ -9,13 +9,17 @@ const {
   parseIssueDependencies,
   planConsumableIssues,
   produceGitHubIssue,
+  recoverIssueRun,
   runGitHubIssueWorker
 } = require("../lib/issue-driven-os-github-runtime");
 const {
+  acquireIssueLease,
   buildRunRecord,
   buildRuntimePaths,
   persistArtifact,
   persistRunRecord,
+  readLease,
+  readRunRecord,
   recordRunUpdate
 } = require("../lib/issue-driven-os-state-store");
 
@@ -471,6 +475,69 @@ test("runGitHubIssueWorker downgrades self-approval to a comment review and stil
   }
 });
 
+test("recoverIssueRun releases a stale lease and marks a claimed run as failed", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-recover-"));
+  const issueEdits = [];
+  const comments = [];
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const runRecord = buildRunRecord(19, {
+      repoSlug: "owner/repo",
+      status: "claimed",
+      startedAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:10:00.000Z",
+      branchRef: "agent/issue-19",
+      lastCompletedPhase: "workspace",
+      summary: "Claimed but never released."
+    });
+
+    await persistRunRecord(runtimePaths, runRecord);
+    await recordRunUpdate(runtimePaths, "owner/repo", runRecord);
+    await acquireIssueLease(
+      runtimePaths,
+      19,
+      {
+        holderId: runRecord.id,
+        holderType: "worker",
+        runId: runRecord.id
+      },
+      {
+        now: new Date("2026-03-30T00:10:00.000Z"),
+        ttlMs: 30 * 60 * 1000
+      }
+    );
+
+    const result = await recoverIssueRun("owner/repo", 19, {
+      runtimeRoot: tempRoot,
+      github: {
+        editIssue: async (_repoSlug, _issueNumber, edit) => {
+          issueEdits.push(edit);
+        },
+        commentIssue: async (_repoSlug, _issueNumber, body) => {
+          comments.push(body);
+        }
+      }
+    });
+
+    const recoveredRun = await readRunRecord(runtimePaths, runRecord.id);
+    const lease = await readLease(runtimePaths, 19);
+
+    assert.equal(result.status, "recovered");
+    assert.equal(recoveredRun.status, "failed");
+    assert.equal(recoveredRun.lastCompletedPhase, "workspace");
+    assert.equal(lease, null);
+    assert.ok(
+      issueEdits.some(
+        (edit) => Array.isArray(edit.removeLabels) && edit.removeLabels.includes("agent:claimed")
+      )
+    );
+    assert.ok(comments.some((body) => /recovered a stale claim/i.test(body)));
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("runGitHubIssueWorker resumes a failed run from persisted execution state", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-resume-"));
   const reviews = [];
@@ -662,6 +729,167 @@ test("runGitHubIssueWorker resumes a failed run from persisted execution state",
     assert.ok(events.some((event) => event.event === "commit_reused"));
     assert.ok(findPrCalls >= 1);
     assert.equal(issueEdits.length >= 2, true);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker does not reuse stale execution artifacts before execution completed", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-stage-safe-resume-"));
+  const executionContexts = [];
+  let shapeCalls = 0;
+  let executeCalls = 0;
+  let critiqueCalls = 0;
+
+  const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+  const priorRun = buildRunRecord(23, {
+    id: "run_issue_23_20260330T000000Z",
+    repoSlug: "owner/repo",
+    status: "failed",
+    startedAt: "2026-03-30T00:00:00.000Z",
+    updatedAt: "2026-03-30T00:10:00.000Z",
+    finishedAt: "2026-03-30T00:10:00.000Z",
+    branchRef: "agent/issue-23",
+    worktreePath: "/tmp/fake-stage-safe-worktree",
+    lastCompletedPhase: "workspace",
+    summary: "Worker died after workspace setup.",
+    artifacts: []
+  });
+
+  await persistRunRecord(runtimePaths, priorRun);
+  await persistArtifact(runtimePaths, priorRun.id, "shaping", {
+    route: "execute",
+    summary: "Shaped and ready.",
+    acceptanceCriteria: ["resume reuses only safe artifacts"],
+    nonGoals: [],
+    splitIssues: []
+  });
+  await persistArtifact(runtimePaths, priorRun.id, "execution", {
+    status: "implemented",
+    summary: "This stale execution artifact should not be reused.",
+    changeSummary: "stale",
+    verificationSummary: "stale",
+    commitMessage: "stale",
+    prTitle: "stale",
+    prBody: "stale",
+    blockers: []
+  });
+  await persistArtifact(runtimePaths, priorRun.id, "critic", {
+    verdict: "ready",
+    verificationVerdict: "verified-pass",
+    summary: "stale critic",
+    blockingFindings: [],
+    nonBlockingFindings: []
+  });
+  await recordRunUpdate(runtimePaths, "owner/repo", priorRun);
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 23,
+      title: "Resume from workspace after worker died",
+      body: "Stale execution artifacts should not be reused.",
+      labels: ["agent:blocked"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/23"
+    }),
+    editIssue: async () => {},
+    commentIssue: async () => {},
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    },
+    findPullRequestForBranch: async () => null,
+    editPullRequest: async () => {},
+    listPullRequestReviews: async () => [],
+    listPullRequestReviewComments: async () => [],
+    createPullRequest: async () => ({
+      number: 93,
+      url: "https://example.test/pull/93",
+      state: "OPEN",
+      mergeStateStatus: "CLEAN"
+    }),
+    submitPullRequestReview: async () => {},
+    enableAutoMerge: async () => {},
+    closeIssue: async () => {}
+  };
+
+  const workspace = {
+    createIssueWorktree: async () => ({
+      branchName: "agent/issue-23",
+      baseBranch: "main",
+      worktreePath: "/tmp/fake-stage-safe-worktree",
+      reused: true
+    }),
+    refreshIssueBranch: async () => ({
+      status: "up_to_date",
+      baseBranch: "main",
+      baseRef: "origin/main",
+      conflictedFiles: []
+    }),
+    commitAllChanges: async () => ({
+      changed: true,
+      commitSha: "stageSafe123"
+    }),
+    pushBranch: async () => {},
+    cleanupIssueWorktree: async () => {}
+  };
+
+  try {
+    const result = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      23,
+      {
+        runtimeRoot: tempRoot,
+        github,
+        createIssueWorktree: workspace.createIssueWorktree,
+        refreshIssueBranch: workspace.refreshIssueBranch,
+        commitAllChanges: workspace.commitAllChanges,
+        pushBranch: workspace.pushBranch,
+        cleanupIssueWorktree: workspace.cleanupIssueWorktree,
+        shapeGitHubIssue: async () => {
+          shapeCalls += 1;
+          throw new Error("shaping should not rerun");
+        },
+        executeGitHubIssue: async (_repoRoot, _cwd, context) => {
+          executeCalls += 1;
+          executionContexts.push(context);
+          return {
+            payload: {
+              status: "implemented",
+              summary: "Fresh execution reran after recovery.",
+              changeSummary: "Recovered from workspace checkpoint.",
+              verificationSummary: "Fresh execution path ran.",
+              commitMessage: "fix(issue-os): rerun after stale claimed run",
+              prTitle: "Rerun after stale claimed run",
+              prBody: "Fresh execution path after recovery.",
+              blockers: []
+            }
+          };
+        },
+        critiqueGitHubIssue: async () => {
+          critiqueCalls += 1;
+          return {
+            payload: {
+              verdict: "ready",
+              verificationVerdict: "verified-pass",
+              summary: "Fresh execution result is ready.",
+              blockingFindings: [],
+              nonBlockingFindings: []
+            }
+          };
+        }
+      }
+    );
+
+    assert.equal(result.status, "awaiting_merge");
+    assert.equal(shapeCalls, 0);
+    assert.equal(executeCalls, 1);
+    assert.equal(critiqueCalls, 1);
+    assert.equal(executionContexts.length, 1);
+    assert.equal(executionContexts[0].reviewFeedback.requestedChanges.length, 0);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

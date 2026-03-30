@@ -11,9 +11,11 @@ const {
   buildRunRecord,
   buildRuntimePaths,
   ensureRuntimeLayout,
+  forceReleaseIssueLease,
   listRunArtifacts,
   persistArtifact,
   persistRunRecord,
+  readLease,
   readRunRecord,
   readRuntimeState,
   recordRunUpdate,
@@ -588,6 +590,18 @@ function buildIssueResumeComment(runRecord, resumeContext) {
     .join("\n");
 }
 
+function buildIssueRecoveryComment(runRecord, lease) {
+  return [
+    "Agent worker recovered a stale claim for this issue.",
+    `Run id: ${runRecord?.id ?? "n/a"}`,
+    lease?.holderId ? `Recovered lease holder: ${lease.holderId}` : null,
+    runRecord?.lastCompletedPhase ? `Last completed phase: ${runRecord.lastCompletedPhase}` : null,
+    "Next step: rerun `issue-driven-os github resume` to continue from the last safe checkpoint."
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function buildSplitComment(shaping) {
   const lines = [
     "The issue was not executed directly because shaping decided it should split first.",
@@ -714,6 +728,10 @@ async function loadArtifactPayload(artifact) {
   }
 }
 
+function hasCompletedPhase(runRecord, phases) {
+  return phases.includes(runRecord?.lastCompletedPhase ?? "");
+}
+
 async function loadResumeContext(runtimePaths, repoSlug, issueNumber, options = {}) {
   if (options.resume === false) {
     return null;
@@ -737,9 +755,40 @@ async function loadResumeContext(runtimePaths, repoSlug, issueNumber, options = 
   const persistedArtifacts = await listRunArtifacts(runtimePaths, latestRun.id);
   const artifacts = mergeArtifactRefs(latestRun.artifacts, persistedArtifacts);
   const artifactIndex = new Map(artifacts.map((artifact) => [artifact.kind, artifact]));
-  const shaping = await loadArtifactPayload(artifactIndex.get("shaping"));
-  const execution = await loadArtifactPayload(artifactIndex.get("execution"));
-  const critic = await loadArtifactPayload(artifactIndex.get("critic"));
+  const shaping = hasCompletedPhase(latestRun, [
+    "shaping",
+    "workspace",
+    "execution",
+    "commit_created",
+    "branch_pushed",
+    "pull_request_prepared",
+    "critic",
+    "review_projected",
+    "merge_enabled",
+    "reconciled"
+  ])
+    ? await loadArtifactPayload(artifactIndex.get("shaping"))
+    : null;
+  const execution = hasCompletedPhase(latestRun, [
+    "execution",
+    "commit_created",
+    "branch_pushed",
+    "pull_request_prepared",
+    "critic",
+    "review_projected",
+    "merge_enabled",
+    "reconciled"
+  ])
+    ? await loadArtifactPayload(artifactIndex.get("execution"))
+    : null;
+  const critic = hasCompletedPhase(latestRun, [
+    "critic",
+    "review_projected",
+    "merge_enabled",
+    "reconciled"
+  ])
+    ? await loadArtifactPayload(artifactIndex.get("critic"))
+    : null;
   const needsRework =
     normalizeStateName(latestRun.status) === "needs_changes" && critic?.verdict === "needs_changes";
 
@@ -957,6 +1006,104 @@ async function reconcileIssue(repoSlug, issueNumber, options = {}) {
 
   return buildRunSummary("closed", "Issue closed after merge.", {
     pullRequest: pr
+  });
+}
+
+async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
+  const deps = buildRuntimeDeps(options);
+  const runtimePaths = buildRuntimePaths(repoSlug, { runtimeRoot: options.runtimeRoot });
+  await ensureRuntimeLayout(runtimePaths);
+
+  const state = await readRuntimeState(runtimePaths, repoSlug);
+  const latestRunId = state.issues?.[String(issueNumber)]?.latestRunId ?? null;
+  const latestRun = latestRunId ? await readRunRecord(runtimePaths, latestRunId) : null;
+  const lease = await readLease(runtimePaths, issueNumber);
+  const forceRelease = await forceReleaseIssueLease(runtimePaths, issueNumber);
+  const recoveredAt = new Date().toISOString();
+
+  if (!latestRun && !forceRelease.released) {
+    return buildRunSummary("noop", "No claimed run or lease needed recovery.", {
+      runId: null,
+      lease: null
+    });
+  }
+
+  let recoveredRun = latestRun;
+  if (latestRun && normalizeStateName(latestRun.status) === "claimed") {
+    recoveredRun = buildRunRecord(issueNumber, {
+      ...latestRun,
+      repoSlug,
+      status: "failed",
+      updatedAt: recoveredAt,
+      finishedAt: recoveredAt,
+      summary: "Recovered stale claimed run after worker exit before lease release.",
+      notes: [...(latestRun.notes ?? []), `Recovered stale claim at ${recoveredAt}.`]
+    });
+    await persistRunRecord(runtimePaths, recoveredRun);
+    await recordRunUpdate(runtimePaths, repoSlug, recoveredRun);
+    await recordRuntimeEvent(runtimePaths, {
+      repoSlug,
+      issueNumber,
+      runId: recoveredRun.id,
+      actor: "recovery",
+      phase: "recovery",
+      event: "run_recovered",
+      message: "Marked stale claimed run as failed and resumable.",
+      data: {
+        previousStatus: latestRun.status,
+        lastCompletedPhase: latestRun.lastCompletedPhase ?? null
+      }
+    });
+  }
+
+  if (forceRelease.released) {
+    await recordRuntimeEvent(runtimePaths, {
+      repoSlug,
+      issueNumber,
+      runId: recoveredRun?.id ?? latestRun?.id ?? null,
+      actor: "recovery",
+      phase: "lease",
+      event: "lease_force_released",
+      message: `Force released lease for issue #${issueNumber}.`,
+      data: {
+        holderId: forceRelease.lease?.holderId ?? null,
+        previousExpiresAt: forceRelease.lease?.expiresAt ?? null
+      }
+    });
+  }
+
+  if (recoveredRun) {
+    try {
+      await deps.github.editIssue(repoSlug, issueNumber, {
+        addLabels: ["agent:blocked"],
+        removeLabels: ["agent:claimed"],
+        commandOptions: options.commandOptions
+      });
+      await postIssueComment(
+        runtimePaths,
+        deps,
+        repoSlug,
+        issueNumber,
+        buildIssueRecoveryComment(recoveredRun, lease),
+        {
+          actor: "worker",
+          phase: "recovery",
+          runId: recoveredRun.id,
+          executionSummary: buildWorkerExecutionSummary({
+            tools: ["runtime lease recovery", "github issue edit", "github issue comment"],
+            verification: "stale-claim-recovered"
+          })
+        },
+        options
+      );
+    } catch {
+      // Recovery should still succeed even if projection writeback fails.
+    }
+  }
+
+  return buildRunSummary("recovered", "Recovered stale claim and released the issue lease.", {
+    runId: recoveredRun?.id ?? latestRun?.id ?? null,
+    lease: forceRelease.lease ?? lease ?? null
   });
 }
 
@@ -2060,6 +2207,7 @@ module.exports = {
   parseIssueDependencies,
   planConsumableIssues,
   produceGitHubIssue,
+  recoverIssueRun,
   reconcileIssue,
   runGitHubDaemon,
   runGitHubIssueWorker
