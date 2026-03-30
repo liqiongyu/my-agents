@@ -44,6 +44,7 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 - [schemas/skill.schema.json](schemas/skill.schema.json), [schemas/agent.schema.json](schemas/agent.schema.json), [schemas/pack.schema.json](schemas/pack.schema.json), [schemas/project-manifest.schema.json](schemas/project-manifest.schema.json), and [schemas/catalog.schema.json](schemas/catalog.schema.json) define the machine-readable metadata contracts.
 - [docs/metadata/skill-metadata-policy.md](docs/metadata/skill-metadata-policy.md) explains how to use `requirements`, `capabilities`, and `maturity` consistently across skill packages.
 - Installable skills and agents are expected to stay self-contained after install. Avoid private cross-package runtime script dependencies; if no shared runtime distribution exists yet, prefer package-local copies.
+- In `agent.json`, `agents` is the canonical cross-surface dependency graph. When a runtime projection needs a flatter direct-child surface, use `platformDependencies["claude-code"].agents` instead of distorting the canonical graph.
 - [docs/metadata/pack-metadata-policy.md](docs/metadata/pack-metadata-policy.md) explains how to model pack membership, `packType`, and `persona` consistently.
 - [docs/metadata/project-manifest-policy.md](docs/metadata/project-manifest-policy.md) explains how to use `my-agents.project.json` for repository bootstrap.
 - [docs/cli/README.md](docs/cli/README.md) is the operator-facing command reference index.

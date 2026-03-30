@@ -44,6 +44,7 @@ npm test
 - [schemas/skill.schema.json](schemas/skill.schema.json)、[schemas/agent.schema.json](schemas/agent.schema.json)、[schemas/pack.schema.json](schemas/pack.schema.json)、[schemas/project-manifest.schema.json](schemas/project-manifest.schema.json) 和 [schemas/catalog.schema.json](schemas/catalog.schema.json) 定义了机器可读的元数据契约。
 - [docs/metadata/skill-metadata-policy.md](docs/metadata/skill-metadata-policy.md) 说明了如何一致地使用 `requirements`、`capabilities` 和 `maturity` 等字段。
 - 可安装的 skill 和 agent 在安装后应保持自包含。不要依赖其他包的私有运行时脚本路径；如果还没有正式的共享运行时分发机制，优先使用包内副本。
+- 在 `agent.json` 中，`agents` 表示 canonical 的跨平台 agent 依赖图；如果某个平台的运行时投影需要更扁平的直接子 agent 面，请使用 `platformDependencies["claude-code"].agents`，而不是把 canonical 图改扁。
 - [docs/metadata/pack-metadata-policy.md](docs/metadata/pack-metadata-policy.md) 说明了 pack 的成员编排方式以及 `packType`、`persona` 等字段约定。
 - [docs/metadata/project-manifest-policy.md](docs/metadata/project-manifest-policy.md) 说明了如何使用 `my-agents.project.json` 做项目级引导。
 - [docs/cli/README.md](docs/cli/README.md) 是面向操作方的命令参考索引。

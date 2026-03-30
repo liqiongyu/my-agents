@@ -4,7 +4,7 @@ description: >
   Issue Agent OS coding worker. Implements changes in an isolated worktree based on a
   triager-written brief. Spawned by the controller; returns status and summary on completion.
 tools: Read, Glob, Grep, Bash, Edit, Write
-model: sonnet
+model: opus
 ---
 
 # Identity

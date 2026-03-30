@@ -16,6 +16,10 @@ const PRIORITY_ORDER = ["P0", "P1", "P2", "P3"];
 const QUEUED_LABEL = "agent:queued";
 const DEPENDS_ON_PATTERN = /depends-on:\s*([#\d,\s]+)/i;
 
+function formatJsonOutput(value, compact = false) {
+  return compact ? JSON.stringify(value) : JSON.stringify(value, null, 2);
+}
+
 /**
  * Parse `depends-on: #12, #34` from issue body.
  * Returns array of issue numbers.
@@ -151,98 +155,120 @@ function buildQueue(options) {
   return { next, checkChildren, parseDependencies };
 }
 
-// --- CLI entry point ---
-if (require.main === module) {
-  const args = process.argv.slice(2);
-  const command = args[0];
-
-  function flag(name) {
-    const idx = args.indexOf(`--${name}`);
-    return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
-  }
-
-  function buildDryRunAdapter() {
-    const fixturePath = path.resolve(__dirname, "../fixtures/queue-test.json");
-    let allIssues;
-    try {
-      allIssues = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
-    } catch (err) {
-      console.error(`--dry-run: could not load fixture at ${fixturePath}: ${err.message}`);
-      process.exit(1);
-    }
-
-    function listIssues(_repoSlug, options) {
-      const state = (options.state ?? "open").toUpperCase();
-      const labelFilter = options.labels ?? [];
-      const limit = options.limit ?? 100;
-
-      const filtered = allIssues.filter((issue) => {
-        if (issue.state.toUpperCase() !== state) return false;
-        for (const label of labelFilter) {
-          if (!issue.labels.includes(label)) return false;
-        }
-        return true;
-      });
-
-      return Promise.resolve(filtered.slice(0, limit));
-    }
-
-    return { listIssues };
-  }
-
-  if (command === "next") {
-    const repo = flag("repo");
-    const limit = parseInt(flag("limit") ?? "6", 10);
-    const dryRun = args.includes("--dry-run");
-
-    if (!repo) {
-      console.error(
-        "Usage: node issue-driven-os-queue.js next --repo owner/repo [--limit N] [--dry-run]"
-      );
-      process.exit(1);
-    }
-
-    const gh = dryRun ? buildDryRunAdapter() : buildGhAdapter();
-    const queue = buildQueue({ gh, repoSlug: repo });
-
-    queue
-      .next({ limit })
-      .then((issues) => {
-        console.log(JSON.stringify(issues, null, 2));
-      })
-      .catch((err) => {
-        console.error("Queue error:", err.message);
-        process.exit(1);
-      });
-  } else if (command === "check-children") {
-    const repo = flag("repo");
-    const parent = parseInt(flag("parent") ?? "0", 10);
-
-    if (!repo || !parent) {
-      console.error(
-        "Usage: node issue-driven-os-queue.js check-children --repo owner/repo --parent N"
-      );
-      process.exit(1);
-    }
-
-    const gh = buildGhAdapter();
-    const queue = buildQueue({ gh, repoSlug: repo });
-
-    queue
-      .checkChildren(parent)
-      .then((result) => {
-        console.log(JSON.stringify(result, null, 2));
-      })
-      .catch((err) => {
-        console.error("Check-children error:", err.message);
-        process.exit(1);
-      });
-  } else {
-    console.error("Commands: next, check-children");
-    console.error("  next --repo owner/repo [--limit N]");
-    console.error("  check-children --repo owner/repo --parent N");
-    process.exit(1);
-  }
+function flag(args, name) {
+  const idx = args.indexOf(`--${name}`);
+  return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
 }
 
-module.exports = { buildQueue, parseDependencies, priorityRank, PRIORITY_ORDER, QUEUED_LABEL };
+function hasFlag(args, name) {
+  return args.includes(`--${name}`);
+}
+
+function buildDryRunAdapter(options = {}) {
+  const fixturePath = options.fixturePath ?? path.resolve(__dirname, "../fixtures/queue-test.json");
+  let allIssues;
+  try {
+    allIssues = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+  } catch (err) {
+    throw new Error(`--dry-run: could not load fixture at ${fixturePath}: ${err.message}`);
+  }
+
+  function listIssues(_repoSlug, issueOptions) {
+    const state = (issueOptions.state ?? "open").toUpperCase();
+    const labelFilter = issueOptions.labels ?? [];
+    const limit = issueOptions.limit ?? 100;
+
+    const filtered = allIssues.filter((issue) => {
+      if (issue.state.toUpperCase() !== state) return false;
+      for (const label of labelFilter) {
+        if (!issue.labels.includes(label)) return false;
+      }
+      return true;
+    });
+
+    return Promise.resolve(filtered.slice(0, limit));
+  }
+
+  return { listIssues };
+}
+
+async function runCli(args, options = {}) {
+  const command = args[0];
+  const writeStdout = options.writeStdout ?? ((line) => console.log(line));
+  const writeStderr = options.writeStderr ?? ((line) => console.error(line));
+  const buildAdapter = options.buildGhAdapter ?? buildGhAdapter;
+  const buildDryRun = options.buildDryRunAdapter ?? buildDryRunAdapter;
+
+  if (command === "next") {
+    const repo = flag(args, "repo");
+    const limit = parseInt(flag(args, "limit") ?? "6", 10);
+    const dryRun = hasFlag(args, "dry-run");
+    const compact = hasFlag(args, "json");
+
+    if (!repo) {
+      writeStderr(
+        "Usage: node issue-driven-os-queue.js next --repo owner/repo [--limit N] [--dry-run] [--json]"
+      );
+      return 1;
+    }
+
+    const gh = dryRun ? buildDryRun(options) : buildAdapter(options);
+    const queue = buildQueue({ gh, repoSlug: repo });
+
+    try {
+      const issues = await queue.next({ limit });
+      writeStdout(formatJsonOutput(issues, compact));
+      return 0;
+    } catch (err) {
+      writeStderr(`Queue error: ${err.message}`);
+      return 1;
+    }
+  }
+
+  if (command === "check-children") {
+    const repo = flag(args, "repo");
+    const parent = parseInt(flag(args, "parent") ?? "0", 10);
+    const compact = hasFlag(args, "json");
+    const gh = buildAdapter(options);
+
+    if (!repo || !parent) {
+      writeStderr(
+        "Usage: node issue-driven-os-queue.js check-children --repo owner/repo --parent N [--json]"
+      );
+      return 1;
+    }
+
+    const queue = buildQueue({ gh, repoSlug: repo });
+
+    try {
+      const result = await queue.checkChildren(parent);
+      writeStdout(formatJsonOutput(result, compact));
+      return 0;
+    } catch (err) {
+      writeStderr(`Check-children error: ${err.message}`);
+      return 1;
+    }
+  }
+
+  writeStderr("Commands: next, check-children");
+  writeStderr("  next --repo owner/repo [--limit N] [--dry-run] [--json]");
+  writeStderr("  check-children --repo owner/repo --parent N [--json]");
+  return 1;
+}
+
+if (require.main === module) {
+  runCli(process.argv.slice(2)).then((exitCode) => {
+    process.exit(exitCode);
+  });
+}
+
+module.exports = {
+  PRIORITY_ORDER,
+  QUEUED_LABEL,
+  buildDryRunAdapter,
+  buildQueue,
+  formatJsonOutput,
+  parseDependencies,
+  priorityRank,
+  runCli
+};

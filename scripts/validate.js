@@ -19,12 +19,10 @@ const {
   pushUnknownCategoryErrors,
   findDuplicates,
   validateProjectManifestReferences,
-  detectAgentCycles
+  detectAgentCycles,
+  getPlatformAgentRefs,
+  collectNestedPlatformAgentWarnings
 } = require("./lib/validate-utils");
-const {
-  getIssueDrivenOsExamplesDir,
-  validateIssueDrivenOsFixtures
-} = require("./lib/issue-driven-os-fixtures");
 
 const MIN_DOC_LENGTH = 200;
 const DEFAULT_PROJECT_MANIFEST_PATH = "my-agents.project.json";
@@ -226,6 +224,24 @@ async function validateAgents(
       }
     }
 
+    for (const [platformKey, platformConfig] of Object.entries(agent.platformDependencies ?? {})) {
+      for (const agentRef of platformConfig.agents ?? []) {
+        if (agentRef === agent.name) {
+          errors.push(
+            `agents/${dirName}/agent.json: platformDependencies["${platformKey}"].agents cannot reference the agent itself`
+          );
+          continue;
+        }
+
+        const agentRefPath = path.join(repoRoot, "agents", agentRef, "agent.json");
+        if (!(await fileExists(agentRefPath))) {
+          errors.push(
+            `agents/${dirName}/agent.json: platformDependencies["${platformKey}"].agents references unknown agent "${agentRef}"`
+          );
+        }
+      }
+    }
+
     const changelog = agent.entrypoints?.changelog ?? "CHANGELOG.md";
     const changelogPath = path.join(baseDir, changelog);
     if (!(await fileExists(changelogPath))) {
@@ -236,22 +252,19 @@ async function validateAgents(
   }
 
   const agentGraph = new Map();
+  const claudeAgentGraph = new Map();
   for (const [name, agent] of agentMetadata) {
     agentGraph.set(name, agent.agents ?? []);
+    claudeAgentGraph.set(name, getPlatformAgentRefs(agent, "claude-code"));
   }
 
   errors.push(...detectAgentCycles(agentGraph));
-
-  for (const [name, refs] of agentGraph) {
-    for (const ref of refs) {
-      const refRefs = agentGraph.get(ref) ?? [];
-      if (refRefs.length > 0) {
-        warnings.push(
-          `agents/${name}/agent.json: references agent "${ref}" which itself references other agents — Claude Code only supports one level of subagent nesting`
-        );
-      }
-    }
-  }
+  warnings.push(
+    ...collectNestedPlatformAgentWarnings(claudeAgentGraph, {
+      platformKey: "claude-code",
+      platformLabel: "Claude Code"
+    })
+  );
 }
 
 async function validatePacks(
@@ -508,9 +521,8 @@ async function validateGeneratedOutputs(repoRoot, validateCatalog, errors) {
   }
 }
 
-async function validateExampleFixtures(repoRoot, errors) {
-  const examplesDir = getIssueDrivenOsExamplesDir(repoRoot);
-  await validateIssueDrivenOsFixtures(examplesDir, errors);
+async function validateExampleFixtures(_repoRoot, _errors) {
+  // Bridge-era fixture validation removed; placeholder kept for call-site compatibility.
 }
 
 async function main() {

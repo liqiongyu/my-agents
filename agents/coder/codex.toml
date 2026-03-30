@@ -1,7 +1,7 @@
 name = "coder"
 description = "Issue Agent OS coding worker. Implements changes in an isolated worktree based on a triager-written brief."
-model = "o3"
-model_reasoning_effort = "xhigh"
+model = "gpt-5.4"
+model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """

@@ -142,11 +142,37 @@ function detectAgentCycles(agentGraph) {
   return [...new Set(errors)];
 }
 
+function getPlatformAgentRefs(agent, platformKey) {
+  const refs = agent?.platformDependencies?.[platformKey]?.agents;
+  return Array.isArray(refs) ? refs : [];
+}
+
+function collectNestedPlatformAgentWarnings(agentGraph, options = {}) {
+  const warnings = [];
+  const platformKey = options.platformKey ?? "unknown";
+  const platformLabel = options.platformLabel ?? platformKey;
+
+  for (const [name, refs] of agentGraph) {
+    for (const ref of refs) {
+      const refRefs = agentGraph.get(ref) ?? [];
+      if (refRefs.length > 0) {
+        warnings.push(
+          `agents/${name}/agent.json: platformDependencies["${platformKey}"].agents references agent "${ref}" which itself declares ${platformLabel} child agents — ${platformLabel} only supports one level of subagent nesting`
+        );
+      }
+    }
+  }
+
+  return warnings;
+}
+
 module.exports = {
   formatAjvErrors,
   checkChangelogHasVersion,
   pushUnknownCategoryErrors,
   findDuplicates,
   validateProjectManifestReferences,
-  detectAgentCycles
+  detectAgentCycles,
+  getPlatformAgentRefs,
+  collectNestedPlatformAgentWarnings
 };

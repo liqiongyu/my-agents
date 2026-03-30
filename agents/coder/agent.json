@@ -3,11 +3,15 @@
   "name": "coder",
   "displayName": "Coder",
   "description": "Issue Agent OS coding worker. Implements features, fixes, refactors, and docs changes in an isolated worktree based on a triager-written brief.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "maturity": "experimental",
   "categories": ["coding"],
   "tags": ["implementation", "coding", "worker", "issue-agent-os"],
-  "authors": [{ "name": "Qiongyu Li" }],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
   "archetype": "implementer",
   "capabilities": {
     "shell": true,

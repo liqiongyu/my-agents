@@ -3,11 +3,15 @@
   "name": "researcher",
   "displayName": "Researcher",
   "description": "Web research agent for deep investigation, multi-source verification, and structured report generation.",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "maturity": "experimental",
   "categories": ["research", "productivity"],
   "tags": ["research", "web", "citations"],
-  "authors": [{ "name": "Qiongyu Li" }],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
   "archetype": "explorer",
   "skills": ["deep-research", "clarify"],
   "capabilities": {

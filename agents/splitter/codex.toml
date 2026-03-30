@@ -1,6 +1,7 @@
 name = "splitter"
 description = "Issue Agent OS decomposition worker. Breaks large or vague issues into 2-5 concrete sub-issues with dependency links."
-model = "o3"
+model = "gpt-5.4"
+model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 
 developer_instructions = """

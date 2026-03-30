@@ -3,7 +3,6 @@
 const { USAGE } = require("./lib/install-shared");
 const { runInstallCli } = require("./install");
 const { REFERENCES_USAGE, runReferencesCli } = require("./sync-references");
-const { main: runIssueDrivenOsCli } = require("./issue-driven-os-cli");
 
 function isHelpToken(token) {
   return token === "help" || token === "--help" || token === "-h";
@@ -154,11 +153,6 @@ async function main(argv = process.argv) {
 
   if (command === "references") {
     await runReferencesCli(args, REFERENCES_USAGE);
-    return;
-  }
-
-  if (command === "issue-driven-os") {
-    await runIssueDrivenOsCli(buildSyntheticArgv(args));
     return;
   }
 

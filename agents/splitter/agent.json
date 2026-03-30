@@ -3,11 +3,15 @@
   "name": "splitter",
   "displayName": "Splitter",
   "description": "Issue Agent OS decomposition worker. Breaks large or vague issues into 2-5 concrete, right-sized sub-issues with dependency links.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "maturity": "experimental",
   "categories": ["workflow"],
   "tags": ["decomposition", "issue", "splitting", "issue-agent-os"],
-  "authors": [{ "name": "Qiongyu Li" }],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
   "archetype": "custom",
   "capabilities": {
     "shell": true,

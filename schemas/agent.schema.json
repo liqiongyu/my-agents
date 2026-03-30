@@ -98,7 +98,20 @@
         "type": "string",
         "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
       },
-      "description": "可 spawn 的 agent 名称列表（引用 agents/<name>）。被引用的 agent 不应再引用其他 agent（Claude Code 仅支持一层）。"
+      "description": "Canonical agent dependency graph（引用 agents/<name>）。如果某个平台的运行时投影需要更扁平或不同的依赖面，请使用 platformDependencies。"
+    },
+    "platformDependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "claude-code": {
+          "$ref": "#/$defs/platformAgentDependencies"
+        },
+        "codex": {
+          "$ref": "#/$defs/platformAgentDependencies"
+        }
+      },
+      "description": "可选的平台专用依赖覆盖。用于表达某个平台的直接子 agent 面与 canonical agent graph 不同的情况。"
     },
     "license": {
       "type": "string",
@@ -178,6 +191,20 @@
         "name": { "type": "string", "minLength": 1 },
         "email": { "type": "string", "format": "email" },
         "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "platformAgentDependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "description": "平台运行时投影下可直接使用的 agent 名称列表。"
+        }
       }
     }
   }

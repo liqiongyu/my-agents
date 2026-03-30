@@ -2,6 +2,13 @@
 
 All notable changes to the **researcher** agent will be documented in this file.
 
+## [1.1.2] - 2026-03-30
+
+### Changed
+
+- Updated the Codex definition to use `gpt-5.4` with `high` reasoning effort as the default.
+- Updated the Claude Code definition to use `opus` as the default model.
+
 ## [1.1.1] - 2026-03-27
 
 ### Changed

@@ -5,7 +5,7 @@ description: >
   alternatives, checking documentation, verifying APIs, and gathering external context.
   Returns structured findings with citations. Does not modify code.
 tools: WebSearch, WebFetch, Read, Glob, Grep
-model: sonnet
+model: opus
 ---
 
 # Identity

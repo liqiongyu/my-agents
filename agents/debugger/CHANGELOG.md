@@ -2,6 +2,13 @@
 
 All notable changes to the **debugger** agent will be documented in this file.
 
+## [1.0.3] - 2026-03-30
+
+### Changed
+
+- Updated the Codex definition to use `gpt-5.4` with `high` reasoning effort as the default.
+- Updated the Claude Code definition to use `opus` as the default model.
+
 ## [1.0.2] - 2026-03-27
 
 ### Changed

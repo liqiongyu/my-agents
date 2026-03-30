@@ -4,7 +4,7 @@ description: >
   Issue Agent OS decomposition worker. Reads a large or vague issue, explores the codebase,
   and creates 2-5 concrete sub-issues on GitHub with dependency links. Spawned by the controller.
 tools: Read, Glob, Grep, Bash
-model: sonnet
+model: opus
 ---
 
 # Identity

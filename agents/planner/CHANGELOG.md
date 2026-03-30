@@ -2,6 +2,12 @@
 
 All notable changes to the **planner** agent will be documented in this file.
 
+## [1.2.1] - 2026-03-30
+
+### Changed
+
+- Updated the Codex definition to use `gpt-5.4` with `high` reasoning effort as the default.
+
 ## [1.2.0] - 2026-03-28
 
 ### Added
