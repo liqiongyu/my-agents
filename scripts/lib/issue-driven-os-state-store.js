@@ -777,7 +777,7 @@ async function readRecentNdjsonRecords(filePath, options = {}) {
     }
 
     let position = stats.size;
-    let remainder = "";
+    const chunks = [];
     const records = [];
 
     while (position > 0 && records.length < limit) {
@@ -790,27 +790,22 @@ async function readRecentNdjsonRecords(filePath, options = {}) {
         break;
       }
 
-      const text = buffer.toString("utf8", 0, bytesRead) + remainder;
+      chunks.unshift(buffer.subarray(0, bytesRead));
+      const text = Buffer.concat(chunks).toString("utf8");
       const lines = text.split("\n");
-      remainder = lines.shift() ?? "";
+      const firstCompleteLineIndex = position > 0 ? 1 : 0;
 
-      for (let index = lines.length - 1; index >= 0 && records.length < limit; index -= 1) {
+      records.length = 0;
+      for (
+        let index = lines.length - 1;
+        index >= firstCompleteLineIndex && records.length < limit;
+        index -= 1
+      ) {
         const trimmed = lines[index].trim();
         if (!trimmed) {
           continue;
         }
 
-        try {
-          records.push(JSON.parse(trimmed));
-        } catch (error) {
-          warnings.push(`Failed to parse event line in ${filePath}: ${error.message}`);
-        }
-      }
-    }
-
-    if (records.length < limit) {
-      const trimmed = remainder.trim();
-      if (trimmed) {
         try {
           records.push(JSON.parse(trimmed));
         } catch (error) {
@@ -940,7 +935,11 @@ async function listRuntimeEvents(runtimePaths, options = {}) {
   const limit = Math.max(1, Number(options.limit ?? 20));
   const targetPath = runtimeEventLogPath(runtimePaths, { runId: options.runId });
 
-  const events = await readRecentNdjsonRecords(targetPath, { warnings, limit });
+  const events = await readRecentNdjsonRecords(targetPath, {
+    warnings,
+    limit,
+    chunkSize: options.chunkSize
+  });
   return events.sort(compareRuntimeEventsDescending).slice(0, limit);
 }
 

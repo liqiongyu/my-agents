@@ -332,6 +332,43 @@ test("issue-driven-os state store tails recent events without parsing older malf
   }
 });
 
+test("issue-driven-os state store tails UTF-8 events across chunk boundaries", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-utf8-tail-"));
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    await fs.mkdir(path.dirname(runtimePaths.eventsFilePath), { recursive: true });
+    await fs.writeFile(
+      runtimePaths.eventsFilePath,
+      [
+        JSON.stringify({
+          id: "evt_1",
+          timestamp: "2026-03-30T00:00:01.000Z",
+          event: "ascii",
+          message: "old event"
+        }),
+        JSON.stringify({
+          id: "evt_2",
+          timestamp: "2026-03-30T00:00:02.000Z",
+          event: "utf8",
+          message: "需要保留多字节字符"
+        })
+      ].join("\n") + "\n",
+      "utf8"
+    );
+
+    const recentEvents = await listRuntimeEvents(runtimePaths, {
+      limit: 1,
+      chunkSize: 5
+    });
+
+    assert.equal(recentEvents[0].id, "evt_2");
+    assert.equal(recentEvents[0].message, "需要保留多字节字符");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("issue-driven-os state store reads appended events from a cursor", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-cursor-"));
 
