@@ -1,7 +1,7 @@
 name = "implementer"
 description = "Code implementation agent that writes, modifies, and refactors code based on plans, specs, or direct instructions. Can use explorer to gather context before making changes."
 model = "gpt-5.4"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """

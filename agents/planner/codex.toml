@@ -1,7 +1,7 @@
 name = "planner"
 description = "Architecture and implementation planning agent that designs step-by-step plans with trade-off analysis and escalates to implementation-planning for complex technical execution plans."
 model = "gpt-5.4"
-model_reasoning_effort = "high"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 
 developer_instructions = """

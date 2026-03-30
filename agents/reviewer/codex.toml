@@ -1,7 +1,7 @@
 name = "reviewer"
 description = "Code review agent that performs structured, severity-graded reviews on PRs, diffs, and code changes. Can use explorer for deeper codebase investigation."
 model = "gpt-5.4"
-model_reasoning_effort = "high"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 
 developer_instructions = """
