@@ -16,7 +16,8 @@ bodies:
 
 Only dependency-ready issues are claimed. The daemon sorts ready candidates by
 priority label rank, then oldest issue creation time, then issue number. Both
-the daemon's text output and `--json` payload surface dependency-blocked cases.
+the daemon's `--once` text output and `--json` payload surface
+dependency-blocked cases.
 
 ## Inspect GitHub Runtime State
 

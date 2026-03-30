@@ -157,8 +157,8 @@ claimed. Among dependency-ready issues, the daemon sorts deterministically by:
 2. oldest `createdAt`
 3. issue number
 
-The daemon text output and `--json` payload both surface dependency-blocked
-issues so operators can see why a candidate stayed queued.
+The daemon `--once` text output and the `--json` payload both surface
+dependency-blocked issues so operators can see why a candidate stayed queued.
 
 This real mode uses:
 
