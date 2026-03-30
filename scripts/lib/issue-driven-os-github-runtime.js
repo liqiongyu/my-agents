@@ -735,19 +735,31 @@ async function loadResumeContext(runtimePaths, repoSlug, issueNumber, options = 
   const persistedArtifacts = await listRunArtifacts(runtimePaths, latestRun.id);
   const artifacts = mergeArtifactRefs(latestRun.artifacts, persistedArtifacts);
   const artifactIndex = new Map(artifacts.map((artifact) => [artifact.kind, artifact]));
+  const shaping = await loadArtifactPayload(artifactIndex.get("shaping"));
+  const execution = await loadArtifactPayload(artifactIndex.get("execution"));
+  const critic = await loadArtifactPayload(artifactIndex.get("critic"));
+  const needsRework =
+    normalizeStateName(latestRun.status) === "needs_changes" && critic?.verdict === "needs_changes";
 
   return {
     run: latestRun,
     artifacts,
-    shaping: await loadArtifactPayload(artifactIndex.get("shaping")),
-    execution: await loadArtifactPayload(artifactIndex.get("execution")),
-    critic: await loadArtifactPayload(artifactIndex.get("critic"))
+    shaping,
+    execution: needsRework ? null : execution,
+    critic: needsRework ? null : critic,
+    previousExecution: execution,
+    previousCritic: critic,
+    needsRework
   };
 }
 
 function inferResumePhase(resumeContext) {
   if (!resumeContext) {
     return null;
+  }
+
+  if (resumeContext.needsRework) {
+    return "execution";
   }
 
   if (resumeContext.critic) {
@@ -782,6 +794,26 @@ function extractReviewFeedback(reviews, reviewComments) {
       path: comment.path ?? null,
       line: comment.line ?? null
     }))
+  };
+}
+
+function buildExecutionReviewFeedback(reviewFeedback, resumeContext) {
+  const requestedChanges = [...(reviewFeedback?.requestedChanges ?? [])];
+
+  if (resumeContext?.needsRework && resumeContext.previousCritic?.verdict === "needs_changes") {
+    requestedChanges.unshift({
+      author: "issue-cell-critic",
+      body: buildCriticComment(resumeContext.previousCritic),
+      submittedAt:
+        resumeContext.run?.finishedAt ?? resumeContext.run?.updatedAt ?? new Date().toISOString(),
+      source: "previous_critic_run",
+      runId: resumeContext.run?.id ?? null
+    });
+  }
+
+  return {
+    requestedChanges,
+    inlineComments: [...(reviewFeedback?.inlineComments ?? [])]
   };
 }
 
@@ -1024,7 +1056,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       : `Claimed issue #${issueNumber}`;
     await deps.github.editIssue(repoSlug, issueNumber, {
       addLabels: ["agent:claimed"],
-      removeLabels: ["agent:ready", "agent:blocked"],
+      removeLabels: ["agent:ready", "agent:blocked", "agent:review"],
       commandOptions: options.commandOptions
     });
     await postIssueComment(
@@ -1296,12 +1328,19 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       );
     }
 
-    const reviewFeedback = openPullRequest
-      ? extractReviewFeedback(
-          await deps.github.listPullRequestReviews(repoSlug, openPullRequest.number, options),
-          await deps.github.listPullRequestReviewComments(repoSlug, openPullRequest.number, options)
-        )
-      : { requestedChanges: [], inlineComments: [] };
+    const reviewFeedback = buildExecutionReviewFeedback(
+      openPullRequest
+        ? extractReviewFeedback(
+            await deps.github.listPullRequestReviews(repoSlug, openPullRequest.number, options),
+            await deps.github.listPullRequestReviewComments(
+              repoSlug,
+              openPullRequest.number,
+              options
+            )
+          )
+        : { requestedChanges: [], inlineComments: [] },
+      resumeContext
+    );
 
     let execution;
     let executionArtifactPath =
