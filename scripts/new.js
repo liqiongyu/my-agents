@@ -1,17 +1,10 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 
+const { fileExists } = require("./lib/fs-utils");
+
 function isValidName(name) {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name);
-}
-
-async function fileExists(filePath) {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function todayISODate() {

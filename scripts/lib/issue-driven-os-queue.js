@@ -68,7 +68,6 @@ function buildQueue(options) {
   async function next(params = {}) {
     const limit = params.limit ?? 6;
 
-    // Fetch all queued issues
     const queued = await gh.listIssues(repoSlug, {
       state: "open",
       labels: [QUEUED_LABEL],
@@ -77,7 +76,6 @@ function buildQueue(options) {
 
     if (queued.length === 0) return [];
 
-    // Collect all dependency issue numbers we need to check
     const depNumbers = new Set();
     const issueDeps = new Map();
 
@@ -89,12 +87,8 @@ function buildQueue(options) {
       }
     }
 
-    // Batch-check which dependencies are closed
     const closedDeps = new Set();
     if (depNumbers.size > 0) {
-      // Fetch closed issues from the dep set
-      // gh issue list doesn't filter by number, so we check each dep's state
-      // Optimization: fetch all closed issues in one call if possible
       const closedIssues = await gh.listIssues(repoSlug, {
         state: "closed",
         limit: 200
@@ -106,16 +100,13 @@ function buildQueue(options) {
       }
     }
 
-    // Filter: only issues whose deps are ALL closed (or have no deps)
     const eligible = queued.filter((issue) => {
       const deps = issueDeps.get(issue.number) ?? [];
       return deps.every((dep) => closedDeps.has(dep));
     });
 
-    // Sort by priority
     eligible.sort((a, b) => priorityRank(a.labels) - priorityRank(b.labels));
 
-    // Return up to limit
     return eligible.slice(0, limit).map((issue) => ({
       number: issue.number,
       title: issue.title,
@@ -132,7 +123,6 @@ function buildQueue(options) {
    * @returns {Promise<{allDone: boolean, children: Array<{number, state}>}>}
    */
   async function checkChildren(parentNumber) {
-    // Find issues that reference this parent
     const allIssues = await gh.listIssues(repoSlug, {
       state: "all",
       limit: 200

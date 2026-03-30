@@ -449,15 +449,15 @@ async function validateProjectManifestFiles(
 
 async function validateGeneratedOutputs(repoRoot, validateCatalog, errors) {
   const catalogPath = path.join(repoRoot, MACHINE_CATALOG_PATH);
+  let catalog = null;
+
   if (!(await fileExists(catalogPath))) {
     errors.push(`Missing ${MACHINE_CATALOG_PATH} (run \`npm run build\`)`);
   } else {
-    let catalog;
     try {
       catalog = await readJson(catalogPath);
     } catch (err) {
       errors.push(`${MACHINE_CATALOG_PATH}: invalid JSON (${err.message})`);
-      catalog = null;
     }
 
     if (catalog && !validateCatalog(catalog)) {
@@ -486,13 +486,12 @@ async function validateGeneratedOutputs(repoRoot, validateCatalog, errors) {
 
   const snapshot = await generateCatalogSnapshot(repoRoot);
 
-  if (await fileExists(catalogPath)) {
-    const actual = await readJson(catalogPath);
+  if (catalog) {
     const actualComparable = {
-      schemaVersion: actual.schemaVersion,
-      skills: actual.skills,
-      agents: actual.agents,
-      packs: actual.packs
+      schemaVersion: catalog.schemaVersion,
+      skills: catalog.skills,
+      agents: catalog.agents,
+      packs: catalog.packs
     };
     if (JSON.stringify(actualComparable) !== JSON.stringify(snapshot.catalogBase)) {
       errors.push(`${MACHINE_CATALOG_PATH} is out of date (run \`npm run build\`)`);
@@ -519,10 +518,6 @@ async function validateGeneratedOutputs(repoRoot, validateCatalog, errors) {
   ) {
     errors.push(`${PACKS_CATALOG_PATH} is out of date (run \`npm run build\`)`);
   }
-}
-
-async function validateExampleFixtures(_repoRoot, _errors) {
-  // Bridge-era fixture validation removed; placeholder kept for call-site compatibility.
 }
 
 async function main() {
@@ -566,7 +561,6 @@ async function main() {
     agentNames,
     errors
   );
-  await validateExampleFixtures(repoRoot, errors);
   await validateGeneratedOutputs(repoRoot, validators.validateCatalog, errors);
 
   if (warnings.length > 0) {

@@ -684,34 +684,6 @@ async function listRunArtifacts(runtimePaths, runId, options = {}) {
     }));
 }
 
-async function listRunArtifactFiles(runtimePaths, runId) {
-  const artifactDir = path.join(runtimePaths.artifactsDir, runId);
-  if (!(await fileExists(artifactDir))) {
-    return [];
-  }
-
-  const entries = await fs.readdir(artifactDir, { withFileTypes: true });
-  const files = [];
-
-  for (const entry of entries) {
-    if (!entry.isFile()) {
-      continue;
-    }
-
-    const artifactPath = path.join(artifactDir, entry.name);
-    const stats = await fs.stat(artifactPath);
-    files.push({
-      name: entry.name,
-      kind: path.extname(entry.name) === ".json" ? path.basename(entry.name, ".json") : entry.name,
-      path: artifactPath,
-      sizeBytes: stats.size,
-      updatedAt: stats.mtime.toISOString()
-    });
-  }
-
-  return files.sort((left, right) => compareStrings(left.name, right.name));
-}
-
 function buildEventId(options = {}) {
   const timestamp = (options.timestamp ?? new Date().toISOString())
     .replace(/[-:]/g, "")
@@ -941,13 +913,6 @@ async function readRuntimeEventsSince(runtimePaths, cursor = {}, options = {}) {
   }
 }
 
-async function listActiveLeases(runtimePaths, options = {}) {
-  return listIssueLeases(runtimePaths, {
-    ...options,
-    includeExpired: false
-  });
-}
-
 async function listRuntimeEvents(runtimePaths, options = {}) {
   const warnings = options.warnings ?? [];
   const limit = Math.max(1, Number(options.limit ?? 20));
@@ -1030,9 +995,7 @@ module.exports = {
   inspectRuntimeState,
   isLeaseExpired,
   leaseStatusFor,
-  listActiveLeases,
   listIssueLeases,
-  listRunArtifactFiles,
   listRunArtifacts,
   listRunRecords,
   listRuntimeEvents,
