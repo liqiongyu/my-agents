@@ -1,0 +1,272 @@
+{
+  "version": "0.1.1",
+  "skill": "agentic-development",
+  "type": "trigger-posture",
+  "description": "Trigger-posture suite for the agentic-development skill. The suite checks whether the skill activates for explicit agent-system design work, stays manual-first, prefers minimal viable agency, handles ambiguous near-miss requests honestly, and routes prompt-only, non-agentic architecture, deterministic automation, and already-chosen implementation planning work to adjacent workflows instead.",
+  "assertions": [
+    "routing_verdict_correct",
+    "invocation_posture_explicit",
+    "posture_matches_request",
+    "minimal_agency_bias_visible",
+    "adjacent_boundary_respected",
+    "stage_routing_honest",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response makes the right top-level call: route into agentic-development for explicit agent-system design work, and redirect adjacent non-agentic work elsewhere.",
+    "invocation_posture_explicit": "For routed requests, the response explicitly names the skill posture as `manual-first`.",
+    "posture_matches_request": "Because this is a heavy, cross-cutting methodology skill, the response should keep the posture conservative and manual-first.",
+    "minimal_agency_bias_visible": "The response shows a bias toward the smallest useful level of agency rather than defaulting to multi-agent architecture.",
+    "adjacent_boundary_respected": "For near-miss or out-of-scope requests, the response explains the better neighboring workflow instead of stretching the skill boundary.",
+    "stage_routing_honest": "The response chooses the smallest sensible next stage such as framing, framework selection, or route-to-planning instead of a generic everything-at-once answer.",
+    "next_step_explicit": "The response ends with a concrete next step, artifact, or downstream workflow."
+  },
+  "cases": [
+    {
+      "id": "tp-explicit-agent-design",
+      "name": "Explicit tool-using agent design request should trigger",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Scope",
+        "Architecture"
+      ],
+      "prompt": "A user says: 'Design an internal support agent that can search docs, draft answers, and open tickets with human approval for risky actions. I need the agent architecture, tool boundaries, and eval plan.' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill, what invocation posture applies, and what the next stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is explicitly about designing an agentic system, so it should route to the skill."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly say `manual-first`."
+        },
+        "posture_matches_request": {
+          "check": "The skill itself should remain manual-first because it is heavy and cross-cutting."
+        },
+        "minimal_agency_bias_visible": {
+          "check": "The answer should mention choosing the smallest useful agency level rather than assuming a team of agents."
+        },
+        "stage_routing_honest": {
+          "check": "The next stages should center on framing the operating contract and system architecture, not immediate implementation."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the next artifact or step."
+        }
+      }
+    },
+    {
+      "id": "tp-framework-choice",
+      "name": "Explicit framework choice for agent system should trigger",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Framework selection",
+        "Research if needed"
+      ],
+      "prompt": "A user says: 'Help me choose between LangGraph, OpenAI Agents SDK, Google ADK, and Pydantic AI for a long-running Python agent system with human approvals and eval requirements.' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill, what posture applies, and what the next stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is explicit agent-system framework selection, so it should route to the skill."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly say `manual-first`."
+        },
+        "minimal_agency_bias_visible": {
+          "check": "The answer should keep pattern and operating contract ahead of framework fandom."
+        },
+        "stage_routing_honest": {
+          "check": "The next stage should involve operating-contract framing and framework comparison, with fresh research only if current facts materially matter."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name a concrete next step."
+        }
+      }
+    },
+    {
+      "id": "tp-workflow-vs-agent",
+      "name": "Workflow-vs-agent decision should trigger with minimal-agency bias",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Suitability",
+        "Pattern selection"
+      ],
+      "prompt": "A user says: 'I am not sure whether this product should use a workflow, a single agent, or a multi-agent system. Help me decide before we build anything.' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill, what posture applies, and what the next stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is a direct suitability question for an agentic system, so it should route to the skill."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly say `manual-first`."
+        },
+        "minimal_agency_bias_visible": {
+          "check": "The answer should make minimal viable agency central to the next step."
+        },
+        "stage_routing_honest": {
+          "check": "The route should begin with suitability and pattern selection rather than framework choice or implementation."
+        }
+      }
+    },
+    {
+      "id": "tn-prompt-only",
+      "name": "Prompt-only tuning should not trigger",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'My system prompt keeps drifting from the JSON schema. Redesign the prompt and examples so the outputs stay valid.' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to agentic-development."
+        },
+        "adjacent_boundary_respected": {
+          "check": "The answer should route to prompt-engineering instead of inflating the task into agent architecture."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to the better workflow."
+        }
+      }
+    },
+    {
+      "id": "tn-general-architecture",
+      "name": "General non-agentic architecture should not trigger",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'Help me choose the architecture for a multi-tenant analytics platform with Kafka, ClickHouse, and object storage.' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is architecture work, but not agentic-system work, so it should not route to this skill."
+        },
+        "adjacent_boundary_respected": {
+          "check": "The answer should route to future-aware-architecture."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name the better next workflow."
+        }
+      }
+    },
+    {
+      "id": "tn-deterministic-automation",
+      "name": "Deterministic automation should not default to agentic development",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'I need a script that renames files based on a fixed naming convention and moves them into dated folders.' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not route to the skill because deterministic code is enough."
+        },
+        "adjacent_boundary_respected": {
+          "check": "The answer should say a script or ordinary implementation flow is the lighter and better option."
+        },
+        "next_step_explicit": {
+          "check": "The answer should point to a direct implementation path."
+        }
+      }
+    },
+    {
+      "id": "tn-already-chosen-build-plan",
+      "name": "Already-chosen agent architecture should route to planning",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "A user says: 'We already chose a LangGraph coordinator with specialist workers and approval checkpoints. Now write the phased implementation and rollout plan.' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill and why or why not. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should not stay in agentic-development because the architecture choice is already made."
+        },
+        "adjacent_boundary_respected": {
+          "check": "The answer should route to implementation-planning."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name implementation-planning as the next step."
+        }
+      }
+    },
+    {
+      "id": "nm-ai-features-to-app",
+      "name": "Broad AI-features request should trigger through minimal-shape framing",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Suitability",
+        "Framing"
+      ],
+      "prompt": "A user says: 'I want to add AI features to my SaaS app, but I am not sure whether I need prompts, RAG, workflows, or agents yet.' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill, what posture applies, and what the next stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This should route to the skill because the real decision is whether the product needs prompts, retrieval, workflow automation, or true agency at all."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly say `manual-first`."
+        },
+        "minimal_agency_bias_visible": {
+          "check": "The answer should make clear that the next step is to decide the smallest useful AI shape rather than assume an agent system."
+        },
+        "stage_routing_honest": {
+          "check": "The next stages should focus on clarifying the product job and running a suitability decision before framework or implementation talk."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name a concrete framing or suitability step."
+        }
+      }
+    },
+    {
+      "id": "nm-mcp-integration",
+      "name": "MCP-only question can trigger, but must stay protocol-first and architecture-honest",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Framework selection",
+        "Protocol role"
+      ],
+      "prompt": "A user says: 'How should I use MCP in my project?' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill, what posture applies, and what the next stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This can route to the skill because MCP is a protocol choice that only makes sense in the context of tools, orchestration, and the surrounding system design."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly say `manual-first`."
+        },
+        "adjacent_boundary_respected": {
+          "check": "The answer should make clear that MCP is a protocol or connectivity layer, not a complete orchestration strategy."
+        },
+        "stage_routing_honest": {
+          "check": "The next stages should clarify the role MCP plays in the system before choosing broader framework or runtime direction."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name a concrete next step such as defining the tool boundary or protocol role."
+        }
+      }
+    },
+    {
+      "id": "nm-chatbot-rag-tools",
+      "name": "Chatbot with RAG and tools can trigger, but only through a minimal-agency decision",
+      "expected_trigger": "should-trigger",
+      "expected_posture": "manual-first",
+      "expected_stages": [
+        "Suitability",
+        "Pattern selection"
+      ],
+      "prompt": "A user says: 'Help me build a chatbot with RAG and a few tools for internal users.' Using the agentic-development skill, answer in one short paragraph whether this should route to the skill, what posture applies, and what the next stages are. Do not edit files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This can route to the skill because the boundary between plain RAG and a tool-using agent is exactly what needs to be decided."
+        },
+        "invocation_posture_explicit": {
+          "check": "The answer should explicitly say `manual-first`."
+        },
+        "minimal_agency_bias_visible": {
+          "check": "The answer should frame the next step as deciding whether a simple retrieval workflow is enough before recommending a richer agent pattern."
+        },
+        "stage_routing_honest": {
+          "check": "The answer should start with suitability and operating-contract framing, not assume a multi-agent build."
+        },
+        "next_step_explicit": {
+          "check": "The answer should name a concrete next step or artifact."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  }
+}

@@ -1,0 +1,3 @@
+{
+  "exclude": ["eval", "CHANGELOG.md"]
+}

@@ -63,6 +63,31 @@
       ]
     },
     {
+      "name": "agentic-development",
+      "path": "skills/agentic-development",
+      "displayName": "Agentic Development",
+      "description": "Manual-first workflow for designing, building, evaluating, and upgrading real agentic systems. Use when the job involves tool-using agents, agent orchestration, agent runtimes or platforms, multi-agent systems, framework selection, evals, or guardrails; do not use for prompt-only work or ordinary implementation planning.",
+      "version": "0.1.2",
+      "maturity": "experimental",
+      "categories": [
+        "ai",
+        "workflow",
+        "design"
+      ],
+      "tags": [
+        "agentic-development",
+        "agent-engineering",
+        "agent-architecture",
+        "multi-agent",
+        "tool-use",
+        "memory",
+        "guardrails",
+        "evals",
+        "framework-selection",
+        "mcp"
+      ]
+    },
+    {
       "name": "artifact-linking",
       "path": "skills/artifact-linking",
       "displayName": "Artifact Linking",
@@ -1017,5 +1042,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-29T13:43:02.625Z"
+  "generatedAt": "2026-03-30T08:46:19.045Z"
 }

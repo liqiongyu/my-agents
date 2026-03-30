@@ -1,0 +1,96 @@
+{
+  "version": "0.1.0",
+  "skill": "agentic-development",
+  "type": "qualitative-output",
+  "description": "Qualitative output suite for the agentic-development skill. The suite checks whether the workflow avoids over-engineering, recommends minimal viable agency, makes architecture and eval layers explicit, reasons about framework choice honestly, and routes to adjacent specialist skills when appropriate.",
+  "assertions": [
+    "scope_classified_correctly",
+    "minimal_viable_agency_recommended",
+    "architecture_layers_visible",
+    "framework_or_protocol_choice_reasoned",
+    "eval_guardrails_operations_present",
+    "adjacent_skill_routing_honest",
+    "next_step_actionable"
+  ],
+  "assertion_definitions": {
+    "scope_classified_correctly": "The response correctly identifies whether the request is truly agentic system design or should route to a neighboring workflow.",
+    "minimal_viable_agency_recommended": "The response prefers the smallest useful level of agency instead of defaulting to multi-agent complexity.",
+    "architecture_layers_visible": "The response makes tools, state, orchestration, and control layers explicit rather than collapsing everything into prompt advice.",
+    "framework_or_protocol_choice_reasoned": "The response compares frameworks or protocols against the operating contract instead of declaring a universal winner.",
+    "eval_guardrails_operations_present": "The response includes concrete evaluation, guardrail, observability, and rollout considerations.",
+    "adjacent_skill_routing_honest": "When the request is better served by prompt engineering, architecture, research, or planning, the response routes honestly instead of pretending the current skill should own everything.",
+    "next_step_actionable": "The response ends with a clear next action, artifact, or downstream workflow."
+  },
+  "cases": [
+    {
+      "id": "quality-prompt-only-route",
+      "name": "Prompt-only work should not be inflated into agent architecture",
+      "repo_archetype": "Repository with LLM-assisted features but no need for agent runtime design",
+      "task_mode": "Boundary routing",
+      "prompt": "Help me redesign a system prompt so my model stops drifting from a JSON schema when it calls tools.",
+      "success_criteria": [
+        "Recognizes this as prompt-oriented work, not agent-system architecture.",
+        "Routes to prompt-engineering or gives a bounded reason not to use this skill.",
+        "Avoids inventing a multi-agent or framework discussion."
+      ]
+    },
+    {
+      "id": "quality-minimal-agency",
+      "name": "Recommend minimal viable agency for a practical assistant",
+      "repo_archetype": "Product team building an internal support assistant with bounded tools",
+      "task_mode": "Agent suitability and pattern choice",
+      "prompt": "Design a customer-support assistant that can search internal docs, draft replies, and open tickets with human approval for risky actions. Decide whether this should be a workflow, single agent, or multi-agent system and explain why.",
+      "success_criteria": [
+        "Compares simpler alternatives before endorsing a larger topology.",
+        "Names the autonomy boundary and human approval points.",
+        "Explains why the chosen pattern is sufficient."
+      ]
+    },
+    {
+      "id": "quality-agent-architecture-pack",
+      "name": "Produce a real architecture pack for a high-autonomy system",
+      "repo_archetype": "Engineering org building a research-code-review superagent with external tools",
+      "task_mode": "System architecture",
+      "prompt": "Create the architecture for a research, coding, and review agent system that can browse the web, edit code, run tests, and open a PR, but must pause for approval before any destructive or external action.",
+      "success_criteria": [
+        "Makes tool contracts, memory/state, orchestration pattern, and guardrails explicit.",
+        "Includes evaluation and observability considerations, not just agent roles.",
+        "Produces a durable artifact pack or equivalent structured output."
+      ]
+    },
+    {
+      "id": "quality-framework-choice",
+      "name": "Reason honestly about framework fit",
+      "repo_archetype": "Python team deciding between competing agent frameworks",
+      "task_mode": "Framework selection",
+      "prompt": "We are deciding between LangGraph, OpenAI Agents SDK, Google ADK, and Pydantic AI for a Python agent system with long-running state, human approvals, mixed model providers, and strong evaluation requirements. Recommend one primary direction and explain the tradeoffs.",
+      "success_criteria": [
+        "Compares frameworks against the operating contract rather than popularity.",
+        "Makes clear why the recommended option fits best and what is sacrificed.",
+        "Calls out whether MCP is complementary rather than a replacement."
+      ]
+    },
+    {
+      "id": "quality-route-to-planning",
+      "name": "Chosen direction should route to implementation planning",
+      "repo_archetype": "Team already aligned on an agent architecture and ready to build",
+      "task_mode": "Handoff",
+      "prompt": "We already chose a LangGraph-based coordinator with specialist workers and human approval checkpoints. Now produce the phased build and rollout plan.",
+      "success_criteria": [
+        "Recognizes that the architecture decision is already made.",
+        "Routes to implementation-planning rather than redoing system design.",
+        "Still names the smallest honest next workflow."
+      ]
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75
+  }
+}
