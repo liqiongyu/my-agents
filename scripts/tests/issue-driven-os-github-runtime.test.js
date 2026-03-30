@@ -10,6 +10,7 @@ const {
   planConsumableIssues,
   produceGitHubIssue,
   recoverIssueRun,
+  runGitHubDaemon,
   runGitHubIssueWorker
 } = require("../lib/issue-driven-os-github-runtime");
 const {
@@ -533,6 +534,90 @@ test("recoverIssueRun releases a stale lease and marks a claimed run as failed",
       )
     );
     assert.ok(comments.some((body) => /recovered a stale claim/i.test(body)));
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubDaemon auto-recovers stale claimed issues and requeues them", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-daemon-recover-"));
+  const issueEdits = [];
+  const comments = [];
+  const workerCalls = [];
+  let claimedRecovered = false;
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const runRecord = buildRunRecord(24, {
+      id: "run_issue_24_20260330T000000Z",
+      repoSlug: "owner/repo",
+      status: "claimed",
+      startedAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:05:00.000Z",
+      branchRef: "agent/issue-24",
+      lastCompletedPhase: "workspace",
+      summary: "Claimed and then lost."
+    });
+
+    await persistRunRecord(runtimePaths, runRecord);
+    await recordRunUpdate(runtimePaths, "owner/repo", runRecord);
+
+    const github = {
+      ensureLabels: async () => {},
+      listIssues: async () => [
+        {
+          number: 24,
+          title: "Recoverable claimed issue",
+          body: "",
+          labels: claimedRecovered ? ["agent:ready"] : ["agent:claimed"],
+          comments: [],
+          createdAt: "2026-03-30T00:00:00Z",
+          updatedAt: "2026-03-30T00:05:00Z",
+          url: "https://example.test/issues/24",
+          state: "OPEN"
+        }
+      ],
+      editIssue: async (_repoSlug, _issueNumber, edit) => {
+        issueEdits.push(edit);
+        if (Array.isArray(edit.addLabels) && edit.addLabels.includes("agent:ready")) {
+          claimedRecovered = true;
+        }
+      },
+      commentIssue: async (_repoSlug, _issueNumber, body) => {
+        comments.push(body);
+      },
+      viewIssue: async () => {
+        throw new Error("unexpected dependency lookup");
+      }
+    };
+
+    const result = await runGitHubDaemon(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      {
+        once: true,
+        runtimeRoot: tempRoot,
+        github,
+        runGitHubIssueWorker: async (_repoRoot, _repoSlug, _repoPath, issueNumber) => {
+          workerCalls.push(issueNumber);
+          return { status: "claimed", summary: "worker stub ran", runId: "stub" };
+        }
+      }
+    );
+
+    const recoveredRun = await readRunRecord(runtimePaths, runRecord.id);
+
+    assert.deepEqual(workerCalls, [24]);
+    assert.equal(result.recoveredClaims.length, 1);
+    assert.equal(result.recoveredClaims[0].issueNumber, 24);
+    assert.equal(recoveredRun.status, "failed");
+    assert.ok(
+      issueEdits.some(
+        (edit) => Array.isArray(edit.addLabels) && edit.addLabels.includes("agent:ready")
+      )
+    );
+    assert.ok(comments.some((body) => /automatically requeued/i.test(body)));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

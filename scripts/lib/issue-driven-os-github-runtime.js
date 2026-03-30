@@ -568,6 +568,19 @@ function isConsumerCandidate(issue) {
   return labels.has("agent:ready") || labels.has("agent:review");
 }
 
+function isClaimedIssue(issue) {
+  return labelSet(issue).has("agent:claimed");
+}
+
+function isLeaseExpired(lease, now = new Date()) {
+  if (!lease?.expiresAt) {
+    return true;
+  }
+
+  const expiresAt = Date.parse(lease.expiresAt);
+  return !Number.isFinite(expiresAt) || expiresAt <= now.getTime();
+}
+
 function buildIssueStartComment(runRecord) {
   return [
     `Agent worker claimed this issue.`,
@@ -590,13 +603,16 @@ function buildIssueResumeComment(runRecord, resumeContext) {
     .join("\n");
 }
 
-function buildIssueRecoveryComment(runRecord, lease) {
+function buildIssueRecoveryComment(runRecord, lease, options = {}) {
+  const recoveryMode = options.requeue
+    ? "The issue was automatically requeued for another worker pass."
+    : "Next step: rerun `issue-driven-os github resume` to continue from the last safe checkpoint.";
   return [
     "Agent worker recovered a stale claim for this issue.",
     `Run id: ${runRecord?.id ?? "n/a"}`,
     lease?.holderId ? `Recovered lease holder: ${lease.holderId}` : null,
     runRecord?.lastCompletedPhase ? `Last completed phase: ${runRecord.lastCompletedPhase}` : null,
-    "Next step: rerun `issue-driven-os github resume` to continue from the last safe checkpoint."
+    recoveryMode
   ]
     .filter(Boolean)
     .join("\n");
@@ -1074,9 +1090,13 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
 
   if (recoveredRun) {
     try {
+      const addLabels = options.requeue ? ["agent:ready"] : ["agent:blocked"];
+      const removeLabels = options.requeue
+        ? ["agent:claimed", "agent:blocked", "agent:review"]
+        : ["agent:claimed"];
       await deps.github.editIssue(repoSlug, issueNumber, {
-        addLabels: ["agent:blocked"],
-        removeLabels: ["agent:claimed"],
+        addLabels,
+        removeLabels,
         commandOptions: options.commandOptions
       });
       await postIssueComment(
@@ -1084,14 +1104,15 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
         deps,
         repoSlug,
         issueNumber,
-        buildIssueRecoveryComment(recoveredRun, lease),
+        buildIssueRecoveryComment(recoveredRun, lease, options),
         {
           actor: "worker",
           phase: "recovery",
           runId: recoveredRun.id,
           executionSummary: buildWorkerExecutionSummary({
             tools: ["runtime lease recovery", "github issue edit", "github issue comment"],
-            verification: "stale-claim-recovered"
+            verification: "stale-claim-recovered",
+            limits: options.requeue ? "auto-requeued" : "none"
           })
         },
         options
@@ -1105,6 +1126,47 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
     runId: recoveredRun?.id ?? latestRun?.id ?? null,
     lease: forceRelease.lease ?? lease ?? null
   });
+}
+
+async function recoverStaleClaimedIssues(repoSlug, issues, options = {}) {
+  const runtimePaths = buildRuntimePaths(repoSlug, { runtimeRoot: options.runtimeRoot });
+  const state = await readRuntimeState(runtimePaths, repoSlug);
+  const now = options.now ?? new Date();
+  const recoveries = [];
+
+  for (const issue of issues) {
+    if (!isClaimedIssue(issue)) {
+      continue;
+    }
+
+    const latestRunId = state.issues?.[String(issue.number)]?.latestRunId ?? null;
+    if (!latestRunId) {
+      continue;
+    }
+
+    const latestRun = await readRunRecord(runtimePaths, latestRunId);
+    if (!latestRun || normalizeStateName(latestRun.status) !== "claimed") {
+      continue;
+    }
+
+    const lease = await readLease(runtimePaths, issue.number);
+    if (lease && !isLeaseExpired(lease, now)) {
+      continue;
+    }
+
+    const result = await recoverIssueRun(repoSlug, issue.number, {
+      ...options,
+      requeue: true
+    });
+
+    recoveries.push({
+      issueNumber: issue.number,
+      runId: result.runId ?? latestRun.id,
+      previousLeaseExpiresAt: lease?.expiresAt ?? null
+    });
+  }
+
+  return recoveries;
 }
 
 async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, options = {}) {
@@ -2121,6 +2183,7 @@ async function runGitHubDaemon(repoRoot, repoSlug, repoPath, options = {}) {
   const runtimePaths = buildRuntimePaths(repoSlug, { runtimeRoot: options.runtimeRoot });
   await ensureRuntimeLayout(runtimePaths);
   await deps.github.ensureLabels(repoSlug);
+  const issueWorker = options.runGitHubIssueWorker ?? runGitHubIssueWorker;
 
   const intervalMs = (options.pollSeconds ?? 60) * 1000;
   const concurrency = Math.max(1, Number(options.concurrency ?? 4));
@@ -2141,7 +2204,30 @@ async function runGitHubDaemon(repoRoot, repoSlug, repoPath, options = {}) {
       limit: fetchLimit,
       commandOptions: options.commandOptions
     });
-    const candidates = issues.filter(isConsumerCandidate);
+    const recoveredClaims = await recoverStaleClaimedIssues(repoSlug, issues, {
+      ...options,
+      github: deps.github
+    });
+    if (recoveredClaims.length > 0) {
+      await recordRuntimeEvent(runtimePaths, {
+        repoSlug,
+        actor: "daemon",
+        phase: "queue",
+        event: "stale_claims_recovered",
+        message: `Recovered ${recoveredClaims.length} stale claimed issue(s).`,
+        data: {
+          issueNumbers: recoveredClaims.map((entry) => entry.issueNumber)
+        }
+      });
+    }
+    const refreshedIssues =
+      recoveredClaims.length > 0
+        ? await deps.github.listIssues(repoSlug, {
+            limit: fetchLimit,
+            commandOptions: options.commandOptions
+          })
+        : issues;
+    const candidates = refreshedIssues.filter(isConsumerCandidate);
     const queuePlan = await planConsumableIssues(repoSlug, candidates, deps.github, {
       commandOptions: options.commandOptions
     });
@@ -2149,13 +2235,14 @@ async function runGitHubDaemon(repoRoot, repoSlug, repoPath, options = {}) {
     const results = await consumeBatch(
       queuePlan.ready.slice(0, options.limit ?? queuePlan.ready.length),
       concurrency,
-      (entry) => runGitHubIssueWorker(repoRoot, repoSlug, repoPath, entry.issue.number, options)
+      (entry) => issueWorker(repoRoot, repoSlug, repoPath, entry.issue.number, options)
     );
 
     const summary = {
-      checked: issues.length,
+      checked: refreshedIssues.length,
       candidates: candidates.length,
       consumed: results.length,
+      recoveredClaims,
       ready: queuePlan.ready.map((entry) => ({
         issueNumber: entry.issue.number,
         priorityRank: entry.priorityRank,
@@ -2180,6 +2267,7 @@ async function runGitHubDaemon(repoRoot, repoSlug, repoPath, options = {}) {
         checked: summary.checked,
         candidates: summary.candidates,
         consumed: summary.consumed,
+        recoveredIssueNumbers: recoveredClaims.map((entry) => entry.issueNumber),
         readyIssueNumbers: summary.ready.map((entry) => entry.issueNumber),
         blockedIssueNumbers: summary.blocked.map((entry) => entry.issueNumber)
       }
@@ -2207,6 +2295,7 @@ module.exports = {
   parseIssueDependencies,
   planConsumableIssues,
   produceGitHubIssue,
+  recoverStaleClaimedIssues,
   recoverIssueRun,
   reconcileIssue,
   runGitHubDaemon,
