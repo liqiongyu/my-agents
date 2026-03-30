@@ -6,14 +6,12 @@ It checks whether the slice can already represent the four starter scenarios wit
 
 ## Validation Rules
 
-Each scenario is checked against three reference documents:
+> **Note:** This validation was originally performed against three bridge-layer
+> documents (canonical schema, runtime contract, evaluation pack) that have
+> since been removed. The current architecture reference is
+> [issue-agent-os-architecture.md](../../architecture/issue-agent-os-architecture.md).
 
-- canonical object boundaries
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md)
-- runtime actor and handoff boundaries
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md)
-- scenario intent and expected coverage
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md)
+Each scenario was checked against object boundaries, runtime actor and handoff boundaries, and scenario intent and expected coverage.
 
 The slice passes this phase only if it can show:
 

@@ -34,13 +34,13 @@ It becomes one small execution cell inside a governed runtime.
 This walkthrough uses existing repository assets only as temporary stand-ins:
 
 - primary execution unit
-  - [`agents/implementer`](/Users/liqiongyu/projects/pri/my-agents/agents/implementer)
+  - [`agents/implementer`](../../../agents/implementer)
 - evaluator path
-  - [`agents/reviewer`](/Users/liqiongyu/projects/pri/my-agents/agents/reviewer)
+  - [`agents/reviewer`](../../../agents/reviewer)
 - optional exploration support
-  - [`agents/explorer`](/Users/liqiongyu/projects/pri/my-agents/agents/explorer)
+  - [`agents/explorer`](../../../agents/explorer)
 - optional shaping or planning support
-  - [`agents/planner`](/Users/liqiongyu/projects/pri/my-agents/agents/planner)
+  - [`agents/planner`](../../../agents/planner)
 
 These stand-ins exist to make the reference slice concrete.
 They do not redefine the canonical ontology, and they do not mean every logical role deserves a permanent agent package.
@@ -110,7 +110,7 @@ It shows that the baseline path is intentionally generalist-first.
 
 ### Step 3: Primary Execution
 
-The primary execution unit, represented here by [`agents/implementer`](/Users/liqiongyu/projects/pri/my-agents/agents/implementer), performs the bug fix and produces a change object.
+The primary execution unit, represented here by [`agents/implementer`](../../../agents/implementer), performs the bug fix and produces a change object.
 
 Result:
 
@@ -125,7 +125,7 @@ This is the point where the slice demonstrates a crucial boundary:
 
 ### Step 4: Independent Evaluation
 
-The evaluator path, represented here by [`agents/reviewer`](/Users/liqiongyu/projects/pri/my-agents/agents/reviewer), checks the change against the done contract and evidence.
+The evaluator path, represented here by [`agents/reviewer`](../../../agents/reviewer), checks the change against the done contract and evidence.
 
 The verification report records:
 
@@ -222,7 +222,7 @@ Expected outcomes:
 - change state is `no_change_yet`
 
 In the reference slice, this service is still conceptual.
-If the repo later chooses a thin stand-in, [`agents/planner`](/Users/liqiongyu/projects/pri/my-agents/agents/planner) is the most natural temporary candidate.
+If the repo later chooses a thin stand-in, [`agents/planner`](../../../agents/planner) is the most natural temporary candidate.
 
 ## What This Slice Already Proves
 
@@ -241,11 +241,7 @@ If the repo later chooses a thin stand-in, [`agents/planner`](/Users/liqiongyu/p
 
 ## Where To Go Next
 
-- for object boundaries:
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md)
-- for actor and handoff boundaries:
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md)
-- for scenario intent and expected coverage:
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-evaluation-pack.md)
+- for the current architecture:
+  - [issue-agent-os-architecture.md](../../architecture/issue-agent-os-architecture.md)
 - for the full system blueprint:
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-operating-system.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-operating-system.md)
+  - [issue-driven-agent-operating-system.md](../../architecture/issue-driven-agent-operating-system.md)

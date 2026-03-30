@@ -197,9 +197,7 @@ This page therefore demonstrates:
 
 - full walkthrough:
   - [runtime-walkthrough.md](./runtime-walkthrough.md)
-- canonical object definitions:
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-canonical-schema.md)
-- runtime actor boundaries:
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-os-runtime-contract.md)
+- current architecture:
+  - [issue-agent-os-architecture.md](../../architecture/issue-agent-os-architecture.md)
 - system blueprint:
-  - [/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-operating-system.md](/Users/liqiongyu/projects/pri/my-agents/docs/architecture/issue-driven-agent-operating-system.md)
+  - [issue-driven-agent-operating-system.md](../../architecture/issue-driven-agent-operating-system.md)

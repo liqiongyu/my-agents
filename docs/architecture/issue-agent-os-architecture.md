@@ -389,14 +389,14 @@ Other agents' core competencies are their prompts, not separate skills:
 
 ## 7. Infrastructure (Thin Code Layer)
 
-| Component           | Status            | Role                                                      |
-| ------------------- | ----------------- | --------------------------------------------------------- |
-| GitHub adapter      | Exists ✅         | Issues, PRs, labels, comments, reviews — 16 functions     |
-| Worktree manager    | Exists ✅         | Create/cleanup worktrees, branch ops, push — 10 functions |
-| State store         | Exists ✅         | Leases, run records, artifacts, event log — ~50 functions |
-| Queue query         | **New ~80 lines** | `queue.next(limit)` — priority + dependency resolution    |
-| Worker pool tracker | **New ~60 lines** | Track active workers, slots, completion handling          |
-| CLI entry point     | **New ~60 lines** | `npx my-agents run controller --repo owner/repo`          |
+| Component        | Status    | Role                                                      |
+| ---------------- | --------- | --------------------------------------------------------- |
+| GitHub adapter   | Exists ✅ | Issues, PRs, labels, comments, reviews — 16 functions     |
+| Worktree manager | Exists ✅ | Create/cleanup worktrees, branch ops, push — 10 functions |
+| State store      | Exists ✅ | Leases, run records, artifacts, event log — ~50 functions |
+| Queue query      | Exists ✅ | `queue.next(limit)` — priority + dependency resolution    |
+| Queue service    | Exists ✅ | Cross-repo deps, priority label normalization             |
+| Lease service    | Exists ✅ | Lease supervisor, review-loop budgets, metadata snapshots |
 
 ### What code does vs what agents do
 
@@ -470,15 +470,18 @@ Parallel safety: 6 workers = 6 worktrees = 6 branches. No conflicts possible.
 
 Same agent definitions, different spawn mechanism.
 
-### Agent Package Structure
+### Package Structure
+
+The controller is a skill (`skills/issue-controller`), not an agent package.
+Worker agents live under `agents/`:
 
 ```
-agents/
-  controller/       ← thin dispatcher (top-level only)
-    agent.json
-    claude-code.md
-    codex.toml
+skills/
+  issue-controller/  ← top-level dispatcher (skill, not agent)
+    skill.json
+    SKILL.md
     CHANGELOG.md
+agents/
   triager/           ← judgment + brief writing
   splitter/          ← issue decomposition
   coder/             ← code implementation
@@ -501,14 +504,11 @@ agents/
 ### Running
 
 ```bash
-# Claude Code — controller runs as the top-level session
-claude --agent controller --prompt "Process the issue queue for owner/repo"
+# Claude Code — invoke the issue-controller skill
+/issue-controller owner/repo
 
-# Codex — controller runs as the top-level agent
-codex --agent controller --prompt "Process the issue queue for owner/repo"
-
-# With concurrency override
-claude --agent controller --prompt "Process queue for owner/repo, max_workers=3"
+# Codex — describe the task; the controller skill drives agent dispatch
+codex --prompt "Process the issue queue for owner/repo"
 ```
 
 ## 10. Failure & Recovery
@@ -543,11 +543,9 @@ Each step is independently useful and testable:
 5. **Reviewer agent definition** — structured review worker
 6. **Splitter agent definition** — issue decomposition worker
 7. **Planner + Debugger agent definitions** — additional worker types
-8. **Skills** — `structured-review`, `issue-decomposition`, `acceptance-check`
-9. **Worker pool tracker** (~60 lines) — concurrency management
-10. **CLI entry point** (~60 lines) — `npx my-agents run controller --repo owner/repo`
+8. **Additional skills** as needed
 
-New code total: ~200 lines. Everything else is agent/skill definitions (prompts).
+The controller is a skill (`skills/issue-controller/`), invoked via `/issue-controller` in Claude Code or through a Codex prompt. There is no separate CLI entry point — the skill definition drives agent dispatch directly.
 
 ## 13. Example: End-to-End with 100 Issues
 

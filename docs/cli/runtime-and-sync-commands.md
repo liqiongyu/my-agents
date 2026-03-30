@@ -2,42 +2,6 @@
 
 This reference covers the commands that install runtime artifacts, synchronize project state, regenerate contributor instructions, and manage local-only reference repositories.
 
-For GitHub-backed issue runs, the runtime also projects a GitHub-visible commit
-status with context `issue-driven-os/verification` onto the pull request head
-commit. That status is derived from runtime truth and complements, rather than
-replaces, the persisted run and critic artifacts.
-
-The GitHub daemon scheduler also supports explicit dependency markers in issue
-bodies:
-
-- `Depends-On: #123`
-- `Depends-On: owner/repo#456`
-- `Blocked-By:` with bullet items such as `- #123`
-
-Only dependency-ready issues are claimed. The daemon sorts ready candidates by
-priority label rank, then oldest issue creation time, then issue number. Both
-the daemon's `--once` text output and `--json` payload surface
-dependency-blocked cases.
-
-## Inspect GitHub Runtime State
-
-Use `issue-driven-os github inspect` when you need operator diagnostics for one GitHub-backed runtime root without opening `state.json`, `leases/*.json`, `runs/*.json`, or `artifacts/<runId>/` by hand:
-
-```bash
-npx my-agents issue-driven-os github inspect owner/repo
-npx my-agents issue-driven-os github inspect owner/repo --runtime-root ~/.my-agents/issue-driven-os/owner__repo
-npx my-agents issue-driven-os github inspect owner/repo --runtime-root ~/.my-agents/issue-driven-os/owner__repo --json
-npx my-agents issue-driven-os github inspect owner/repo --runtime-root ~/.my-agents/issue-driven-os/owner__repo --run run_issue_123_20260329T151315Z
-```
-
-The command:
-
-- scopes inspection to one `<owner>/<repo>`
-- shows active leases, issue summary state, and recent runs in deterministic order
-- supports `--run <id>` to show one persisted run record plus concrete artifact file locations
-- supports `--json` for machine-readable diagnostics
-- honors `--runtime-root` the same way the existing GitHub runtime commands do
-
 ## Add External Official Assets
 
 Use `add` when you want to append one trusted GitHub-hosted external asset to a project manifest without hand-writing the structured locator fields:

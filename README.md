@@ -5,9 +5,9 @@ Language: English | [Chinese](README.zh-CN.md)
 [![Validate](https://github.com/liqiongyu/my-agents/actions/workflows/validate.yml/badge.svg)](https://github.com/liqiongyu/my-agents/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A monorepo for authoring, validating, and publishing reusable skills, agents, and installable packs for Claude Code, Codex, and similar AI coding agents.
+A monorepo for authoring, validating, and publishing reusable skills, agents, and installable packs for Claude Code, Codex, and similar AI coding agents. Includes the **Issue Agent OS** — a thin controller that turns GitHub Issues into an automated triage → execute → review → merge pipeline driven entirely by sub-agents.
 
-This repository keeps the canonical source of truth under `skills/`, `agents/`, and `packs/`, generates discovery catalogs from that source, and provides scaffold/install tooling so the same content can be projected into different runtime surfaces.
+This repository keeps the canonical source of truth under `skills/`, `agents/`, and `packs/`, generates discovery catalogs from that source, and provides scaffold/install tooling so the same content can be projected into different runtime surfaces. Thin runtime services under `runtime/` support the Issue Agent OS queue and lease management.
 
 > [!NOTE]
 > Edit packages in `skills/`, `agents/`, and `packs/`. Treat generated catalogs and project-scope runtime copies as derived artifacts.
@@ -37,7 +37,49 @@ npm test
 - [docs/catalog/packs.md](docs/catalog/packs.md) is the generated human-readable index of tracked packs.
 - `dist/catalog.json` is the generated machine-readable index consumed by tooling.
 
-If you want a quick sense of the current library shape, start with `skill-lifecycle-manager`, `skill-researcher`, and `agent-lifecycle-manager` in the generated skills catalog. They reflect the repo's current direction around lifecycle routing, research handoffs, and cross-surface packaging.
+For the repo's current direction, start with `issue-controller` (the automated issue queue loop) and the worker agents (`triager`, `coder`, `reviewer`, `splitter`, `debugger`) in the agents catalog. For package authoring workflows, see `skill-lifecycle-manager` and `agent-lifecycle-manager` in the skills catalog.
+
+## Issue Agent OS
+
+The Issue Agent OS uses GitHub Issues as a priority queue and orchestrates sub-agents through a thin controller skill that never reads issue content itself — all judgment lives in the agents it spawns.
+
+```
+GitHub Issues (priority queue)
+        │
+        ▼
+   Controller        ← skills/issue-controller
+   (thin dispatcher)
+        │
+   ┌────┼────┐
+   ▼    ▼    ▼
+ Triager Triager ...  ← agents/triager (parallel fan-out)
+   │    │    │
+   ▼    ▼    ▼
+ Coder Splitter Debugger ...  ← agents/coder, splitter, debugger, planner
+   │         │
+   ▼         ▼
+ Reviewer  sub-issues → re-queue
+   │
+   ▼
+ Merge PR
+```
+
+**Key components:**
+
+| Component     | Location                   | Role                                                                    |
+| ------------- | -------------------------- | ----------------------------------------------------------------------- |
+| Controller    | `skills/issue-controller/` | Thin dispatcher loop — pulls queue, fans out triage, dispatches workers |
+| Triager       | `agents/triager/`          | Reads issue, assesses actionability, returns a routing verdict          |
+| Coder         | `agents/coder/`            | Implements changes in an isolated worktree from a triager brief         |
+| Reviewer      | `agents/reviewer/`         | Structured code review with severity-graded findings                    |
+| Splitter      | `agents/splitter/`         | Decomposes large issues into 2–5 concrete sub-issues                    |
+| Debugger      | `agents/debugger/`         | Hypothesis-driven bug diagnosis and fix                                 |
+| Planner       | `agents/planner/`          | Architecture and implementation planning                                |
+| Queue service | `runtime/services/`        | Priority ranking, dependency resolution, ready-issue selection          |
+| Lease service | `runtime/services/`        | Distributed lease management for concurrent workers                     |
+| State store   | `scripts/lib/`             | Lease, run record, artifact, and event log persistence                  |
+
+See [docs/architecture/issue-agent-os-architecture.md](docs/architecture/issue-agent-os-architecture.md) for the full design document.
 
 ## Metadata Conventions
 
@@ -51,6 +93,7 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 - [docs/architecture/tooling-layout.md](docs/architecture/tooling-layout.md) explains how the tooling and docs are organized as the command surface grows.
 - [docs/architecture/official-agent-best-practices.md](docs/architecture/official-agent-best-practices.md) distills official OpenAI, Anthropic, MCP, and Agent Skills guidance into repository design defaults.
 - [research/OpenAI_Anthropic_Codex_Claude_Code_Best_Practices_20260329.md](research/OpenAI_Anthropic_Codex_Claude_Code_Best_Practices_20260329.md) keeps the longer source-backed research basis for those defaults.
+- [docs/architecture/issue-agent-os-architecture.md](docs/architecture/issue-agent-os-architecture.md) documents the Issue Agent OS design: thin controller, GitHub-issues-as-queue, sub-agent dispatch, and lease management.
 - [instructions/root/shared.md](instructions/root/shared.md) is the source of truth for rules shared by Codex and Claude Code.
 - [AGENTS.md](AGENTS.md), [CLAUDE.md](CLAUDE.md), and [CONTRIBUTING.md](CONTRIBUTING.md) cover contributor workflow, release hygiene, and local conventions.
 
@@ -69,6 +112,7 @@ If you want a quick sense of the current library shape, start with `skill-lifecy
 | `instructions/root/`       | Canonical source fragments used to generate root `AGENTS.md` and `CLAUDE.md`                                           |
 | `scripts/`                 | Scaffolding, install, catalog build, and validation tooling                                                            |
 | `schemas/`                 | JSON Schemas for skill, agent, and catalog metadata                                                                    |
+| `runtime/`                 | Thin runtime services for the Issue Agent OS (queue, lease)                                                            |
 | `research/`                | Research notes, source digests, and longer-form background documents                                                   |
 | `workspaces/<skill-name>/` | Evaluation sandboxes and scratch space for skill development                                                           |
 | `.my-agents/`              | Ignored local state such as project sync state and the optional `reference-repos.json` manifest                        |
@@ -123,6 +167,26 @@ Unless you pass `--scope user` or narrow `--platform`, install and uninstall flo
 If you are bootstrapping a project manifest from scratch, start from [docs/examples/my-agents.project.example.json](docs/examples/my-agents.project.example.json).
 
 Project manifests can now mix local package names with external official GitHub-backed assets. The `add <url>` flow resolves the URL to a structured manifest entry with an immutable commit SHA so `project sync` stays reproducible.
+
+### Issue Agent OS
+
+The Issue Agent OS is driven by the `issue-controller` skill, not a CLI subcommand. Invoke it interactively:
+
+```bash
+# Claude Code — invoke the controller skill
+/issue-controller owner/repo
+
+# Codex — the controller skill activates from the prompt
+codex --prompt "Process the issue queue for owner/repo"
+```
+
+The standalone queue helper CLI is available for inspection:
+
+```bash
+node scripts/lib/issue-driven-os-queue.js next --repo owner/repo --limit 6
+```
+
+See [docs/architecture/issue-agent-os-architecture.md](docs/architecture/issue-agent-os-architecture.md) for the full architecture and [skills/issue-controller/SKILL.md](skills/issue-controller/SKILL.md) for the controller skill reference.
 
 ### Lint and format the repo
 
