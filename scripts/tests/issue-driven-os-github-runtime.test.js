@@ -576,6 +576,12 @@ test("runGitHubIssueWorker resumes a failed run from persisted execution state",
       worktreePath: "/tmp/fake-resume-worktree",
       reused: true
     }),
+    refreshIssueBranch: async () => ({
+      status: "up_to_date",
+      baseBranch: "main",
+      baseRef: "origin/main",
+      conflictedFiles: []
+    }),
     getWorkingTreeStatus: async () => "",
     getHeadCommitSha: async () => "resume123",
     commitAllChanges: async () => {
@@ -597,6 +603,7 @@ test("runGitHubIssueWorker resumes a failed run from persisted execution state",
         runtimeRoot: tempRoot,
         github,
         createIssueWorktree: workspace.createIssueWorktree,
+        refreshIssueBranch: workspace.refreshIssueBranch,
         getWorkingTreeStatus: workspace.getWorkingTreeStatus,
         getHeadCommitSha: workspace.getHeadCommitSha,
         commitAllChanges: workspace.commitAllChanges,
@@ -781,6 +788,12 @@ test("runGitHubIssueWorker reruns execution after needs_changes using prior crit
       worktreePath: "/tmp/fake-review-loop-worktree",
       reused: true
     }),
+    refreshIssueBranch: async () => ({
+      status: "conflicted",
+      baseBranch: "main",
+      baseRef: "origin/main",
+      conflictedFiles: ["scripts/lib/issue-driven-os-github-runtime.js"]
+    }),
     commitAllChanges: async () => ({
       changed: true,
       commitSha: "reviewloop456"
@@ -801,6 +814,7 @@ test("runGitHubIssueWorker reruns execution after needs_changes using prior crit
         runtimeRoot: tempRoot,
         github,
         createIssueWorktree: workspace.createIssueWorktree,
+        refreshIssueBranch: workspace.refreshIssueBranch,
         commitAllChanges: workspace.commitAllChanges,
         pushBranch: workspace.pushBranch,
         cleanupIssueWorktree: workspace.cleanupIssueWorktree,
@@ -855,6 +869,10 @@ test("runGitHubIssueWorker reruns execution after needs_changes using prior crit
       executionContexts[0].reviewFeedback.requestedChanges[0].body,
       /Stop work immediately after lease loss\./
     );
+    assert.equal(executionContexts[0].branchSync.status, "conflicted");
+    assert.deepEqual(executionContexts[0].branchSync.conflictedFiles, [
+      "scripts/lib/issue-driven-os-github-runtime.js"
+    ]);
     assert.equal(pushCalls.length, 1);
     assert.equal(pushCalls[0].forceWithLease, true);
     assert.equal(reviews[0].event, "COMMENT");
@@ -880,6 +898,13 @@ test("runGitHubIssueWorker reruns execution after needs_changes using prior crit
       )
     );
     assert.ok(events.some((event) => event.event === "execution_started"));
+    assert.ok(
+      events.some(
+        (event) =>
+          event.event === "branch_refresh_conflicted" &&
+          event.data?.conflictedFiles?.includes("scripts/lib/issue-driven-os-github-runtime.js")
+      )
+    );
     assert.ok(!events.some((event) => event.event === "execution_resumed"));
     assert.ok(!events.some((event) => event.event === "critic_resumed"));
     assert.ok(findPrCalls >= 1);

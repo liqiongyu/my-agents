@@ -25,6 +25,7 @@ const {
   createIssueWorktree,
   getHeadCommitSha,
   getWorkingTreeStatus,
+  refreshIssueBranch,
   pushBranch
 } = require("./issue-driven-os-workspace");
 const { readJson } = require("./fs-utils");
@@ -258,6 +259,7 @@ function buildRuntimeDeps(options = {}) {
       commitAllChanges: options.commitAllChanges ?? commitAllChanges,
       getHeadCommitSha: options.getHeadCommitSha ?? getHeadCommitSha,
       getWorkingTreeStatus: options.getWorkingTreeStatus ?? getWorkingTreeStatus,
+      refreshIssueBranch: options.refreshIssueBranch ?? refreshIssueBranch,
       pushBranch: options.pushBranch ?? pushBranch,
       cleanupIssueWorktree: options.cleanupIssueWorktree ?? cleanupIssueWorktree
     }
@@ -1328,6 +1330,44 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       );
     }
 
+    let branchSync = {
+      status: "not_required",
+      baseBranch: workspace.baseBranch,
+      baseRef: `origin/${workspace.baseBranch}`,
+      conflictedFiles: []
+    };
+    if (existingPullRequest || resumeContext) {
+      branchSync = await deps.workspace.refreshIssueBranch(
+        workspace.worktreePath,
+        workspace.baseBranch
+      );
+      await recordRuntimeEvent(runtimePaths, {
+        repoSlug,
+        issueNumber,
+        runId: runRecord.id,
+        actor: "workspace",
+        phase: "workspace",
+        event:
+          branchSync.status === "merged"
+            ? "branch_refreshed"
+            : branchSync.status === "conflicted"
+              ? "branch_refresh_conflicted"
+              : "branch_refresh_skipped",
+        message:
+          branchSync.status === "merged"
+            ? `Refreshed ${workspace.branchName} with ${branchSync.baseRef}.`
+            : branchSync.status === "conflicted"
+              ? `Refresh from ${branchSync.baseRef} produced conflicts.`
+              : `${workspace.branchName} is already up to date with ${branchSync.baseRef}.`,
+        data: {
+          branchRef: workspace.branchName,
+          baseBranch: branchSync.baseBranch,
+          baseRef: branchSync.baseRef,
+          conflictedFiles: branchSync.conflictedFiles ?? []
+        }
+      });
+    }
+
     const reviewFeedback = buildExecutionReviewFeedback(
       openPullRequest
         ? extractReviewFeedback(
@@ -1374,7 +1414,8 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         issue,
         shaping: shaping.payload,
         reviewFeedback,
-        branchRef: workspace.branchName
+        branchRef: workspace.branchName,
+        branchSync
       });
       executionArtifactPath = await persistArtifact(
         runtimePaths,

@@ -88,6 +88,20 @@ async function remoteBranchExists(repoPath, branchName) {
   }
 }
 
+async function listConflictedFiles(worktreePath) {
+  const { stdout } = await runCommandCapture("git", [
+    "-C",
+    worktreePath,
+    "diff",
+    "--name-only",
+    "--diff-filter=U"
+  ]);
+  return stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 async function createIssueWorktree(repoPath, runtimePaths, issueNumber, options = {}) {
   await ensureGitRepository(repoPath);
   await fs.mkdir(runtimePaths.worktreesDir, { recursive: true });
@@ -171,6 +185,68 @@ async function createIssueWorktree(repoPath, runtimePaths, issueNumber, options 
   };
 }
 
+async function refreshIssueBranch(worktreePath, baseBranch, options = {}) {
+  const remoteName = options.remoteName ?? "origin";
+  const baseRef = options.baseRef ?? `${remoteName}/${baseBranch}`;
+
+  try {
+    await runCommand("git", ["-C", worktreePath, "fetch", remoteName, baseBranch], {
+      stdio: "ignore"
+    });
+  } catch {
+    // Fall back to the last known remote ref if fetch is unavailable.
+  }
+
+  let needsRefresh = true;
+  try {
+    const { stdout } = await runCommandCapture("git", [
+      "-C",
+      worktreePath,
+      "rev-list",
+      "--left-right",
+      "--count",
+      `HEAD...${baseRef}`
+    ]);
+    const [, behindRaw] = stdout.trim().split(/\s+/);
+    const behindCount = Number.parseInt(behindRaw ?? "0", 10);
+    needsRefresh = Number.isInteger(behindCount) ? behindCount > 0 : true;
+  } catch {
+    needsRefresh = true;
+  }
+
+  if (!needsRefresh) {
+    return {
+      status: "up_to_date",
+      baseBranch,
+      baseRef,
+      conflictedFiles: []
+    };
+  }
+
+  try {
+    await runCommandCapture("git", ["-C", worktreePath, "merge", "--no-edit", baseRef]);
+    return {
+      status: "merged",
+      baseBranch,
+      baseRef,
+      conflictedFiles: []
+    };
+  } catch (error) {
+    const conflictedFiles = await listConflictedFiles(worktreePath);
+    if (conflictedFiles.length === 0) {
+      throw error;
+    }
+
+    return {
+      status: "conflicted",
+      baseBranch,
+      baseRef,
+      conflictedFiles,
+      error: error.message
+    };
+  }
+}
+
 async function getWorkingTreeStatus(worktreePath) {
   const { stdout } = await runCommandCapture("git", ["-C", worktreePath, "status", "--porcelain"]);
   return stdout.trim();
@@ -230,6 +306,7 @@ module.exports = {
   ensureGitRepository,
   getHeadCommitSha,
   getWorkingTreeStatus,
+  refreshIssueBranch,
   pushBranch,
   resolveDefaultBaseBranch,
   worktreePathForIssue
