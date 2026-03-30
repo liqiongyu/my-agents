@@ -151,6 +151,9 @@ function buildQueue(options) {
 
 // --- CLI entry point ---
 if (require.main === module) {
+  const fs = require("node:fs");
+  const path = require("node:path");
+
   const args = process.argv.slice(2);
   const command = args[0];
 
@@ -159,16 +162,42 @@ if (require.main === module) {
     return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
   }
 
+  function buildDryRunAdapter() {
+    const fixturePath = path.resolve(__dirname, "../fixtures/queue-test.json");
+    const allIssues = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+
+    function listIssues(_repoSlug, options) {
+      const state = (options.state ?? "open").toUpperCase();
+      const labelFilter = options.labels ?? [];
+      const limit = options.limit ?? 100;
+
+      const filtered = allIssues.filter((issue) => {
+        if (issue.state.toUpperCase() !== state) return false;
+        for (const label of labelFilter) {
+          if (!issue.labels.includes(label)) return false;
+        }
+        return true;
+      });
+
+      return Promise.resolve(filtered.slice(0, limit));
+    }
+
+    return { listIssues };
+  }
+
   if (command === "next") {
     const repo = flag("repo");
     const limit = parseInt(flag("limit") ?? "6", 10);
+    const dryRun = args.includes("--dry-run");
 
     if (!repo) {
-      console.error("Usage: node issue-driven-os-queue.js next --repo owner/repo [--limit N]");
+      console.error(
+        "Usage: node issue-driven-os-queue.js next --repo owner/repo [--limit N] [--dry-run]"
+      );
       process.exit(1);
     }
 
-    const gh = buildGhAdapter();
+    const gh = dryRun ? buildDryRunAdapter() : buildGhAdapter();
     const queue = buildQueue({ gh, repoSlug: repo });
 
     queue
