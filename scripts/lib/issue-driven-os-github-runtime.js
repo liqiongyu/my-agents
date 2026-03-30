@@ -1556,6 +1556,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
 
     async function finalizeIssueCommentBlock({
       actor,
+      eventActor = actor,
       phase,
       summary,
       blockers,
@@ -1600,7 +1601,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         repoSlug,
         issueNumber,
         runId: runRecord.id,
-        actor,
+        actor: eventActor,
         phase,
         event,
         message: eventMessage,
@@ -1805,6 +1806,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       await keepLease("shaping_blocked");
       return finalizeIssueCommentBlock({
         actor: "issue-shaper",
+        eventActor: "worker",
         phase: "shaping",
         summary: shaping.payload.summary,
         executionSummary: buildShaperExecutionSummary(shaping.payload.route, {
@@ -2063,6 +2065,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         await keepLease("execution_no_changes");
         return finalizeIssueCommentBlock({
           actor: "issue-cell-executor",
+          eventActor: "workspace",
           phase: "execution",
           summary: execution.payload.summary || "No code changes were produced.",
           blockers: execution.payload.blockers,
