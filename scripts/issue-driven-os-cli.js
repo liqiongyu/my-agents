@@ -18,7 +18,12 @@ const {
   formatGitHubRuntimeInspection,
   inspectGitHubRuntime
 } = require("./lib/issue-driven-os-github-inspection");
-const { buildRuntimePaths, listRuntimeEvents } = require("./lib/issue-driven-os-state-store");
+const {
+  buildRuntimePaths,
+  captureRuntimeEventCursor,
+  listRuntimeEvents,
+  readRuntimeEventsSince
+} = require("./lib/issue-driven-os-state-store");
 const {
   produceGitHubIssue,
   recoverIssueRun,
@@ -308,6 +313,18 @@ function formatRuntimeEventLine(event) {
   ].join(" | ");
 }
 
+function compareRuntimeEventsAscending(left, right) {
+  const leftTime = Date.parse(left?.timestamp ?? "");
+  const rightTime = Date.parse(right?.timestamp ?? "");
+  const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
+  const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
+  if (safeLeft !== safeRight) {
+    return safeLeft - safeRight;
+  }
+
+  return String(left?.id ?? "").localeCompare(String(right?.id ?? ""));
+}
+
 async function followRuntimeEvents(runtimePaths, options = {}) {
   const onEvent =
     options.onEvent ??
@@ -318,18 +335,19 @@ async function followRuntimeEvents(runtimePaths, options = {}) {
   const minTimestamp = Date.parse(options.startedAt ?? new Date().toISOString());
   const intervalMs = Math.max(100, Number(options.intervalMs ?? 250));
   const eventWindow = Math.max(50, Number(options.eventWindow ?? 1000));
+  const captureCursor = options.captureCursor ?? (() => captureRuntimeEventCursor(runtimePaths));
+  const listEvents =
+    options.listEvents ?? ((listOptions) => listRuntimeEvents(runtimePaths, listOptions));
+  const readEventsSince =
+    options.readEventsSince ??
+    ((cursor, readOptions) => readRuntimeEventsSince(runtimePaths, cursor, readOptions));
   const seenIds = new Set();
+  let cursor = await captureCursor();
+  let pumpPromise = null;
+  let pumpPending = false;
 
-  async function pump() {
-    const events = await listRuntimeEvents(runtimePaths, { limit: eventWindow });
-    const ordered = [...events].sort((left, right) => {
-      const leftTime = Date.parse(left.timestamp ?? "");
-      const rightTime = Date.parse(right.timestamp ?? "");
-      const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
-      const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
-      return safeLeft - safeRight;
-    });
-
+  async function emitEvents(events) {
+    const ordered = [...events].sort(compareRuntimeEventsAscending);
     for (const event of ordered) {
       if (seenIds.has(event.id)) {
         continue;
@@ -349,15 +367,44 @@ async function followRuntimeEvents(runtimePaths, options = {}) {
     }
   }
 
-  await pump();
+  async function requestPump(mode = "incremental") {
+    if (pumpPromise) {
+      pumpPending = true;
+      return pumpPromise;
+    }
+
+    pumpPromise = (async () => {
+      try {
+        if (mode === "initial") {
+          const recentEvents = await listEvents({ limit: eventWindow });
+          await emitEvents(recentEvents);
+          return;
+        }
+
+        const nextBatch = await readEventsSince(cursor);
+        cursor = nextBatch.cursor;
+        await emitEvents(nextBatch.events);
+      } finally {
+        pumpPromise = null;
+        if (pumpPending) {
+          pumpPending = false;
+          await requestPump("incremental");
+        }
+      }
+    })();
+
+    return pumpPromise;
+  }
+
+  await requestPump("initial");
   const timer = setInterval(() => {
-    void pump();
+    void requestPump("incremental");
   }, intervalMs);
   timer.unref?.();
 
   return async () => {
     clearInterval(timer);
-    await pump();
+    await requestPump("incremental");
   };
 }
 

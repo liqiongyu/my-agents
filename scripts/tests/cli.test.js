@@ -210,6 +210,98 @@ test("followRuntimeEvents emits matching runtime events for live debugging", asy
   }
 });
 
+test("followRuntimeEvents discovers appended events incrementally without overlapping polls", async () => {
+  const received = [];
+  let activeReads = 0;
+  let maxConcurrentReads = 0;
+  let incrementalCallCount = 0;
+
+  const initialEvents = [
+    {
+      id: "evt_2",
+      timestamp: "2026-03-30T00:00:02.000Z",
+      issueNumber: 31,
+      phase: "claim",
+      event: "second",
+      message: "Second event."
+    },
+    {
+      id: "evt_1",
+      timestamp: "2026-03-30T00:00:01.000Z",
+      issueNumber: 31,
+      phase: "claim",
+      event: "first",
+      message: "First event."
+    }
+  ];
+  const appendedBatches = [
+    [
+      {
+        id: "evt_4",
+        timestamp: "2026-03-30T00:00:04.000Z",
+        issueNumber: 31,
+        phase: "execution",
+        event: "fourth",
+        message: "Fourth event."
+      },
+      {
+        id: "evt_3",
+        timestamp: "2026-03-30T00:00:03.000Z",
+        issueNumber: 31,
+        phase: "execution",
+        event: "third",
+        message: "Third event."
+      }
+    ],
+    [
+      {
+        id: "evt_5",
+        timestamp: "2026-03-30T00:00:05.000Z",
+        issueNumber: 30,
+        phase: "execution",
+        event: "ignored",
+        message: "Ignored event."
+      }
+    ],
+    []
+  ];
+
+  const stopFollowing = await followRuntimeEvents(buildRuntimePaths("owner/repo"), {
+    startedAt: "2026-03-30T00:00:00.000Z",
+    intervalMs: 100,
+    eventWindow: 50,
+    captureCursor: async () => ({ offset: 200 }),
+    listEvents: async ({ limit }) => {
+      assert.equal(limit, 50);
+      return initialEvents;
+    },
+    readEventsSince: async (cursor) => {
+      activeReads += 1;
+      maxConcurrentReads = Math.max(maxConcurrentReads, activeReads);
+      const batch = appendedBatches[incrementalCallCount] ?? [];
+      incrementalCallCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      activeReads -= 1;
+      return {
+        events: batch,
+        cursor: { offset: cursor.offset + batch.length }
+      };
+    },
+    matches: (event) => Number(event.issueNumber) === 31,
+    onEvent: async (event) => {
+      received.push(event.id);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 420));
+  await stopFollowing();
+
+  assert.deepEqual(received, ["evt_1", "evt_2", "evt_3", "evt_4"]);
+  assert.equal(maxConcurrentReads, 1);
+  assert.ok(incrementalCallCount >= 2);
+});
+
 test("formatDaemonPassSummary surfaces dependency-blocked issues in operator output", () => {
   const rendered = formatDaemonPassSummary({
     checked: 6,
