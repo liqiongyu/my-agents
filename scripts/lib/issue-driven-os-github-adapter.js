@@ -337,6 +337,32 @@ function buildGhAdapter(options = {}) {
     });
   }
 
+  async function createCommitStatus(repoSlug, commitSha, options = {}) {
+    const { owner, repo } = parseRepoSlug(repoSlug);
+    const args = [
+      "api",
+      "--method",
+      "POST",
+      `repos/${owner}/${repo}/statuses/${commitSha}`,
+      "-f",
+      `state=${options.state}`
+    ];
+
+    if (options.context) {
+      args.push("-f", `context=${options.context}`);
+    }
+
+    if (options.description) {
+      args.push("-f", `description=${options.description}`);
+    }
+
+    if (options.targetUrl) {
+      args.push("-f", `target_url=${options.targetUrl}`);
+    }
+
+    await run("gh", args, options.commandOptions);
+  }
+
   async function listPullRequestReviews(repoSlug, pullNumber, options = {}) {
     const { owner, repo } = parseRepoSlug(repoSlug);
     const reviews = await readJson(
@@ -380,6 +406,7 @@ function buildGhAdapter(options = {}) {
     closeIssue,
     commentIssue,
     commentPullRequest,
+    createCommitStatus,
     createIssue,
     createPullRequest,
     editPullRequest,

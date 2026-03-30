@@ -86,3 +86,31 @@ test("submitPullRequestReview maps GitHub review events to gh pr review flags", 
   ]);
   assert.ok(runCalls[0].includes("--body-file"));
 });
+
+test("createCommitStatus maps verification projection fields to gh api status arguments", async () => {
+  const runCalls = [];
+  const adapter = buildGhAdapter({
+    run: async (_command, args) => {
+      runCalls.push(args);
+    }
+  });
+
+  await adapter.createCommitStatus("owner/repo", "abc123", {
+    state: "success",
+    context: "issue-driven-os/verification",
+    description: "verified-pass: Ready to merge.",
+    targetUrl: "https://example.test/pull/88"
+  });
+
+  assert.equal(runCalls.length, 1);
+  assert.deepEqual(runCalls[0].slice(0, 4), [
+    "api",
+    "--method",
+    "POST",
+    "repos/owner/repo/statuses/abc123"
+  ]);
+  assert.ok(runCalls[0].includes("state=success"));
+  assert.ok(runCalls[0].includes("context=issue-driven-os/verification"));
+  assert.ok(runCalls[0].includes("description=verified-pass: Ready to merge."));
+  assert.ok(runCalls[0].includes("target_url=https://example.test/pull/88"));
+});

@@ -174,6 +174,7 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
   const issueEdits = [];
   const pullRequests = [];
   const reviews = [];
+  const statuses = [];
   let findPrCalls = 0;
 
   const github = {
@@ -220,6 +221,15 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
     },
     submitPullRequestReview: async (_repoSlug, _pullNumber, review) => {
       reviews.push(review);
+    },
+    createCommitStatus: async (_repoSlug, commitSha, status) => {
+      statuses.push({
+        commitSha,
+        state: status.state,
+        context: status.context,
+        description: status.description,
+        targetUrl: status.targetUrl
+      });
     },
     enableAutoMerge: async () => {},
     closeIssue: async () => {}
@@ -294,6 +304,7 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
     assert.equal(result.status, "merged");
     assert.equal(issueEdits.length >= 2, true);
     assert.equal(reviews.length, 1);
+    assert.equal(statuses.length, 1);
     assert.equal(runFiles.length, 1);
     assert.match(comments[0], /claimed this issue/);
     assert.match(comments[0], /Agent type: worker/);
@@ -303,6 +314,13 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
     assert.match(reviews[0].body, /Agent type: issue-cell-critic/);
     assert.match(reviews[0].body, /Execution Summary: agents=issue-cell-critic;/);
     assert.equal(reviews[0].event, "COMMENT");
+    assert.deepEqual(statuses[0], {
+      commitSha: "abc123",
+      state: "success",
+      context: "issue-driven-os/verification",
+      description: "verified-pass: Ready to merge.",
+      targetUrl: "https://example.test/pull/88"
+    });
     assert.ok(
       events.some(
         (event) =>
@@ -322,6 +340,14 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
         (event) =>
           event.event === "pull_request_review_submitted" &&
           event.data?.executionSummary?.agents === "issue-cell-critic"
+      )
+    );
+    assert.ok(
+      events.some(
+        (event) =>
+          event.event === "verification_status_projected" &&
+          event.data?.state === "success" &&
+          event.data?.commitSha === "abc123"
       )
     );
   } finally {
@@ -530,6 +556,7 @@ test("runGitHubIssueWorker stops after the review-loop budget is exhausted", asy
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-review-budget-"));
   const reviews = [];
   const issueEdits = [];
+  const statuses = [];
   let executeCalls = 0;
   let critiqueCalls = 0;
 
@@ -578,6 +605,15 @@ test("runGitHubIssueWorker stops after the review-loop budget is exhausted", asy
     }),
     submitPullRequestReview: async (_repoSlug, _pullNumber, review) => {
       reviews.push(review);
+    },
+    createCommitStatus: async (_repoSlug, commitSha, status) => {
+      statuses.push({
+        commitSha,
+        state: status.state,
+        context: status.context,
+        description: status.description,
+        targetUrl: status.targetUrl
+      });
     },
     enableAutoMerge: async () => {
       throw new Error("should not enable auto-merge after review budget exhaustion");
@@ -665,12 +701,35 @@ test("runGitHubIssueWorker stops after the review-loop budget is exhausted", asy
     assert.equal(executeCalls, 2);
     assert.equal(critiqueCalls, 2);
     assert.equal(reviews.length, 2);
+    assert.equal(statuses.length, 2);
     assert.equal(updatedRun.status, "blocked");
     assert.equal(updatedRun.reviewLoopCount, 2);
     assert.equal(updatedRun.reviewLoopsMax, 1);
     assert.equal(updatedRun.terminationReason, "review_loop_budget_exhausted");
+    assert.deepEqual(
+      statuses.map((status) => ({
+        commitSha: status.commitSha,
+        state: status.state,
+        context: status.context
+      })),
+      [
+        {
+          commitSha: "review-budget-1",
+          state: "failure",
+          context: "issue-driven-os/verification"
+        },
+        {
+          commitSha: "review-budget-2",
+          state: "failure",
+          context: "issue-driven-os/verification"
+        }
+      ]
+    );
     assert.ok(events.some((event) => event.event === "review_loop_continued"));
     assert.ok(events.some((event) => event.event === "review_loop_budget_exhausted"));
+    assert.ok(
+      events.filter((event) => event.event === "verification_status_projected").length >= 2
+    );
     assert.ok(
       issueEdits.some(
         (edit) => Array.isArray(edit.addLabels) && edit.addLabels.includes("agent:blocked")
