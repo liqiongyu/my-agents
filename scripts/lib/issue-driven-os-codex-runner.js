@@ -16,10 +16,17 @@ async function writeTempJsonFile(prefix, value) {
   };
 }
 
+function resolveTraceMode(options = {}) {
+  return options.traceMode === "rich" ? "rich" : "compact";
+}
+
 function runCodexExec(args, options = {}) {
   return new Promise((resolve, reject) => {
+    const traceMode = resolveTraceMode(options);
+    const captureRichTrace = traceMode === "rich";
     const startedAt = new Date().toISOString();
-    const child = spawn("codex", args, {
+    const spawnImpl = options.spawnImpl ?? spawn;
+    const child = spawnImpl("codex", args, {
       cwd: options.cwd,
       stdio: ["ignore", "pipe", "pipe"],
       env: process.env
@@ -29,6 +36,7 @@ function runCodexExec(args, options = {}) {
     let stderr = "";
     let threadId = null;
     const events = [];
+    let eventCount = 0;
     let eventProcessing = Promise.resolve();
     const stdoutReader = readline.createInterface({ input: child.stdout });
 
@@ -37,7 +45,9 @@ function runCodexExec(args, options = {}) {
     }
 
     stdoutReader.on("line", (line) => {
-      stdout += `${line}\n`;
+      if (captureRichTrace) {
+        stdout += `${line}\n`;
+      }
       enqueueEventWork(async () => {
         let parsedEvent = null;
         try {
@@ -50,7 +60,10 @@ function runCodexExec(args, options = {}) {
           return;
         }
 
-        events.push(parsedEvent);
+        eventCount += 1;
+        if (captureRichTrace) {
+          events.push(parsedEvent);
+        }
         if (parsedEvent.type === "thread.started" && parsedEvent.thread_id) {
           threadId = parsedEvent.thread_id;
         }
@@ -72,7 +85,7 @@ function runCodexExec(args, options = {}) {
       const sessionPath = threadId ? await findCodexSessionPath(threadId, { startedAt }) : null;
 
       if (code === 0) {
-        resolve({ stdout, stderr, events, threadId, sessionPath, startedAt });
+        resolve({ stdout, stderr, events, eventCount, threadId, sessionPath, startedAt });
         return;
       }
 
@@ -82,6 +95,7 @@ function runCodexExec(args, options = {}) {
       error.stdout = stdout;
       error.stderr = stderr;
       error.events = events;
+      error.eventCount = eventCount;
       error.threadId = threadId;
       error.sessionPath = sessionPath;
       error.startedAt = startedAt;
@@ -136,7 +150,11 @@ function buildStructuredPrompt(agentDefinition, payload, options = {}) {
 }
 
 async function runStructuredCodexTask(repoRoot, agentName, payload, schema, options = {}) {
-  const agentDefinition = await loadCodexAgentDefinition(repoRoot, agentName);
+  const traceMode = resolveTraceMode(options);
+  const captureRichTrace = traceMode === "rich";
+  const agentLoader = options.loadCodexAgentDefinition ?? loadCodexAgentDefinition;
+  const codexExec = options.runCodexExec ?? runCodexExec;
+  const agentDefinition = await agentLoader(repoRoot, agentName);
   const schemaTemp = await writeTempJsonFile("issue-driven-os-schema-", schema);
   const outputTemp = await writeTempJsonFile("issue-driven-os-output-", {});
 
@@ -162,24 +180,28 @@ async function runStructuredCodexTask(repoRoot, agentName, payload, schema, opti
       prompt
     ];
 
-    const result = await runCodexExec(args, {
+    const result = await codexExec(args, {
       cwd: options.cwd,
+      traceMode,
       onEvent: options.onEvent
     });
     const rawOutput = await fs.readFile(outputTemp.filePath, "utf8");
+    const parsedPayload = JSON.parse(rawOutput);
 
     return {
       agent: agentDefinition,
-      payload: JSON.parse(rawOutput),
-      stdout: result.stdout,
-      stderr: result.stderr,
+      payload: parsedPayload,
+      stdout: captureRichTrace ? result.stdout : "",
+      stderr: captureRichTrace ? result.stderr : "",
       trace: {
+        mode: traceMode,
         startedAt: result.startedAt,
         threadId: result.threadId,
         sessionPath: result.sessionPath,
-        prompt,
-        finalMessage: rawOutput,
-        events: result.events
+        prompt: captureRichTrace ? prompt : null,
+        finalMessage: captureRichTrace ? rawOutput : null,
+        events: captureRichTrace ? result.events : [],
+        eventCount: result.eventCount ?? (result.events ?? []).length
       }
     };
   } finally {
@@ -361,5 +383,6 @@ module.exports = {
   executeGitHubIssue,
   findCodexSessionPath,
   normalizeIssueInput,
+  runCodexExec,
   shapeGitHubIssue
 };
