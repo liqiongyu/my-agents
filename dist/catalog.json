@@ -371,6 +371,24 @@
       ]
     },
     {
+      "name": "issue-controller",
+      "path": "skills/issue-controller",
+      "displayName": "Issue Controller",
+      "description": "Issue Agent OS controller loop. Pulls from a GitHub issue queue, fans out triage to parallel triager agents, dispatches workers (coder, reviewer, splitter, planner, debugger) based on verdicts, drives review loops, merges PRs, and repeats until the queue is empty.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow"
+      ],
+      "tags": [
+        "controller",
+        "orchestration",
+        "issue",
+        "queue",
+        "issue-agent-os"
+      ]
+    },
+    {
       "name": "issue-normalization",
       "path": "skills/issue-normalization",
       "displayName": "Issue Normalization",
@@ -611,7 +629,7 @@
       "path": "agents/coder",
       "displayName": "Coder",
       "description": "Issue Agent OS coding worker. Implements features, fixes, refactors, and docs changes in an isolated worktree based on a triager-written brief.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "maturity": "experimental",
       "categories": [
         "coding"
@@ -631,42 +649,11 @@
       ]
     },
     {
-      "name": "controller",
-      "path": "agents/controller",
-      "displayName": "Controller",
-      "description": "Issue Agent OS controller. Thin concurrent dispatcher that pulls from the GitHub issue queue, fans out triage to parallel agents, and dispatches workers based on verdicts. Must run as the top-level session.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow"
-      ],
-      "tags": [
-        "controller",
-        "dispatcher",
-        "orchestration",
-        "issue-agent-os"
-      ],
-      "archetype": "custom",
-      "skills": [],
-      "agents": [
-        "triager",
-        "coder",
-        "reviewer",
-        "splitter",
-        "planner",
-        "debugger"
-      ],
-      "platforms": [
-        "claude-code",
-        "codex"
-      ]
-    },
-    {
       "name": "debugger",
       "path": "agents/debugger",
       "displayName": "Debugger",
       "description": "Systematic debugging agent that diagnoses bugs, test failures, and unexpected behavior through hypothesis-driven investigation.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "maturity": "experimental",
       "categories": [
         "debugging",
@@ -748,7 +735,7 @@
       "path": "agents/implementer",
       "displayName": "Implementer",
       "description": "Code implementation agent that writes, modifies, and refactors code based on plans, specs, or direct instructions.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "maturity": "experimental",
       "categories": [
         "coding",
@@ -777,7 +764,7 @@
       "path": "agents/issue-cell-critic",
       "displayName": "Issue Cell Critic",
       "description": "Independent critic path for an issue cell. It reviews execution results against the issue boundary, brief, and done contract without taking over formal state progression.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "maturity": "experimental",
       "categories": [
         "review",
@@ -808,7 +795,7 @@
       "path": "agents/issue-cell-executor",
       "displayName": "Issue Cell Executor",
       "description": "Primary execution agent for one issue cell. It turns an accepted issue and run brief into code, evidence, and handoff-safe execution outputs.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "maturity": "experimental",
       "categories": [
         "coding",
@@ -840,7 +827,7 @@
       "path": "agents/issue-intake-normalizer",
       "displayName": "Issue Intake Normalizer",
       "description": "Issue intake agent that turns raw signals, review residue, and bug reports into normalized issue drafts ready for shaping.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -870,7 +857,7 @@
       "path": "agents/issue-orchestrator",
       "displayName": "Issue Orchestrator",
       "description": "Primary lifecycle owner for one issue. It decides the next bounded action, spawns workers on demand, and drives split/execute/review/rework/merge recommendations without owning global state authority.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -905,7 +892,7 @@
       "path": "agents/issue-shaper",
       "displayName": "Issue Shaper",
       "description": "Issue shaping agent that tightens scope, non-goals, acceptance criteria, and decomposition boundaries before admission or execution.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -935,7 +922,7 @@
       "path": "agents/planner",
       "displayName": "Planner",
       "description": "Architecture and implementation planning agent that designs step-by-step plans with trade-off analysis and escalates to implementation-planning for complex technical execution plans.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "maturity": "experimental",
       "categories": [
         "design",
@@ -967,7 +954,7 @@
       "path": "agents/researcher",
       "displayName": "Researcher",
       "description": "Web research agent for deep investigation, multi-source verification, and structured report generation.",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "maturity": "experimental",
       "categories": [
         "research",
@@ -994,7 +981,7 @@
       "path": "agents/reviewer",
       "displayName": "Reviewer",
       "description": "Code review agent that performs structured, severity-graded reviews on PRs, diffs, and code changes.",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "maturity": "experimental",
       "categories": [
         "review",
@@ -1023,7 +1010,7 @@
       "path": "agents/splitter",
       "displayName": "Splitter",
       "description": "Issue Agent OS decomposition worker. Breaks large or vague issues into 2-5 concrete, right-sized sub-issues with dependency links.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "maturity": "experimental",
       "categories": [
         "workflow"
@@ -1047,7 +1034,7 @@
       "path": "agents/triager",
       "displayName": "Triager",
       "description": "Issue triage agent that reads an issue, assesses actionability, decides routing (execute/split/plan/investigate/defer/reject/escalate), and writes an execution brief for workers.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "maturity": "experimental",
       "categories": [
         "workflow"
@@ -1181,5 +1168,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-30T11:28:34.022Z"
+  "generatedAt": "2026-03-30T13:06:43.068Z"
 }

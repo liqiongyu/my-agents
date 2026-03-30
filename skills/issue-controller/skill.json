@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "name": "issue-controller",
+  "displayName": "Issue Controller",
+  "description": "Issue Agent OS controller loop. Pulls from a GitHub issue queue, fans out triage to parallel triager agents, dispatches workers (coder, reviewer, splitter, planner, debugger) based on verdicts, drives review loops, merges PRs, and repeats until the queue is empty.",
+  "version": "0.1.0",
+  "maturity": "experimental",
+  "categories": ["workflow"],
+  "tags": ["controller", "orchestration", "issue", "queue", "issue-agent-os"],
+  "authors": [
+    {
+      "name": "Qiongyu Li"
+    }
+  ],
+  "entrypoints": {
+    "skillDoc": "SKILL.md",
+    "changelog": "CHANGELOG.md"
+  },
+  "requirements": {
+    "tools": ["git", "gh", "node"]
+  },
+  "capabilities": {
+    "shell": true,
+    "filesystemRead": true,
+    "filesystemWrite": true
+  }
+}
