@@ -8,6 +8,8 @@
  *   node scripts/lib/issue-driven-os-queue.js next --repo owner/repo --limit 6
  */
 
+const fs = require("node:fs");
+const path = require("node:path");
 const { buildGhAdapter } = require("./issue-driven-os-github-adapter");
 
 const PRIORITY_ORDER = ["P0", "P1", "P2", "P3"];
@@ -151,9 +153,6 @@ function buildQueue(options) {
 
 // --- CLI entry point ---
 if (require.main === module) {
-  const fs = require("node:fs");
-  const path = require("node:path");
-
   const args = process.argv.slice(2);
   const command = args[0];
 
@@ -164,7 +163,13 @@ if (require.main === module) {
 
   function buildDryRunAdapter() {
     const fixturePath = path.resolve(__dirname, "../fixtures/queue-test.json");
-    const allIssues = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+    let allIssues;
+    try {
+      allIssues = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+    } catch (err) {
+      console.error(`--dry-run: could not load fixture at ${fixturePath}: ${err.message}`);
+      process.exit(1);
+    }
 
     function listIssues(_repoSlug, options) {
       const state = (options.state ?? "open").toUpperCase();
