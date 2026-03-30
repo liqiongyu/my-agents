@@ -164,6 +164,66 @@ function leasePathForIssue(runtimePaths, issueNumber) {
   return path.join(runtimePaths.leasesDir, `issue-${issueNumber}.json`);
 }
 
+function leaseStatusFor(lease, now = new Date()) {
+  return isLeaseExpired(lease, now) ? "expired" : "active";
+}
+
+function normalizeLeaseRenewalCount(value) {
+  const renewalCount = Number(value ?? 0);
+  return Number.isFinite(renewalCount) && renewalCount > 0 ? renewalCount : 0;
+}
+
+function buildLeaseHistoryRecord(lease, now = new Date()) {
+  if (!lease || typeof lease !== "object") {
+    return null;
+  }
+
+  return {
+    issueNumber: lease.issueNumber ?? null,
+    holderId: lease.holderId ?? null,
+    holderType: lease.holderType ?? null,
+    runId: lease.runId ?? null,
+    createdAt: lease.createdAt ?? null,
+    updatedAt: lease.updatedAt ?? null,
+    renewedAt: lease.renewedAt ?? null,
+    renewalCount: normalizeLeaseRenewalCount(lease.renewalCount),
+    expiresAt: lease.expiresAt ?? null,
+    lastOutcome: lease.lastOutcome ?? "acquired",
+    recoveredAt: lease.recoveredAt ?? null,
+    recoveryReason: lease.recoveryReason ?? null,
+    leaseStatus: leaseStatusFor(lease, now)
+  };
+}
+
+function decorateLeaseRecord(lease, leasePath, now = new Date()) {
+  return {
+    ...lease,
+    leasePath,
+    leaseStatus: leaseStatusFor(lease, now)
+  };
+}
+
+function buildLeaseRecord(issueNumber, leaseData, options = {}) {
+  const now = options.now ?? new Date();
+  const ttlMs = options.ttlMs ?? DEFAULT_LEASE_TTL_MS;
+
+  return {
+    issueNumber,
+    holderId: leaseData.holderId,
+    holderType: leaseData.holderType ?? "worker",
+    runId: leaseData.runId ?? null,
+    createdAt: leaseData.createdAt ?? now.toISOString(),
+    updatedAt: now.toISOString(),
+    renewedAt: leaseData.renewedAt ?? null,
+    renewalCount: normalizeLeaseRenewalCount(leaseData.renewalCount),
+    expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
+    lastOutcome: leaseData.lastOutcome ?? "acquired",
+    recoveredAt: leaseData.recoveredAt ?? null,
+    recoveryReason: leaseData.recoveryReason ?? null,
+    previousLease: leaseData.previousLease ?? null
+  };
+}
+
 async function readLease(runtimePaths, issueNumber) {
   const leasePath = leasePathForIssue(runtimePaths, issueNumber);
   if (!(await fileExists(leasePath))) {
@@ -181,18 +241,17 @@ async function acquireIssueLease(runtimePaths, issueNumber, leaseData, options =
   const now = options.now ?? new Date();
   const ttlMs = options.ttlMs ?? DEFAULT_LEASE_TTL_MS;
   const leasePath = leasePathForIssue(runtimePaths, issueNumber);
-  const record = {
-    issueNumber,
-    holderId: leaseData.holderId,
-    holderType: leaseData.holderType ?? "worker",
-    runId: leaseData.runId ?? null,
-    createdAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + ttlMs).toISOString()
-  };
+  const forceRecover = options.forceRecover === true;
+  let nextLeaseData = { ...leaseData };
 
   await ensureRuntimeLayout(runtimePaths);
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const record = buildLeaseRecord(issueNumber, nextLeaseData, {
+      now,
+      ttlMs
+    });
+
     try {
       const handle = await fs.open(leasePath, "wx");
       try {
@@ -200,7 +259,12 @@ async function acquireIssueLease(runtimePaths, issueNumber, leaseData, options =
       } finally {
         await handle.close();
       }
-      return { acquired: true, lease: record, leasePath };
+      return {
+        acquired: true,
+        lease: decorateLeaseRecord(record, leasePath, now),
+        leasePath,
+        action: record.lastOutcome
+      };
     } catch (error) {
       if (error.code !== "EEXIST") {
         throw error;
@@ -212,16 +276,85 @@ async function acquireIssueLease(runtimePaths, issueNumber, leaseData, options =
         continue;
       }
 
-      if (Date.parse(existing.expiresAt ?? "") < now.getTime()) {
+      if (isLeaseExpired(existing, now) || forceRecover) {
+        nextLeaseData = {
+          ...leaseData,
+          lastOutcome: forceRecover ? "force_recovered" : "expired_recovered",
+          recoveredAt: now.toISOString(),
+          recoveryReason: forceRecover ? "force" : "expired",
+          previousLease: buildLeaseHistoryRecord(existing, now)
+        };
         await fs.rm(leasePath, { force: true });
         continue;
       }
 
-      return { acquired: false, lease: existing, leasePath };
+      return {
+        acquired: false,
+        lease: decorateLeaseRecord(existing, leasePath, now),
+        leasePath,
+        action: "active_collision"
+      };
     }
   }
 
-  return { acquired: false, lease: await readLease(runtimePaths, issueNumber), leasePath };
+  const existing = await readLease(runtimePaths, issueNumber);
+  return {
+    acquired: false,
+    lease: existing ? decorateLeaseRecord(existing, leasePath, now) : null,
+    leasePath,
+    action: "active_collision"
+  };
+}
+
+async function renewIssueLease(runtimePaths, issueNumber, holderId, options = {}) {
+  const now = options.now ?? new Date();
+  const ttlMs = options.ttlMs ?? DEFAULT_LEASE_TTL_MS;
+  const leasePath = leasePathForIssue(runtimePaths, issueNumber);
+  const existing = await readLease(runtimePaths, issueNumber);
+
+  if (!existing) {
+    return {
+      renewed: false,
+      reason: "missing",
+      lease: null,
+      leasePath
+    };
+  }
+
+  if (holderId && existing.holderId !== holderId) {
+    return {
+      renewed: false,
+      reason: "holder_mismatch",
+      lease: decorateLeaseRecord(existing, leasePath, now),
+      leasePath
+    };
+  }
+
+  if (isLeaseExpired(existing, now)) {
+    return {
+      renewed: false,
+      reason: "expired",
+      lease: decorateLeaseRecord(existing, leasePath, now),
+      leasePath
+    };
+  }
+
+  const renewedLease = {
+    ...existing,
+    updatedAt: now.toISOString(),
+    renewedAt: now.toISOString(),
+    renewalCount: normalizeLeaseRenewalCount(existing.renewalCount) + 1,
+    expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
+    lastOutcome: "renewed"
+  };
+  await writeJsonAtomic(leasePath, renewedLease);
+
+  return {
+    renewed: true,
+    reason: "renewed",
+    lease: decorateLeaseRecord(renewedLease, leasePath, now),
+    leasePath
+  };
 }
 
 async function releaseIssueLease(runtimePaths, issueNumber, holderId) {
@@ -257,14 +390,13 @@ async function listIssueLeases(runtimePaths, options = {}) {
       continue;
     }
 
-    if (!includeExpired && isLeaseExpired(lease, now)) {
+    const decoratedLease = decorateLeaseRecord(lease, leasePath, now);
+
+    if (!includeExpired && decoratedLease.leaseStatus === "expired") {
       continue;
     }
 
-    leases.push({
-      ...lease,
-      leasePath
-    });
+    leases.push(decoratedLease);
   }
 
   return leases.sort(compareLeaseRecords);
@@ -293,6 +425,7 @@ function buildRunRecord(issueNumber, data = {}) {
     prUrl: data.prUrl ?? null,
     mergeStatus: data.mergeStatus ?? null,
     summary: data.summary ?? null,
+    lease: data.lease ?? null,
     artifacts: data.artifacts ?? [],
     notes: data.notes ?? []
   };
@@ -338,20 +471,26 @@ async function listRunRecords(runtimePaths) {
 
 async function recordRunUpdate(runtimePaths, repoSlug, runRecord) {
   const state = await readRuntimeState(runtimePaths, repoSlug);
+  const existingRunSummary = state.runs[runRecord.id] ?? {};
+  const existingIssueSummary = state.issues[String(runRecord.issueNumber)] ?? {};
   state.runs[runRecord.id] = {
+    ...existingRunSummary,
     issueNumber: runRecord.issueNumber,
     status: runRecord.status,
     updatedAt: runRecord.updatedAt ?? new Date().toISOString(),
     branchRef: runRecord.branchRef ?? null,
-    prNumber: runRecord.prNumber ?? null
+    prNumber: runRecord.prNumber ?? null,
+    lease: runRecord.lease ?? existingRunSummary.lease ?? null
   };
   state.issues[String(runRecord.issueNumber)] = {
+    ...existingIssueSummary,
     issueNumber: runRecord.issueNumber,
     latestRunId: runRecord.id,
     status: runRecord.status,
     updatedAt: runRecord.updatedAt ?? new Date().toISOString(),
     branchRef: runRecord.branchRef ?? null,
-    prNumber: runRecord.prNumber ?? null
+    prNumber: runRecord.prNumber ?? null,
+    lease: runRecord.lease ?? existingIssueSummary.lease ?? null
   };
   await writeRuntimeState(runtimePaths, state);
 }
@@ -393,13 +532,16 @@ async function listRunArtifactFiles(runtimePaths, runId) {
 module.exports = {
   DEFAULT_LEASE_TTL_MS,
   acquireIssueLease,
+  buildLeaseHistoryRecord,
   buildRunId,
   buildRunRecord,
   buildRuntimePaths,
   compareIssueNumbers,
   createEmptyRuntimeState,
+  decorateLeaseRecord,
   ensureRuntimeLayout,
   isLeaseExpired,
+  leaseStatusFor,
   listIssueLeases,
   listRunArtifactFiles,
   listRunRecords,
@@ -410,6 +552,7 @@ module.exports = {
   readRuntimeState,
   recordRunUpdate,
   releaseIssueLease,
+  renewIssueLease,
   sanitizeRepoSlug,
   writeRuntimeState
 };

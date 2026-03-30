@@ -16,7 +16,8 @@ const {
   readLease,
   readRunRecord,
   recordRunUpdate,
-  releaseIssueLease
+  releaseIssueLease,
+  renewIssueLease
 } = require("../lib/issue-driven-os-state-store");
 
 test("issue-driven-os state store acquires and releases issue leases", async () => {
@@ -40,6 +41,80 @@ test("issue-driven-os state store acquires and releases issue leases", async () 
     const released = await releaseIssueLease(runtimePaths, 123, "run-1");
     assert.equal(released, true);
     assert.equal(await readLease(runtimePaths, 123), null);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("issue-driven-os state store renews leases and records stale plus force recovery", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-state-renew-"));
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const acquired = await acquireIssueLease(
+      runtimePaths,
+      123,
+      {
+        holderId: "run-1",
+        holderType: "worker",
+        runId: "run-1"
+      },
+      {
+        now: new Date("2026-03-29T00:00:00.000Z"),
+        ttlMs: 60 * 1000
+      }
+    );
+    const renewed = await renewIssueLease(runtimePaths, 123, "run-1", {
+      now: new Date("2026-03-29T00:00:30.000Z"),
+      ttlMs: 60 * 1000
+    });
+    const expiredRecovery = await acquireIssueLease(
+      runtimePaths,
+      123,
+      {
+        holderId: "run-2",
+        holderType: "worker",
+        runId: "run-2"
+      },
+      {
+        now: new Date("2026-03-29T00:02:01.000Z"),
+        ttlMs: 60 * 1000
+      }
+    );
+    const forceRecovery = await acquireIssueLease(
+      runtimePaths,
+      123,
+      {
+        holderId: "run-3",
+        holderType: "daemon",
+        runId: "run-3"
+      },
+      {
+        now: new Date("2026-03-29T00:02:30.000Z"),
+        ttlMs: 60 * 1000,
+        forceRecover: true
+      }
+    );
+
+    assert.equal(acquired.acquired, true);
+    assert.equal(acquired.action, "acquired");
+    assert.equal(renewed.renewed, true);
+    assert.equal(renewed.lease.lastOutcome, "renewed");
+    assert.equal(renewed.lease.renewalCount, 1);
+    assert.equal(renewed.lease.expiresAt, "2026-03-29T00:01:30.000Z");
+
+    assert.equal(expiredRecovery.acquired, true);
+    assert.equal(expiredRecovery.action, "expired_recovered");
+    assert.equal(expiredRecovery.lease.lastOutcome, "expired_recovered");
+    assert.equal(expiredRecovery.lease.previousLease.holderId, "run-1");
+    assert.equal(expiredRecovery.lease.previousLease.leaseStatus, "expired");
+
+    assert.equal(forceRecovery.acquired, true);
+    assert.equal(forceRecovery.action, "force_recovered");
+    assert.equal(forceRecovery.lease.lastOutcome, "force_recovered");
+    assert.equal(forceRecovery.lease.previousLease.holderId, "run-2");
+    assert.equal(forceRecovery.lease.previousLease.leaseStatus, "active");
+    assert.equal((await readLease(runtimePaths, 123)).holderId, "run-3");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -113,9 +188,26 @@ test("issue-driven-os state store lists leases, runs, and run artifacts for insp
         ttlMs: 5 * 60 * 1000
       }
     );
+    await acquireIssueLease(
+      runtimePaths,
+      11,
+      {
+        holderId: olderRun.id,
+        holderType: "worker",
+        runId: olderRun.id
+      },
+      {
+        now: new Date("2026-03-29T01:00:00.000Z"),
+        ttlMs: 60 * 1000
+      }
+    );
 
     const leases = await listIssueLeases(runtimePaths, {
       now: new Date("2026-03-29T02:01:00.000Z")
+    });
+    const leasesWithExpired = await listIssueLeases(runtimePaths, {
+      now: new Date("2026-03-29T02:01:00.000Z"),
+      includeExpired: true
     });
     const runs = await listRunRecords(runtimePaths);
     const savedRun = await readRunRecord(runtimePaths, newerRun.id);
@@ -123,6 +215,10 @@ test("issue-driven-os state store lists leases, runs, and run artifacts for insp
 
     assert.equal(leases.length, 1);
     assert.equal(leases[0].holderType, "daemon");
+    assert.equal(leases[0].leaseStatus, "active");
+    assert.equal(leasesWithExpired.length, 2);
+    assert.equal(leasesWithExpired[0].leaseStatus, "expired");
+    assert.equal(leasesWithExpired[1].leaseStatus, "active");
     assert.equal(runs.map((run) => run.id).join(","), `${newerRun.id},${olderRun.id}`);
     assert.equal(savedRun.runPath.endsWith(`${newerRun.id}.json`), true);
     assert.deepEqual(

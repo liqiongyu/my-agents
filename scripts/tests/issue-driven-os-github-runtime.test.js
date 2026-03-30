@@ -9,7 +9,7 @@ const {
   runGitHubDaemon,
   runGitHubIssueWorker
 } = require("../lib/issue-driven-os-github-runtime");
-const { buildRuntimePaths } = require("../lib/issue-driven-os-state-store");
+const { buildRuntimePaths, readRunRecord } = require("../lib/issue-driven-os-state-store");
 
 test("produceGitHubIssue normalizes raw input and creates a ready issue", async () => {
   const calls = [];
@@ -177,6 +177,121 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
     assert.deepEqual(callOrder.slice(0, 2), ["ensureLabels", "viewIssue"]);
     assert.match(comments[0], /claimed this issue/);
   } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker renews active leases and skips concurrent claimants", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-heartbeat-"));
+  let continueExecution;
+  let executionStartedResolve;
+  const executionStarted = new Promise((resolve) => {
+    executionStartedResolve = resolve;
+  });
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 12,
+      title: "Long-running worker",
+      body: "Simulate a long execution path.",
+      labels: ["agent:ready"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/12"
+    }),
+    editIssue: async () => {},
+    commentIssue: async () => {},
+    findPullRequestForBranch: async () => null,
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    }
+  };
+
+  const firstWorker = runGitHubIssueWorker(
+    path.resolve(__dirname, "..", ".."),
+    "owner/repo",
+    process.cwd(),
+    12,
+    {
+      runtimeRoot: tempRoot,
+      github,
+      leaseTtlMs: 50,
+      leaseHeartbeatMs: 20,
+      createIssueWorktree: async () => ({
+        branchName: "agent/issue-12",
+        baseBranch: "main",
+        worktreePath: "/tmp/fake-worktree-heartbeat"
+      }),
+      shapeGitHubIssue: async () => ({
+        payload: {
+          route: "execute",
+          summary: "Shaped and ready.",
+          acceptanceCriteria: ["Lease stays active during a long run."],
+          nonGoals: [],
+          splitIssues: []
+        }
+      }),
+      executeGitHubIssue: async () => {
+        executionStartedResolve();
+        await new Promise((resolve) => {
+          continueExecution = resolve;
+        });
+
+        return {
+          payload: {
+            status: "blocked",
+            summary: "Stopped after heartbeat verification.",
+            blockers: ["heartbeat-test"]
+          }
+        };
+      }
+    }
+  );
+
+  try {
+    await executionStarted;
+    await new Promise((resolve) => setTimeout(resolve, 90));
+
+    const concurrentClaim = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      12,
+      {
+        runtimeRoot: tempRoot,
+        github,
+        leaseTtlMs: 50,
+        leaseHeartbeatMs: 20
+      }
+    );
+
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const activeLease = JSON.parse(
+      await fs.readFile(path.join(runtimePaths.leasesDir, "issue-12.json"), "utf8")
+    );
+
+    assert.equal(concurrentClaim.status, "skipped");
+    assert.equal(concurrentClaim.leaseAction, "active_collision");
+    assert.equal(concurrentClaim.lease.holderId, activeLease.holderId);
+    assert.equal(concurrentClaim.lease.lastOutcome, "renewed");
+    assert.equal(concurrentClaim.lease.renewalCount > 0, true);
+
+    continueExecution();
+    const firstResult = await firstWorker;
+    const runRecord = await readRunRecord(runtimePaths, firstResult.runId);
+    const state = JSON.parse(await fs.readFile(runtimePaths.stateFilePath, "utf8"));
+
+    assert.equal(firstResult.status, "blocked");
+    assert.equal(runRecord.lease.lastOutcome, "renewed");
+    assert.equal(runRecord.lease.renewalCount > 0, true);
+    assert.equal(state.issues["12"].lease.lastOutcome, "renewed");
+    assert.equal(state.issues["12"].lease.renewalCount > 0, true);
+  } finally {
+    if (continueExecution) {
+      continueExecution();
+    }
+    await firstWorker.catch(() => {});
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

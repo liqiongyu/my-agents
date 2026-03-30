@@ -6,6 +6,7 @@ const {
 } = require("./issue-driven-os-codex-runner");
 const { buildGhAdapter } = require("./issue-driven-os-github-adapter");
 const {
+  DEFAULT_LEASE_TTL_MS,
   acquireIssueLease,
   buildRunRecord,
   buildRuntimePaths,
@@ -13,7 +14,8 @@ const {
   persistArtifact,
   persistRunRecord,
   recordRunUpdate,
-  releaseIssueLease
+  releaseIssueLease,
+  renewIssueLease
 } = require("./issue-driven-os-state-store");
 const {
   cleanupIssueWorktree,
@@ -55,6 +57,121 @@ function buildRunSummary(status, summary, extra = {}) {
     status,
     summary,
     ...extra
+  };
+}
+
+function snapshotLeaseForRun(lease) {
+  if (!lease || typeof lease !== "object") {
+    return null;
+  }
+
+  const snapshot = { ...lease };
+  delete snapshot.leasePath;
+  return snapshot;
+}
+
+function resolveLeaseHeartbeatMs(options = {}) {
+  if (options.leaseHeartbeatMs !== undefined) {
+    const heartbeatMs = Number(options.leaseHeartbeatMs);
+    return Number.isFinite(heartbeatMs) && heartbeatMs > 0 ? heartbeatMs : null;
+  }
+
+  const ttlMs = Number(options.leaseTtlMs ?? DEFAULT_LEASE_TTL_MS);
+  return Number.isFinite(ttlMs) && ttlMs > 0 ? Math.max(1, Math.floor(ttlMs / 2)) : null;
+}
+
+function buildLeaseCollisionSummary(lease) {
+  if (!lease) {
+    return "Issue is already claimed by another active worker.";
+  }
+
+  return [
+    "Issue is already claimed by an active lease.",
+    lease.holderId ? `Holder: ${lease.holderId}` : null,
+    lease.holderType ? `Type: ${lease.holderType}` : null,
+    lease.runId ? `Run: ${lease.runId}` : null,
+    lease.expiresAt ? `Expires: ${lease.expiresAt}` : null
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildLeaseRecoveryNote(lease) {
+  if (!lease?.lastOutcome || !lease?.previousLease) {
+    return null;
+  }
+
+  if (lease.lastOutcome !== "expired_recovered" && lease.lastOutcome !== "force_recovered") {
+    return null;
+  }
+
+  return [
+    lease.lastOutcome === "force_recovered" ? "Force-recovered lease." : "Recovered expired lease.",
+    lease.previousLease.holderId ? `Previous holder: ${lease.previousLease.holderId}.` : null,
+    lease.previousLease.runId ? `Previous run: ${lease.previousLease.runId}.` : null,
+    lease.previousLease.leaseStatus ? `Previous state: ${lease.previousLease.leaseStatus}.` : null
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function startLeaseHeartbeat(runtimePaths, issueNumber, runRecord, options = {}) {
+  const ttlMs = Number(options.leaseTtlMs ?? DEFAULT_LEASE_TTL_MS);
+  const heartbeatMs = resolveLeaseHeartbeatMs(options);
+
+  if (!Number.isFinite(ttlMs) || ttlMs <= 0 || !Number.isFinite(heartbeatMs) || heartbeatMs <= 0) {
+    return {
+      stop: async () => {}
+    };
+  }
+
+  let stopped = false;
+  let inFlight = Promise.resolve();
+  let failureNote = null;
+
+  const recordFailure = (message) => {
+    if (failureNote) {
+      return;
+    }
+
+    failureNote = message;
+    runRecord.notes.push(message);
+  };
+
+  const renewLease = async () => {
+    const renewal = await renewIssueLease(runtimePaths, issueNumber, runRecord.id, {
+      ttlMs
+    });
+
+    if (renewal.lease) {
+      runRecord.lease = snapshotLeaseForRun(renewal.lease);
+    }
+
+    if (!renewal.renewed) {
+      recordFailure(`Lease renewal stopped for issue #${issueNumber}: ${renewal.reason}.`);
+    }
+  };
+
+  const timer = setInterval(() => {
+    if (stopped) {
+      return;
+    }
+
+    inFlight = renewLease().catch((error) => {
+      recordFailure(`Lease renewal failed for issue #${issueNumber}: ${error.message}`);
+    });
+  }, heartbeatMs);
+
+  if (typeof timer.unref === "function") {
+    timer.unref();
+  }
+
+  return {
+    stop: async () => {
+      stopped = true;
+      clearInterval(timer);
+      await inFlight;
+    }
   };
 }
 
@@ -252,6 +369,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
   const runtimePaths = buildRuntimePaths(repoSlug, { runtimeRoot: options.runtimeRoot });
   await ensureRuntimeLayout(runtimePaths);
   await deps.github.ensureLabels(repoSlug);
+  let stopLeaseHeartbeat = async () => {};
 
   const runRecord = buildRunRecord(issueNumber, {
     repoSlug,
@@ -267,16 +385,25 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       runId: runRecord.id
     },
     {
-      ttlMs: options.leaseTtlMs
+      ttlMs: options.leaseTtlMs,
+      forceRecover: options.forceRecoverLease === true
     }
   );
 
   if (!lease.acquired) {
-    return buildRunSummary("skipped", "Issue is already claimed by another active worker.", {
+    return buildRunSummary("skipped", buildLeaseCollisionSummary(lease.lease), {
       runId: runRecord.id,
-      lease: lease.lease
+      lease: lease.lease,
+      leaseAction: lease.action
     });
   }
+
+  runRecord.lease = snapshotLeaseForRun(lease.lease);
+  const leaseRecoveryNote = buildLeaseRecoveryNote(runRecord.lease);
+  if (leaseRecoveryNote) {
+    runRecord.notes.push(leaseRecoveryNote);
+  }
+  stopLeaseHeartbeat = startLeaseHeartbeat(runtimePaths, issueNumber, runRecord, options).stop;
 
   try {
     const issue = await deps.github.viewIssue(repoSlug, issueNumber, options);
@@ -581,7 +708,8 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       finishedAt: new Date().toISOString(),
       branchRef: runRecord.branchRef,
       worktreePath: runRecord.worktreePath,
-      summary: error.message
+      summary: error.message,
+      lease: runRecord.lease
     });
 
     await persistRunRecord(runtimePathsLocal, failedRecord);
@@ -608,6 +736,11 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
     });
   } finally {
     const runtimePathsLocal = buildRuntimePaths(repoSlug, { runtimeRoot: options.runtimeRoot });
+    await stopLeaseHeartbeat();
+    if (runRecord.status !== "claimed" && runRecord.finishedAt) {
+      await persistRunRecord(runtimePathsLocal, runRecord);
+      await recordRunUpdate(runtimePathsLocal, repoSlug, runRecord);
+    }
     await releaseIssueLease(runtimePathsLocal, issueNumber, runRecord.id);
   }
 }
