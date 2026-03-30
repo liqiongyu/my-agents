@@ -586,6 +586,20 @@ async function readRunRecord(runtimePaths, runId, options = {}) {
 async function listRunRecords(runtimePaths, options = {}) {
   const warnings = options.warnings ?? [];
   const limit = Math.max(1, Number(options.limit ?? 10));
+  const stateRuns =
+    options.state?.runs && typeof options.state.runs === "object" ? options.state.runs : null;
+
+  if (stateRuns && Object.keys(stateRuns).length > 0) {
+    return Object.entries(stateRuns)
+      .map(([runId, runSummary]) => ({
+        ...runSummary,
+        id: runId,
+        runPath: path.join(runtimePaths.runsDir, `${runId}.json`)
+      }))
+      .sort(compareRunRecords)
+      .slice(0, limit);
+  }
+
   const runFiles = await listJsonFiles(runtimePaths.runsDir);
   const runRecords = [];
 
@@ -613,9 +627,13 @@ async function recordRunUpdate(runtimePaths, repoSlug, runRecord) {
     ...existingRunSummary,
     issueNumber: runRecord.issueNumber,
     status: runRecord.status,
+    startedAt: runRecord.startedAt ?? existingRunSummary.startedAt ?? null,
     updatedAt: runRecord.updatedAt ?? new Date().toISOString(),
+    finishedAt: runRecord.finishedAt ?? existingRunSummary.finishedAt ?? null,
     branchRef: runRecord.branchRef ?? null,
     prNumber: runRecord.prNumber ?? null,
+    prUrl: runRecord.prUrl ?? existingRunSummary.prUrl ?? null,
+    summary: runRecord.summary ?? existingRunSummary.summary ?? null,
     lease: runRecord.lease ?? existingRunSummary.lease ?? null,
     leaseFailure: runRecord.leaseFailure ?? existingRunSummary.leaseFailure ?? null,
     reviewLoopCount: runRecord.reviewLoopCount ?? existingRunSummary.reviewLoopCount ?? 0,
@@ -953,6 +971,7 @@ async function inspectRuntimeState(runtimePaths, repoSlug, options = {}) {
   const activeLeases = allLeases.filter((lease) => lease?.leaseStatus !== "expired");
   const staleLeases = allLeases.filter((lease) => lease?.leaseStatus === "expired");
   const recentRuns = await listRunRecords(runtimePaths, {
+    state,
     warnings,
     limit: options.limit ?? 10
   });
