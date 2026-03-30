@@ -1,7 +1,10 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
 
-const { buildRuntimePaths, inspectRuntimeState } = require("./issue-driven-os-state-store");
+const {
+  buildRuntimePaths,
+  inspectRuntimeState: inspectStoredRuntimeState
+} = require("./issue-driven-os-state-store");
 
 function compareIssueNumbers(left, right) {
   const safeLeft = Number.isInteger(Number(left)) ? Number(left) : Number.MAX_SAFE_INTEGER;
@@ -25,18 +28,31 @@ function normalizeIssueSummary(issueSummary = {}) {
     status: issueSummary.status ?? null,
     updatedAt: issueSummary.updatedAt ?? null,
     branchRef: issueSummary.branchRef ?? null,
-    prNumber: issueSummary.prNumber ?? null
+    prNumber: issueSummary.prNumber ?? null,
+    lease: normalizeLease(issueSummary.lease)
   };
 }
 
-function normalizeLease(lease = {}) {
+function normalizeLease(lease) {
+  if (!lease || typeof lease !== "object") {
+    return null;
+  }
+
   return {
     issueNumber: lease.issueNumber ?? null,
     holderId: lease.holderId ?? null,
     holderType: lease.holderType ?? null,
     runId: lease.runId ?? null,
     createdAt: lease.createdAt ?? null,
+    updatedAt: lease.updatedAt ?? null,
+    renewedAt: lease.renewedAt ?? null,
+    renewalCount: lease.renewalCount ?? null,
     expiresAt: lease.expiresAt ?? null,
+    lastOutcome: lease.lastOutcome ?? null,
+    recoveredAt: lease.recoveredAt ?? null,
+    recoveryReason: lease.recoveryReason ?? null,
+    leaseStatus: lease.leaseStatus ?? null,
+    previousLease: normalizeLease(lease.previousLease),
     leasePath: lease.leasePath ?? null
   };
 }
@@ -53,6 +69,7 @@ function normalizeRunSummary(runRecord = {}) {
     prNumber: runRecord.prNumber ?? null,
     prUrl: runRecord.prUrl ?? null,
     summary: runRecord.summary ?? null,
+    lease: normalizeLease(runRecord.lease),
     runPath: runRecord.runPath ?? null
   };
 }
@@ -79,14 +96,45 @@ function renderListSection(lines, title, entries, emptyLine) {
 }
 
 function formatLeaseLine(lease) {
+  const previousLease =
+    lease.previousLease?.holderId || lease.previousLease?.runId
+      ? [
+          "previous",
+          lease.previousLease.holderId ?? "n/a",
+          lease.previousLease.runId ? `run ${lease.previousLease.runId}` : null,
+          lease.previousLease.leaseStatus ?? null
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : null;
+
   return [
     `- issue #${lease.issueNumber}`,
+    lease.leaseStatus ?? "unknown",
+    lease.lastOutcome ? `outcome ${lease.lastOutcome}` : null,
+    lease.renewalCount ? `renewals ${lease.renewalCount}` : null,
     `holder ${lease.holderId ?? "n/a"} (${lease.holderType ?? "unknown"})`,
     lease.runId ? `run ${lease.runId}` : null,
-    `expires ${lease.expiresAt ?? "n/a"}`
+    `expires ${lease.expiresAt ?? "n/a"}`,
+    previousLease
   ]
     .filter(Boolean)
     .join(" | ");
+}
+
+function formatLeaseSummary(lease) {
+  if (!lease) {
+    return null;
+  }
+
+  return [
+    "lease",
+    lease.leaseStatus ?? "unknown",
+    lease.lastOutcome && lease.lastOutcome !== "acquired" ? `(${lease.lastOutcome})` : null,
+    lease.renewalCount ? `renewals ${lease.renewalCount}` : null
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function formatIssueSummaryLine(issueSummary) {
@@ -96,7 +144,8 @@ function formatIssueSummaryLine(issueSummary) {
     issueSummary.latestRunId ? `latest run ${issueSummary.latestRunId}` : null,
     issueSummary.updatedAt ? `updated ${issueSummary.updatedAt}` : null,
     issueSummary.branchRef ? `branch ${issueSummary.branchRef}` : null,
-    issueSummary.prNumber ? `PR #${issueSummary.prNumber}` : null
+    issueSummary.prNumber ? `PR #${issueSummary.prNumber}` : null,
+    formatLeaseSummary(issueSummary.lease)
   ]
     .filter(Boolean)
     .join(" | ");
@@ -110,7 +159,8 @@ function formatRunSummaryLine(runRecord) {
     runRecord.updatedAt ? `updated ${runRecord.updatedAt}` : null,
     runRecord.branchRef ? `branch ${runRecord.branchRef}` : null,
     runRecord.prNumber ? `PR #${runRecord.prNumber}` : null,
-    !runRecord.prNumber && runRecord.prUrl ? `PR ${runRecord.prUrl}` : null
+    !runRecord.prNumber && runRecord.prUrl ? `PR ${runRecord.prUrl}` : null,
+    formatLeaseSummary(runRecord.lease)
   ]
     .filter(Boolean)
     .join(" | ");
@@ -120,17 +170,16 @@ async function inspectGitHubRuntime(repoSlug, options = {}) {
   const runtimePaths = buildRuntimePaths(repoSlug, {
     runtimeRoot: options.runtimeRoot
   });
-  const snapshot = await inspectRuntimeState(runtimePaths, repoSlug, {
+  const snapshot = await inspectStoredRuntimeState(runtimePaths, repoSlug, {
     runId: options.runId,
     limit: options.limit,
     eventLimit: options.eventLimit
   });
   const state = snapshot.state;
-  const activeLeases = (snapshot.activeLeases ?? []).map((lease) =>
-    normalizeLease({
-      ...lease,
-      leasePath: path.join(runtimePaths.leasesDir, `issue-${lease.issueNumber}.json`)
-    })
+  const activeLeases = (snapshot.activeLeases ?? []).map(normalizeLease);
+  const staleLeases = (snapshot.staleLeases ?? []).map(normalizeLease);
+  const allLeaseRecords = [...activeLeases, ...staleLeases].sort((left, right) =>
+    compareIssueNumbers(left?.issueNumber, right?.issueNumber)
   );
 
   if (options.runId) {
@@ -174,11 +223,15 @@ async function inspectGitHubRuntime(repoSlug, options = {}) {
       runtimeRoot: runtimePaths.baseDir,
       stateFilePath: runtimePaths.stateFilePath,
       runId: options.runId,
-      run: runRecord,
+      run: {
+        ...runRecord,
+        lease: normalizeLease(runRecord.lease)
+      },
       issueSummary: normalizeIssueSummary(state.issues[String(runRecord.issueNumber)]),
-      activeLease:
-        activeLeases.find((lease) => Number(lease.issueNumber) === Number(runRecord.issueNumber)) ??
-        null,
+      leaseRecord:
+        allLeaseRecords.find(
+          (lease) => Number(lease.issueNumber) === Number(runRecord.issueNumber)
+        ) ?? null,
       artifacts: {
         directory: path.join(runtimePaths.artifactsDir, options.runId),
         files: artifactFiles,
@@ -207,9 +260,11 @@ async function inspectGitHubRuntime(repoSlug, options = {}) {
     stateFilePath: runtimePaths.stateFilePath,
     recentRunLimit,
     activeLeases,
+    staleLeases,
     issueSummaries,
     recentRuns,
     activeLeaseCount: activeLeases.length,
+    staleLeaseCount: staleLeases.length,
     trackedIssueCount: issueSummaries.length,
     totalRunCount: allRuns.length
   };
@@ -239,6 +294,7 @@ function formatGitHubRuntimeInspection(report) {
         runRecord.prNumber ? `#${runRecord.prNumber}` : runRecord.prUrl ? runRecord.prUrl : "n/a"
       }`,
       `Summary: ${runRecord.summary ?? "n/a"}`,
+      `Lease snapshot: ${formatLeaseSummary(runRecord.lease) ?? "n/a"}`,
       `Artifacts dir: ${report.artifacts.directory}`
     );
 
@@ -266,8 +322,8 @@ function formatGitHubRuntimeInspection(report) {
       );
     }
 
-    if (report.activeLease) {
-      renderListSection(lines, "Active lease", [formatLeaseLine(report.activeLease)], "none");
+    if (report.leaseRecord) {
+      renderListSection(lines, "Lease record", [formatLeaseLine(report.leaseRecord)], "none");
     }
 
     return `${lines.join("\n")}\n`;
@@ -275,11 +331,13 @@ function formatGitHubRuntimeInspection(report) {
 
   lines.push(
     `Active leases: ${report.activeLeaseCount}`,
+    `Stale leases: ${report.staleLeaseCount}`,
     `Tracked issues: ${report.trackedIssueCount}`,
     `Recent runs shown: ${report.recentRuns.length}/${report.totalRunCount}`
   );
 
   renderListSection(lines, "Active leases", report.activeLeases.map(formatLeaseLine), "none");
+  renderListSection(lines, "Stale leases", report.staleLeases.map(formatLeaseLine), "none");
   renderListSection(
     lines,
     "Issue summary state",
@@ -291,7 +349,10 @@ function formatGitHubRuntimeInspection(report) {
   return `${lines.join("\n")}\n`;
 }
 
+const inspectRuntimeState = inspectGitHubRuntime;
+
 module.exports = {
   formatGitHubRuntimeInspection,
-  inspectGitHubRuntime
+  inspectGitHubRuntime,
+  inspectRuntimeState
 };

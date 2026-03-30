@@ -6,8 +6,10 @@ const {
 } = require("./issue-driven-os-codex-runner");
 const { buildGhAdapter } = require("./issue-driven-os-github-adapter");
 const {
+  DEFAULT_LEASE_TTL_MS,
   acquireIssueLease,
   appendRuntimeEvent,
+  buildLeaseHistoryRecord,
   buildRunRecord,
   buildRuntimePaths,
   ensureRuntimeLayout,
@@ -313,16 +315,6 @@ function buildReviewLoopBudgetExceededSummary(critic, reviewLoopCount, reviewLoo
   return `${baseSummary} Review-loop budget exhausted (${reviewLoopCount}/${reviewLoopsMax}).`;
 }
 
-function buildLeaseLostError(issueNumber, runId, phase, reason = "lease_lost") {
-  const error = new Error(
-    `Lease for issue #${issueNumber} is no longer owned by run ${runId}${phase ? ` during ${phase}` : ""}.`
-  );
-  error.code = "ISSUE_LEASE_LOST";
-  error.terminationReason = reason;
-  error.phase = phase ?? null;
-  return error;
-}
-
 async function recordRuntimeEvent(runtimePaths, data) {
   try {
     return await appendRuntimeEvent(runtimePaths, data);
@@ -331,68 +323,246 @@ async function recordRuntimeEvent(runtimePaths, data) {
   }
 }
 
+function snapshotLeaseForRun(lease) {
+  if (!lease || typeof lease !== "object") {
+    return null;
+  }
+
+  const snapshot = { ...lease };
+  delete snapshot.leasePath;
+  return snapshot;
+}
+
+function buildRecoveredLeaseSnapshot(lease, options = {}) {
+  if (!lease || typeof lease !== "object") {
+    return null;
+  }
+
+  const recoveredAt = options.recoveredAt ?? new Date().toISOString();
+  const recoveredAtDate = new Date(recoveredAt);
+  const snapshotNow = Number.isNaN(recoveredAtDate.getTime()) ? new Date() : recoveredAtDate;
+  const previousLease = buildLeaseHistoryRecord(lease, snapshotNow);
+
+  if (!previousLease) {
+    return null;
+  }
+
+  const recoveryReason =
+    options.recoveryReason ?? (previousLease.leaseStatus === "expired" ? "expired" : "force");
+  const lastOutcome =
+    options.lastOutcome ?? (recoveryReason === "expired" ? "expired_recovered" : "force_recovered");
+
+  return {
+    ...previousLease,
+    updatedAt: recoveredAt,
+    lastOutcome,
+    recoveredAt,
+    recoveryReason,
+    leaseStatus: "released",
+    previousLease
+  };
+}
+
+function isLeaseOwnedByRun(lease, runRecord) {
+  if (!lease || !runRecord?.id) {
+    return false;
+  }
+
+  return (
+    lease.holderId === runRecord.id &&
+    (lease.runId === null || lease.runId === undefined || lease.runId === runRecord.id)
+  );
+}
+
+function buildLeaseCollisionSummary(lease) {
+  if (!lease) {
+    return "Issue is already claimed by another active worker.";
+  }
+
+  return [
+    "Issue is already claimed by an active lease.",
+    lease.holderId ? `Holder: ${lease.holderId}` : null,
+    lease.holderType ? `Type: ${lease.holderType}` : null,
+    lease.runId ? `Run: ${lease.runId}` : null,
+    lease.expiresAt ? `Expires: ${lease.expiresAt}` : null
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildLeaseRecoveryNote(lease) {
+  if (!lease?.lastOutcome || !lease?.previousLease) {
+    return null;
+  }
+
+  if (lease.lastOutcome !== "expired_recovered" && lease.lastOutcome !== "force_recovered") {
+    return null;
+  }
+
+  return [
+    lease.lastOutcome === "force_recovered" ? "Force-recovered lease." : "Recovered expired lease.",
+    lease.previousLease.holderId ? `Previous holder: ${lease.previousLease.holderId}.` : null,
+    lease.previousLease.runId ? `Previous run: ${lease.previousLease.runId}.` : null,
+    lease.previousLease.leaseStatus ? `Previous state: ${lease.previousLease.leaseStatus}.` : null
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildLeaseLossMessage(issueNumber, reason, observedLease, details = {}) {
+  const reasonText =
+    reason === "holder_mismatch"
+      ? "another worker recovered or replaced this lease"
+      : reason === "expired"
+        ? "this lease expired before it could be renewed"
+        : reason === "missing"
+          ? "the lease record disappeared"
+          : reason === "error"
+            ? (details.errorMessage ?? "lease renewal failed")
+            : `lease renewal reported ${reason}`;
+
+  return [
+    `Lease lost for issue #${issueNumber}: ${reasonText}.`,
+    observedLease?.holderId ? `Current holder: ${observedLease.holderId}.` : null,
+    observedLease?.runId ? `Current run: ${observedLease.runId}.` : null,
+    observedLease?.lastOutcome ? `Observed outcome: ${observedLease.lastOutcome}.` : null
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildLeaseLostError(issueNumber, runRecord, phase, reason, observedLease, details = {}) {
+  const error = new Error(buildLeaseLossMessage(issueNumber, reason, observedLease, details));
+  error.code = "ISSUE_LEASE_LOST";
+  error.terminationReason = "lease_lost";
+  error.phase = phase ?? null;
+  error.leaseReason = reason;
+  error.observedLease = snapshotLeaseForRun(observedLease);
+  error.runId = runRecord?.id ?? null;
+  return error;
+}
+
 function getLeaseRenewIntervalMs(options = {}) {
+  const explicitHeartbeat = normalizeNonNegativeInteger(options.leaseHeartbeatMs, null);
+  if (explicitHeartbeat !== null) {
+    return explicitHeartbeat;
+  }
+
   const explicit = normalizeNonNegativeInteger(options.leaseRenewIntervalMs, null);
   if (explicit !== null) {
     return explicit;
   }
 
-  const ttlMs = normalizeNonNegativeInteger(options.leaseTtlMs, null);
-  if (ttlMs === null) {
-    return 60 * 1000;
-  }
-
+  const ttlMs = normalizeNonNegativeInteger(options.leaseTtlMs, DEFAULT_LEASE_TTL_MS);
   return Math.max(5 * 1000, Math.min(Math.floor(ttlMs / 3), 60 * 1000));
 }
 
 function createLeaseSupervisor(runtimePaths, repoSlug, issueNumber, runRecord, options = {}) {
-  const ttlMs = options.leaseTtlMs;
+  const ttlMs = normalizeNonNegativeInteger(options.leaseTtlMs, DEFAULT_LEASE_TTL_MS);
   const intervalMs = getLeaseRenewIntervalMs(options);
   const state = {
     lost: false,
     lossError: null,
-    timer: null
+    timer: null,
+    inFlight: Promise.resolve()
   };
 
-  async function renew(reason = "heartbeat") {
+  function markLost(reason, phase, observedLease, details = {}) {
     if (state.lost) {
-      throw state.lossError ?? buildLeaseLostError(issueNumber, runRecord.id, reason);
+      return state.lossError;
     }
 
-    const renewed = await renewIssueLease(runtimePaths, issueNumber, runRecord.id, {
-      ttlMs
+    const detectedAt = new Date().toISOString();
+    const observedLeaseSnapshot = snapshotLeaseForRun(observedLease);
+    const message = buildLeaseLossMessage(issueNumber, reason, observedLeaseSnapshot, details);
+    runRecord.leaseFailure = {
+      reason,
+      detectedAt,
+      observedLease: observedLeaseSnapshot
+    };
+    runRecord.notes.push(message);
+    state.lost = true;
+    state.lossError = buildLeaseLostError(
+      issueNumber,
+      runRecord,
+      phase,
+      reason,
+      observedLeaseSnapshot,
+      details
+    );
+    if (state.timer) {
+      clearInterval(state.timer);
+      state.timer = null;
+    }
+    void recordRuntimeEvent(runtimePaths, {
+      repoSlug,
+      issueNumber,
+      runId: runRecord.id,
+      actor: "worker",
+      phase: "lease",
+      event: "lease_lost",
+      level: "error",
+      message,
+      data: {
+        reason,
+        phase,
+        observedLease: observedLeaseSnapshot
+      }
     });
+    return state.lossError;
+  }
+
+  async function runRenewal(phase = "heartbeat") {
+    if (state.lost) {
+      throw state.lossError ?? buildLeaseLostError(issueNumber, runRecord, phase, "lease_lost");
+    }
+
+    let renewed;
+    try {
+      renewed = await renewIssueLease(runtimePaths, issueNumber, runRecord.id, {
+        ttlMs,
+        runId: runRecord.id
+      });
+    } catch (error) {
+      throw markLost("error", phase, null, { errorMessage: error.message });
+    }
 
     if (!renewed.renewed) {
-      state.lossError = buildLeaseLostError(issueNumber, runRecord.id, reason);
-      state.lost = true;
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "worker",
-        phase: "lease",
-        event: "lease_lost",
-        level: "error",
-        message: state.lossError.message,
-        data: {
-          reason,
-          holderId: renewed.lease?.holderId ?? null,
-          runId: renewed.lease?.runId ?? null,
-          expiresAt: renewed.lease?.expiresAt ?? null
-        }
-      });
-      throw state.lossError;
+      throw markLost(renewed.reason, phase, renewed.lease);
     }
 
+    if (isLeaseOwnedByRun(renewed.lease, runRecord)) {
+      runRecord.lease = snapshotLeaseForRun(renewed.lease);
+    }
+    await recordRuntimeEvent(runtimePaths, {
+      repoSlug,
+      issueNumber,
+      runId: runRecord.id,
+      actor: "worker",
+      phase: "lease",
+      event: "lease_renewed",
+      message: `Renewed lease for issue #${issueNumber}.`,
+      data: {
+        renewalCount: renewed.lease?.renewalCount ?? 0,
+        expiresAt: renewed.lease?.expiresAt ?? null,
+        phase
+      }
+    });
     return renewed.lease;
   }
 
-  async function assertActive(reason = "lease_check") {
+  function renew(phase = "heartbeat") {
+    const operation = state.inFlight.then(() => runRenewal(phase));
+    state.inFlight = operation.catch(() => {});
+    return operation;
+  }
+
+  async function assertActive(phase = "lease_check") {
+    await state.inFlight;
     if (!state.lost) {
       return;
     }
-    throw state.lossError ?? buildLeaseLostError(issueNumber, runRecord.id, reason);
+    throw state.lossError ?? buildLeaseLostError(issueNumber, runRecord, phase, "lease_lost");
   }
 
   async function stop() {
@@ -400,11 +570,12 @@ function createLeaseSupervisor(runtimePaths, repoSlug, issueNumber, runRecord, o
       clearInterval(state.timer);
       state.timer = null;
     }
+    await state.inFlight;
   }
 
   if (intervalMs > 0) {
     state.timer = setInterval(() => {
-      void renew().catch(() => {});
+      void renew("heartbeat").catch(() => {});
     }, intervalMs);
     state.timer.unref?.();
   }
@@ -1247,6 +1418,12 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
   const lease = await readLease(runtimePaths, issueNumber);
   const forceRelease = await forceReleaseIssueLease(runtimePaths, issueNumber);
   const recoveredAt = new Date().toISOString();
+  const recoveredLease = buildRecoveredLeaseSnapshot(
+    forceRelease.lease ?? latestRun?.lease ?? lease,
+    {
+      recoveredAt
+    }
+  );
 
   if (!latestRun && !forceRelease.released) {
     return buildRunSummary("noop", "No claimed run or lease needed recovery.", {
@@ -1264,6 +1441,7 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
       updatedAt: recoveredAt,
       finishedAt: recoveredAt,
       summary: "Recovered stale claimed run after worker exit before lease release.",
+      lease: recoveredLease,
       notes: [...(latestRun.notes ?? []), `Recovered stale claim at ${recoveredAt}.`]
     });
     await persistRunRecord(runtimePaths, recoveredRun);
@@ -1315,7 +1493,11 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
         deps,
         repoSlug,
         issueNumber,
-        buildIssueRecoveryComment(recoveredRun, lease, options),
+        buildIssueRecoveryComment(
+          recoveredRun,
+          recoveredLease ?? forceRelease.lease ?? lease,
+          options
+        ),
         {
           actor: "worker",
           phase: "recovery",
@@ -1335,7 +1517,7 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
 
   return buildRunSummary("recovered", "Recovered stale claim and released the issue lease.", {
     runId: recoveredRun?.id ?? latestRun?.id ?? null,
-    lease: forceRelease.lease ?? lease ?? null
+    lease: recoveredLease ?? forceRelease.lease ?? lease ?? null
   });
 }
 
@@ -1418,6 +1600,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
   );
 
   if (!lease.acquired) {
+    const collisionSummary = buildLeaseCollisionSummary(lease.lease);
     await recordRuntimeEvent(runtimePaths, {
       repoSlug,
       issueNumber,
@@ -1425,17 +1608,28 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       actor: "worker",
       phase: "lease",
       event: "lease_skipped",
-      message: "Issue was already claimed by another active worker.",
+      message: collisionSummary,
       data: {
-        holderId: lease.lease?.holderId ?? null
+        action: lease.action ?? "active_collision",
+        holderId: lease.lease?.holderId ?? null,
+        holderType: lease.lease?.holderType ?? null,
+        runId: lease.lease?.runId ?? null,
+        expiresAt: lease.lease?.expiresAt ?? null,
+        lastOutcome: lease.lease?.lastOutcome ?? null
       }
     });
-    return buildRunSummary("skipped", "Issue is already claimed by another active worker.", {
+    return buildRunSummary("skipped", collisionSummary, {
       runId: runRecord.id,
-      lease: lease.lease
+      lease: lease.lease,
+      leaseAction: lease.action ?? "active_collision"
     });
   }
 
+  runRecord.lease = snapshotLeaseForRun(lease.lease);
+  const leaseRecoveryNote = buildLeaseRecoveryNote(runRecord.lease);
+  if (leaseRecoveryNote) {
+    runRecord.notes.push(leaseRecoveryNote);
+  }
   const leaseSupervisor = createLeaseSupervisor(
     runtimePaths,
     repoSlug,
@@ -1452,7 +1646,11 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       actor: "worker",
       phase: "lease",
       event: "lease_acquired",
-      message: `Lease acquired for issue #${issueNumber}.`
+      message: `Lease acquired for issue #${issueNumber}.`,
+      data: {
+        action: lease.action ?? "acquired",
+        lastOutcome: runRecord.lease?.lastOutcome ?? null
+      }
     });
     if (resumeContext) {
       await recordRuntimeEvent(runtimePaths, {
@@ -1526,6 +1724,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
     await checkpointRun(runtimePaths, repoSlug, runRecord, {
       status: "claimed",
       summary: runRecord.summary,
+      lease: runRecord.lease,
       reviewLoopCount: runRecord.reviewLoopCount,
       reviewLoopsMax: runRecord.reviewLoopsMax,
       terminationReason: null
@@ -2438,6 +2637,8 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
           ? "Issue merged and closed."
           : "Pull request opened and auto-merge enabled.",
       lastCompletedPhase: "reconciled",
+      lease: runRecord.lease,
+      leaseFailure: runRecord.leaseFailure,
       reviewLoopCount: runRecord.reviewLoopCount,
       reviewLoopsMax: runRecord.reviewLoopsMax,
       terminationReason: null
@@ -2497,6 +2698,8 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       mergeStatus: runRecord.mergeStatus,
       lastCompletedPhase: runRecord.lastCompletedPhase,
       summary: error.message,
+      lease: runRecord.lease,
+      leaseFailure: runRecord.leaseFailure,
       artifacts: runRecord.artifacts,
       notes: runRecord.notes,
       reviewLoopCount: runRecord.reviewLoopCount,

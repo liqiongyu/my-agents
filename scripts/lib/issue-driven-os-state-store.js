@@ -13,6 +13,53 @@ function sanitizeRepoSlug(repoSlug) {
     .replace(/[^A-Za-z0-9._-]/g, "_");
 }
 
+function compareStrings(left, right) {
+  return String(left ?? "").localeCompare(String(right ?? ""));
+}
+
+function toTimestamp(value, fallback) {
+  const timestamp = Date.parse(value ?? "");
+  return Number.isNaN(timestamp) ? fallback : timestamp;
+}
+
+function compareIssueNumbers(left, right) {
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+
+  if (!Number.isNaN(leftNumber) && !Number.isNaN(rightNumber) && leftNumber !== rightNumber) {
+    return leftNumber - rightNumber;
+  }
+
+  return compareStrings(left, right);
+}
+
+function compareLeaseRecords(left, right) {
+  const issueCompare = compareIssueNumbers(left.issueNumber, right.issueNumber);
+  if (issueCompare !== 0) {
+    return issueCompare;
+  }
+
+  return compareStrings(left.holderId, right.holderId);
+}
+
+function compareRunRecords(left, right) {
+  const updatedCompare =
+    toTimestamp(right.updatedAt, Number.NEGATIVE_INFINITY) -
+    toTimestamp(left.updatedAt, Number.NEGATIVE_INFINITY);
+  if (updatedCompare !== 0) {
+    return updatedCompare;
+  }
+
+  const startedCompare =
+    toTimestamp(right.startedAt, Number.NEGATIVE_INFINITY) -
+    toTimestamp(left.startedAt, Number.NEGATIVE_INFINITY);
+  if (startedCompare !== 0) {
+    return startedCompare;
+  }
+
+  return compareStrings(right.id, left.id);
+}
+
 function buildRuntimePaths(repoSlug, options = {}) {
   const baseDir =
     options.runtimeRoot ??
@@ -93,8 +140,114 @@ async function writeRuntimeState(runtimePaths, state) {
   return normalized;
 }
 
+async function listJsonFiles(dirPath) {
+  if (!(await fileExists(dirPath))) {
+    return [];
+  }
+
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => path.join(dirPath, entry.name))
+    .sort(compareStrings);
+}
+
+async function readJsonOrNull(jsonPath) {
+  if (!(await fileExists(jsonPath))) {
+    return null;
+  }
+
+  try {
+    const parsed = await readJson(jsonPath);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function leasePathForIssue(runtimePaths, issueNumber) {
   return path.join(runtimePaths.leasesDir, `issue-${issueNumber}.json`);
+}
+
+function isLeaseExpired(lease, now = new Date()) {
+  const expiresAt = Date.parse(lease?.expiresAt ?? "");
+  return !Number.isNaN(expiresAt) && expiresAt < now.getTime();
+}
+
+function leaseStatusFor(lease, now = new Date()) {
+  return isLeaseExpired(lease, now) ? "expired" : "active";
+}
+
+function normalizeLeaseRenewalCount(value) {
+  const renewalCount = Number(value ?? 0);
+  return Number.isFinite(renewalCount) && renewalCount > 0 ? renewalCount : 0;
+}
+
+function buildLeaseHistoryRecord(lease, now = new Date()) {
+  if (!lease || typeof lease !== "object") {
+    return null;
+  }
+
+  return {
+    issueNumber: lease.issueNumber ?? null,
+    holderId: lease.holderId ?? null,
+    holderType: lease.holderType ?? null,
+    runId: lease.runId ?? null,
+    createdAt: lease.createdAt ?? null,
+    updatedAt: lease.updatedAt ?? null,
+    renewedAt: lease.renewedAt ?? null,
+    renewalCount: normalizeLeaseRenewalCount(lease.renewalCount),
+    expiresAt: lease.expiresAt ?? null,
+    lastOutcome: lease.lastOutcome ?? "acquired",
+    recoveredAt: lease.recoveredAt ?? null,
+    recoveryReason: lease.recoveryReason ?? null,
+    leaseStatus: leaseStatusFor(lease, now)
+  };
+}
+
+function decorateLeaseRecord(lease, leasePath, now = new Date()) {
+  return {
+    ...lease,
+    leasePath,
+    leaseStatus: leaseStatusFor(lease, now)
+  };
+}
+
+function buildLeaseRecord(issueNumber, leaseData, options = {}) {
+  const now = options.now ?? new Date();
+  const ttlMs = options.ttlMs ?? DEFAULT_LEASE_TTL_MS;
+
+  return {
+    issueNumber,
+    holderId: leaseData.holderId,
+    holderType: leaseData.holderType ?? "worker",
+    runId: leaseData.runId ?? null,
+    createdAt: leaseData.createdAt ?? now.toISOString(),
+    updatedAt: now.toISOString(),
+    renewedAt: leaseData.renewedAt ?? null,
+    renewalCount: normalizeLeaseRenewalCount(leaseData.renewalCount),
+    expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
+    lastOutcome: leaseData.lastOutcome ?? "acquired",
+    recoveredAt: leaseData.recoveredAt ?? null,
+    recoveryReason: leaseData.recoveryReason ?? null,
+    previousLease: leaseData.previousLease ?? null
+  };
+}
+
+function leaseMatchesIdentity(lease, holderId, runId = null) {
+  if (!lease || typeof lease !== "object") {
+    return false;
+  }
+
+  if (holderId && lease.holderId !== holderId) {
+    return false;
+  }
+
+  if (runId && lease.runId && lease.runId !== runId) {
+    return false;
+  }
+
+  return true;
 }
 
 async function readLease(runtimePaths, issueNumber) {
@@ -114,18 +267,17 @@ async function acquireIssueLease(runtimePaths, issueNumber, leaseData, options =
   const now = options.now ?? new Date();
   const ttlMs = options.ttlMs ?? DEFAULT_LEASE_TTL_MS;
   const leasePath = leasePathForIssue(runtimePaths, issueNumber);
-  const record = {
-    issueNumber,
-    holderId: leaseData.holderId,
-    holderType: leaseData.holderType ?? "worker",
-    runId: leaseData.runId ?? null,
-    createdAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + ttlMs).toISOString()
-  };
+  const forceRecover = options.forceRecover === true;
+  let nextLeaseData = { ...leaseData };
 
   await ensureRuntimeLayout(runtimePaths);
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const record = buildLeaseRecord(issueNumber, nextLeaseData, {
+      now,
+      ttlMs
+    });
+
     try {
       const handle = await fs.open(leasePath, "wx");
       try {
@@ -133,7 +285,13 @@ async function acquireIssueLease(runtimePaths, issueNumber, leaseData, options =
       } finally {
         await handle.close();
       }
-      return { acquired: true, lease: record, leasePath };
+
+      return {
+        acquired: true,
+        lease: decorateLeaseRecord(record, leasePath, now),
+        leasePath,
+        action: record.lastOutcome
+      };
     } catch (error) {
       if (error.code !== "EEXIST") {
         throw error;
@@ -145,22 +303,41 @@ async function acquireIssueLease(runtimePaths, issueNumber, leaseData, options =
         continue;
       }
 
-      if (Date.parse(existing.expiresAt ?? "") < now.getTime()) {
+      if (isLeaseExpired(existing, now) || forceRecover) {
+        nextLeaseData = {
+          ...leaseData,
+          lastOutcome: forceRecover ? "force_recovered" : "expired_recovered",
+          recoveredAt: now.toISOString(),
+          recoveryReason: forceRecover ? "force" : "expired",
+          previousLease: buildLeaseHistoryRecord(existing, now)
+        };
         await fs.rm(leasePath, { force: true });
         continue;
       }
 
-      return { acquired: false, lease: existing, leasePath };
+      return {
+        acquired: false,
+        lease: decorateLeaseRecord(existing, leasePath, now),
+        leasePath,
+        action: "active_collision"
+      };
     }
   }
 
-  return { acquired: false, lease: await readLease(runtimePaths, issueNumber), leasePath };
+  const existing = await readLease(runtimePaths, issueNumber);
+  return {
+    acquired: false,
+    lease: existing ? decorateLeaseRecord(existing, leasePath, now) : null,
+    leasePath,
+    action: "active_collision"
+  };
 }
 
 async function renewIssueLease(runtimePaths, issueNumber, holderId, options = {}) {
   const now = options.now ?? new Date();
   const ttlMs = options.ttlMs ?? DEFAULT_LEASE_TTL_MS;
   const leasePath = leasePathForIssue(runtimePaths, issueNumber);
+  const runId = options.runId ?? null;
 
   await ensureRuntimeLayout(runtimePaths);
 
@@ -171,6 +348,7 @@ async function renewIssueLease(runtimePaths, issueNumber, holderId, options = {}
     if (error.code === "ENOENT") {
       return {
         renewed: false,
+        reason: "missing",
         lease: null,
         leasePath
       };
@@ -187,47 +365,86 @@ async function renewIssueLease(runtimePaths, issueNumber, holderId, options = {}
       existing = null;
     }
 
-    if (!existing || (holderId && existing.holderId !== holderId)) {
+    if (!existing) {
       return {
         renewed: false,
-        lease: existing,
+        reason: "missing",
+        lease: null,
+        leasePath
+      };
+    }
+
+    if (!leaseMatchesIdentity(existing, holderId, runId)) {
+      return {
+        renewed: false,
+        reason: "holder_mismatch",
+        lease: decorateLeaseRecord(existing, leasePath, now),
+        leasePath
+      };
+    }
+
+    if (isLeaseExpired(existing, now)) {
+      return {
+        renewed: false,
+        reason: "expired",
+        lease: decorateLeaseRecord(existing, leasePath, now),
         leasePath
       };
     }
 
     const renewedLease = {
       ...existing,
-      issueNumber,
-      expiresAt: new Date(now.getTime() + ttlMs).toISOString()
+      updatedAt: now.toISOString(),
+      renewedAt: now.toISOString(),
+      renewalCount: normalizeLeaseRenewalCount(existing.renewalCount) + 1,
+      expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
+      lastOutcome: "renewed"
     };
+
+    if (typeof options.beforeWrite === "function") {
+      await options.beforeWrite(existing, renewedLease);
+    }
 
     await handle.truncate(0);
     await handle.write(`${JSON.stringify(renewedLease, null, 2)}\n`, 0, "utf8");
 
+    const currentLease = await readLease(runtimePaths, issueNumber);
+    if (!currentLease) {
+      return {
+        renewed: false,
+        reason: "missing",
+        lease: null,
+        leasePath
+      };
+    }
+
+    if (!leaseMatchesIdentity(currentLease, holderId, runId)) {
+      return {
+        renewed: false,
+        reason: "holder_mismatch",
+        lease: decorateLeaseRecord(currentLease, leasePath, now),
+        leasePath
+      };
+    }
+
+    if (isLeaseExpired(currentLease, now)) {
+      return {
+        renewed: false,
+        reason: "expired",
+        lease: decorateLeaseRecord(currentLease, leasePath, now),
+        leasePath
+      };
+    }
+
     return {
       renewed: true,
-      lease: renewedLease,
+      reason: "renewed",
+      lease: decorateLeaseRecord(currentLease, leasePath, now),
       leasePath
     };
   } finally {
     await handle.close();
   }
-}
-
-async function releaseIssueLease(runtimePaths, issueNumber, holderId) {
-  const leasePath = leasePathForIssue(runtimePaths, issueNumber);
-  const existing = await readLease(runtimePaths, issueNumber);
-
-  if (!existing) {
-    return false;
-  }
-
-  if (holderId && existing.holderId !== holderId) {
-    return false;
-  }
-
-  await fs.rm(leasePath, { force: true });
-  return true;
 }
 
 async function forceReleaseIssueLease(runtimePaths, issueNumber) {
@@ -248,6 +465,46 @@ async function forceReleaseIssueLease(runtimePaths, issueNumber) {
     lease: existing,
     leasePath
   };
+}
+
+async function releaseIssueLease(runtimePaths, issueNumber, holderId) {
+  const leasePath = leasePathForIssue(runtimePaths, issueNumber);
+  const existing = await readLease(runtimePaths, issueNumber);
+
+  if (!existing) {
+    return false;
+  }
+
+  if (holderId && existing.holderId !== holderId) {
+    return false;
+  }
+
+  await fs.rm(leasePath, { force: true });
+  return true;
+}
+
+async function listIssueLeases(runtimePaths, options = {}) {
+  const now = options.now ?? new Date();
+  const includeExpired = options.includeExpired ?? false;
+  const leaseFiles = await listJsonFiles(runtimePaths.leasesDir);
+  const leases = [];
+
+  for (const leasePath of leaseFiles) {
+    const lease = await readJsonOrNull(leasePath);
+    if (!lease) {
+      continue;
+    }
+
+    const decoratedLease = decorateLeaseRecord(lease, leasePath, now);
+
+    if (!includeExpired && decoratedLease.leaseStatus === "expired") {
+      continue;
+    }
+
+    leases.push(decoratedLease);
+  }
+
+  return leases.sort(compareLeaseRecords);
 }
 
 function buildRunId(issueNumber, options = {}) {
@@ -281,6 +538,8 @@ function buildRunRecord(issueNumber, data = {}) {
     mergeStatus: data.mergeStatus ?? null,
     lastCompletedPhase: data.lastCompletedPhase ?? null,
     summary: data.summary ?? null,
+    lease: data.lease ?? null,
+    leaseFailure: data.leaseFailure ?? null,
     artifacts: data.artifacts ?? [],
     notes: data.notes ?? [],
     reviewLoopCount,
@@ -295,22 +554,75 @@ async function persistRunRecord(runtimePaths, runRecord) {
   return runPath;
 }
 
+async function readRunRecord(runtimePaths, runId, options = {}) {
+  const warnings = options.warnings ?? [];
+  const runPath = path.join(runtimePaths.runsDir, `${runId}.json`);
+  const runRecord = await readJsonOrNull(runPath);
+
+  if (!runRecord) {
+    if (await fileExists(runPath)) {
+      warnings.push(`Failed to read run record ${runPath}.`);
+    }
+    return null;
+  }
+
+  return {
+    ...runRecord,
+    runPath
+  };
+}
+
+async function listRunRecords(runtimePaths, options = {}) {
+  const warnings = options.warnings ?? [];
+  const limit = Math.max(1, Number(options.limit ?? 10));
+  const runFiles = await listJsonFiles(runtimePaths.runsDir);
+  const runRecords = [];
+
+  for (const runPath of runFiles) {
+    const runRecord = await readJsonOrNull(runPath);
+    if (!runRecord) {
+      warnings.push(`Failed to read run record ${runPath}.`);
+      continue;
+    }
+
+    runRecords.push({
+      ...runRecord,
+      runPath
+    });
+  }
+
+  return runRecords.sort(compareRunRecords).slice(0, limit);
+}
+
 async function recordRunUpdate(runtimePaths, repoSlug, runRecord) {
   const state = await readRuntimeState(runtimePaths, repoSlug);
+  const existingRunSummary = state.runs[runRecord.id] ?? {};
+  const existingIssueSummary = state.issues[String(runRecord.issueNumber)] ?? {};
   state.runs[runRecord.id] = {
+    ...existingRunSummary,
     issueNumber: runRecord.issueNumber,
     status: runRecord.status,
     updatedAt: runRecord.updatedAt ?? new Date().toISOString(),
     branchRef: runRecord.branchRef ?? null,
-    prNumber: runRecord.prNumber ?? null
+    prNumber: runRecord.prNumber ?? null,
+    lease: runRecord.lease ?? existingRunSummary.lease ?? null,
+    leaseFailure: runRecord.leaseFailure ?? existingRunSummary.leaseFailure ?? null,
+    reviewLoopCount: runRecord.reviewLoopCount ?? existingRunSummary.reviewLoopCount ?? 0,
+    reviewLoopsMax: runRecord.reviewLoopsMax ?? existingRunSummary.reviewLoopsMax ?? null,
+    terminationReason: runRecord.terminationReason ?? existingRunSummary.terminationReason ?? null
   };
   state.issues[String(runRecord.issueNumber)] = {
+    ...existingIssueSummary,
     issueNumber: runRecord.issueNumber,
     latestRunId: runRecord.id,
     status: runRecord.status,
     updatedAt: runRecord.updatedAt ?? new Date().toISOString(),
     branchRef: runRecord.branchRef ?? null,
-    prNumber: runRecord.prNumber ?? null
+    prNumber: runRecord.prNumber ?? null,
+    lease: runRecord.lease ?? existingIssueSummary.lease ?? null,
+    reviewLoopCount: runRecord.reviewLoopCount ?? existingIssueSummary.reviewLoopCount ?? 0,
+    reviewLoopsMax: runRecord.reviewLoopsMax ?? existingIssueSummary.reviewLoopsMax ?? null,
+    terminationReason: runRecord.terminationReason ?? existingIssueSummary.terminationReason ?? null
   };
   await writeRuntimeState(runtimePaths, state);
 }
@@ -319,6 +631,56 @@ async function persistArtifact(runtimePaths, runId, kind, payload) {
   const artifactPath = path.join(runtimePaths.artifactsDir, runId, `${kind}.json`);
   await writeJsonAtomic(artifactPath, payload);
   return artifactPath;
+}
+
+async function listRunArtifacts(runtimePaths, runId, options = {}) {
+  const warnings = options.warnings ?? [];
+  const artifactDir = path.join(runtimePaths.artifactsDir, runId);
+
+  if (!(await fileExists(artifactDir))) {
+    return [];
+  }
+
+  const entries = await fs.readdir(artifactDir).catch((error) => {
+    warnings.push(`Failed to read artifact directory ${artifactDir}: ${error.message}`);
+    return [];
+  });
+
+  return entries
+    .filter((entry) => entry.endsWith(".json"))
+    .sort()
+    .map((entry) => ({
+      kind: path.basename(entry, ".json"),
+      path: path.join(artifactDir, entry)
+    }));
+}
+
+async function listRunArtifactFiles(runtimePaths, runId) {
+  const artifactDir = path.join(runtimePaths.artifactsDir, runId);
+  if (!(await fileExists(artifactDir))) {
+    return [];
+  }
+
+  const entries = await fs.readdir(artifactDir, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const artifactPath = path.join(artifactDir, entry.name);
+    const stats = await fs.stat(artifactPath);
+    files.push({
+      name: entry.name,
+      kind: path.extname(entry.name) === ".json" ? path.basename(entry.name, ".json") : entry.name,
+      path: artifactPath,
+      sizeBytes: stats.size,
+      updatedAt: stats.mtime.toISOString()
+    });
+  }
+
+  return files.sort((left, right) => compareStrings(left.name, right.name));
 }
 
 function buildEventId(options = {}) {
@@ -361,35 +723,6 @@ async function appendRuntimeEvent(runtimePaths, eventData) {
   return event;
 }
 
-async function readJsonFiles(dirPath, options = {}) {
-  const warnings = options.warnings ?? [];
-
-  if (!(await fileExists(dirPath))) {
-    return [];
-  }
-
-  const entries = await fs.readdir(dirPath).catch((error) => {
-    warnings.push(`Failed to read directory ${dirPath}: ${error.message}`);
-    return [];
-  });
-
-  const records = [];
-  for (const entry of entries.sort()) {
-    if (!entry.endsWith(".json")) {
-      continue;
-    }
-
-    const filePath = path.join(dirPath, entry);
-    try {
-      records.push(await readJson(filePath));
-    } catch (error) {
-      warnings.push(`Failed to read JSON file ${filePath}: ${error.message}`);
-    }
-  }
-
-  return records;
-}
-
 async function readNdjsonFile(filePath, options = {}) {
   const warnings = options.warnings ?? [];
 
@@ -423,69 +756,10 @@ async function readNdjsonFile(filePath, options = {}) {
 }
 
 async function listActiveLeases(runtimePaths, options = {}) {
-  const warnings = options.warnings ?? [];
-  const leases = await readJsonFiles(runtimePaths.leasesDir, { warnings });
-
-  return leases.filter(Boolean).sort((left, right) => {
-    const leftIssue = Number(left.issueNumber ?? Number.MAX_SAFE_INTEGER);
-    const rightIssue = Number(right.issueNumber ?? Number.MAX_SAFE_INTEGER);
-    return leftIssue - rightIssue;
+  return listIssueLeases(runtimePaths, {
+    ...options,
+    includeExpired: false
   });
-}
-
-async function listRunRecords(runtimePaths, options = {}) {
-  const warnings = options.warnings ?? [];
-  const limit = Math.max(1, Number(options.limit ?? 10));
-  const runs = await readJsonFiles(runtimePaths.runsDir, { warnings });
-
-  return runs
-    .filter(Boolean)
-    .sort((left, right) => {
-      const leftUpdatedAt = Date.parse(left.updatedAt ?? left.startedAt ?? "");
-      const rightUpdatedAt = Date.parse(right.updatedAt ?? right.startedAt ?? "");
-      const safeLeft = Number.isFinite(leftUpdatedAt) ? leftUpdatedAt : 0;
-      const safeRight = Number.isFinite(rightUpdatedAt) ? rightUpdatedAt : 0;
-      return safeRight - safeLeft;
-    })
-    .slice(0, limit);
-}
-
-async function readRunRecord(runtimePaths, runId, options = {}) {
-  const warnings = options.warnings ?? [];
-  const runPath = path.join(runtimePaths.runsDir, `${runId}.json`);
-
-  if (!(await fileExists(runPath))) {
-    return null;
-  }
-
-  try {
-    return await readJson(runPath);
-  } catch (error) {
-    warnings.push(`Failed to read run record ${runPath}: ${error.message}`);
-    return null;
-  }
-}
-
-async function listRunArtifacts(runtimePaths, runId, options = {}) {
-  const warnings = options.warnings ?? [];
-  const artifactDir = path.join(runtimePaths.artifactsDir, runId);
-
-  if (!(await fileExists(artifactDir))) {
-    return [];
-  }
-
-  const entries = await fs.readdir(artifactDir).catch((error) => {
-    warnings.push(`Failed to read artifact directory ${artifactDir}: ${error.message}`);
-    return [];
-  });
-
-  return entries
-    .filter((entry) => entry.endsWith(".json"))
-    .sort()
-    .map((entry) => ({
-      kind: path.basename(entry, ".json"),
-      path: path.join(artifactDir, entry)
-    }));
 }
 
 async function listRuntimeEvents(runtimePaths, options = {}) {
@@ -510,7 +784,12 @@ async function listRuntimeEvents(runtimePaths, options = {}) {
 async function inspectRuntimeState(runtimePaths, repoSlug, options = {}) {
   const warnings = [];
   const state = await readRuntimeState(runtimePaths, repoSlug);
-  const activeLeases = await listActiveLeases(runtimePaths, { warnings });
+  const allLeases = await listIssueLeases(runtimePaths, {
+    warnings,
+    includeExpired: true
+  });
+  const activeLeases = allLeases.filter((lease) => lease?.leaseStatus !== "expired");
+  const staleLeases = allLeases.filter((lease) => lease?.leaseStatus === "expired");
   const recentRuns = await listRunRecords(runtimePaths, {
     warnings,
     limit: options.limit ?? 10
@@ -534,6 +813,7 @@ async function inspectRuntimeState(runtimePaths, repoSlug, options = {}) {
     observedAt: new Date().toISOString(),
     state,
     activeLeases,
+    staleLeases,
     recentRuns,
     run,
     artifacts,
@@ -547,26 +827,33 @@ module.exports = {
   acquireIssueLease,
   appendRuntimeEvent,
   buildEventId,
+  buildLeaseHistoryRecord,
   buildRunId,
   buildRunRecord,
   buildRuntimePaths,
   buildRuntimeEvent,
+  compareIssueNumbers,
   createEmptyRuntimeState,
+  decorateLeaseRecord,
   ensureRuntimeLayout,
+  forceReleaseIssueLease,
   inspectRuntimeState,
+  isLeaseExpired,
+  leaseStatusFor,
   listActiveLeases,
+  listIssueLeases,
+  listRunArtifactFiles,
   listRunArtifacts,
   listRunRecords,
   listRuntimeEvents,
   persistArtifact,
   persistRunRecord,
-  forceReleaseIssueLease,
   readLease,
   readRunRecord,
   readRuntimeState,
   recordRunUpdate,
-  renewIssueLease,
   releaseIssueLease,
+  renewIssueLease,
   sanitizeRepoSlug,
   writeRuntimeState
 };

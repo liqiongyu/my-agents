@@ -17,6 +17,7 @@ const {
   acquireIssueLease,
   buildRunRecord,
   buildRuntimePaths,
+  inspectRuntimeState,
   persistArtifact,
   persistRunRecord,
   readLease,
@@ -891,14 +892,16 @@ test("recoverIssueRun releases a stale lease and marks a claimed run as failed",
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-recover-"));
   const issueEdits = [];
   const comments = [];
+  const claimedAt = new Date();
+  const updatedAt = new Date(claimedAt.getTime() + 10 * 60 * 1000);
 
   try {
     const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
     const runRecord = buildRunRecord(19, {
       repoSlug: "owner/repo",
       status: "claimed",
-      startedAt: "2026-03-30T00:00:00.000Z",
-      updatedAt: "2026-03-30T00:10:00.000Z",
+      startedAt: claimedAt.toISOString(),
+      updatedAt: updatedAt.toISOString(),
       branchRef: "agent/issue-19",
       lastCompletedPhase: "workspace",
       summary: "Claimed but never released."
@@ -906,7 +909,7 @@ test("recoverIssueRun releases a stale lease and marks a claimed run as failed",
 
     await persistRunRecord(runtimePaths, runRecord);
     await recordRunUpdate(runtimePaths, "owner/repo", runRecord);
-    await acquireIssueLease(
+    const acquiredLease = await acquireIssueLease(
       runtimePaths,
       19,
       {
@@ -915,10 +918,11 @@ test("recoverIssueRun releases a stale lease and marks a claimed run as failed",
         runId: runRecord.id
       },
       {
-        now: new Date("2026-03-30T00:10:00.000Z"),
+        now: updatedAt,
         ttlMs: 30 * 60 * 1000
       }
     );
+    runRecord.lease = acquiredLease.lease;
 
     const result = await recoverIssueRun("owner/repo", 19, {
       runtimeRoot: tempRoot,
@@ -934,11 +938,22 @@ test("recoverIssueRun releases a stale lease and marks a claimed run as failed",
 
     const recoveredRun = await readRunRecord(runtimePaths, runRecord.id);
     const lease = await readLease(runtimePaths, 19);
+    const snapshot = await inspectRuntimeState(runtimePaths, "owner/repo");
 
     assert.equal(result.status, "recovered");
     assert.equal(recoveredRun.status, "failed");
     assert.equal(recoveredRun.lastCompletedPhase, "workspace");
+    assert.equal(recoveredRun.lease.lastOutcome, "force_recovered");
+    assert.equal(recoveredRun.lease.leaseStatus, "released");
+    assert.equal(recoveredRun.lease.previousLease.holderId, runRecord.id);
+    assert.equal(recoveredRun.lease.previousLease.leaseStatus, "active");
     assert.equal(lease, null);
+    assert.equal(snapshot.activeLeases.length, 0);
+    assert.equal(snapshot.staleLeases.length, 0);
+    assert.equal(snapshot.state.issues["19"].lease.lastOutcome, "force_recovered");
+    assert.equal(snapshot.state.issues["19"].lease.leaseStatus, "released");
+    assert.equal(snapshot.state.runs[runRecord.id].lease.lastOutcome, "force_recovered");
+    assert.equal(snapshot.state.runs[runRecord.id].lease.leaseStatus, "released");
     assert.ok(
       issueEdits.some(
         (edit) => Array.isArray(edit.removeLabels) && edit.removeLabels.includes("agent:claimed")
@@ -1867,8 +1882,8 @@ test("runGitHubIssueWorker renews its lease during long execution loops", async 
       25,
       {
         runtimeRoot: tempRoot,
-        leaseTtlMs: 80,
-        leaseRenewIntervalMs: 20,
+        leaseTtlMs: 500,
+        leaseRenewIntervalMs: 100,
         github,
         createIssueWorktree: async () => ({
           branchName: "agent/issue-25",
@@ -1898,7 +1913,7 @@ test("runGitHubIssueWorker renews its lease during long execution loops", async 
           }
         }),
         executeGitHubIssue: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 160));
+          await new Promise((resolve) => setTimeout(resolve, 650));
           const liveLease = await readLease(runtimePaths, 25);
           const competingLease = await acquireIssueLease(
             runtimePaths,
@@ -1908,7 +1923,7 @@ test("runGitHubIssueWorker renews its lease during long execution loops", async 
               holderType: "worker"
             },
             {
-              ttlMs: 80
+              ttlMs: 500
             }
           );
 
@@ -1944,6 +1959,244 @@ test("runGitHubIssueWorker renews its lease during long execution loops", async 
 
     assert.equal(result.status, "merged");
   } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker keeps renewed leases visible to concurrent claimants", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-heartbeat-"));
+  let continueExecution;
+  let executionStartedResolve;
+  const executionStarted = new Promise((resolve) => {
+    executionStartedResolve = resolve;
+  });
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 12,
+      title: "Long-running worker",
+      body: "Simulate a long execution path.",
+      labels: ["agent:ready"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/12"
+    }),
+    editIssue: async () => {},
+    commentIssue: async () => {},
+    findPullRequestForBranch: async () => null,
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    }
+  };
+
+  const firstWorker = runGitHubIssueWorker(
+    path.resolve(__dirname, "..", ".."),
+    "owner/repo",
+    process.cwd(),
+    12,
+    {
+      runtimeRoot: tempRoot,
+      github,
+      leaseTtlMs: 50,
+      leaseHeartbeatMs: 20,
+      createIssueWorktree: async () => ({
+        branchName: "agent/issue-12",
+        baseBranch: "main",
+        worktreePath: "/tmp/fake-worktree-heartbeat"
+      }),
+      shapeGitHubIssue: async () => ({
+        payload: {
+          route: "execute",
+          summary: "Shaped and ready.",
+          acceptanceCriteria: ["Lease stays active during a long run."],
+          nonGoals: [],
+          splitIssues: []
+        }
+      }),
+      executeGitHubIssue: async () => {
+        executionStartedResolve();
+        await new Promise((resolve) => {
+          continueExecution = resolve;
+        });
+
+        return {
+          payload: {
+            status: "blocked",
+            summary: "Stopped after heartbeat verification.",
+            blockers: ["heartbeat-test"]
+          }
+        };
+      }
+    }
+  );
+
+  try {
+    await executionStarted;
+    await new Promise((resolve) => setTimeout(resolve, 90));
+
+    const concurrentClaim = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      12,
+      {
+        runtimeRoot: tempRoot,
+        github,
+        leaseTtlMs: 50,
+        leaseHeartbeatMs: 20
+      }
+    );
+
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const activeLease = JSON.parse(
+      await fs.readFile(path.join(runtimePaths.leasesDir, "issue-12.json"), "utf8")
+    );
+
+    assert.equal(concurrentClaim.status, "skipped");
+    assert.equal(concurrentClaim.leaseAction, "active_collision");
+    assert.equal(concurrentClaim.lease.holderId, activeLease.holderId);
+    assert.equal(concurrentClaim.lease.lastOutcome, "renewed");
+    assert.equal(concurrentClaim.lease.renewalCount > 0, true);
+
+    continueExecution();
+    const firstResult = await firstWorker;
+    const runRecord = await readRunRecord(runtimePaths, firstResult.runId);
+    const state = JSON.parse(await fs.readFile(runtimePaths.stateFilePath, "utf8"));
+
+    assert.equal(firstResult.status, "blocked");
+    assert.equal(runRecord.lease.lastOutcome, "renewed");
+    assert.equal(runRecord.lease.renewalCount > 0, true);
+    assert.equal(state.issues["12"].lease.lastOutcome, "renewed");
+    assert.equal(state.issues["12"].lease.renewalCount > 0, true);
+  } finally {
+    if (continueExecution) {
+      continueExecution();
+    }
+    await firstWorker.catch(() => {});
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker aborts after lease loss without overwriting its lease snapshot", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-lease-loss-"));
+  const comments = [];
+  const issueEdits = [];
+  let continueExecution;
+  let executionStartedResolve;
+  const executionStarted = new Promise((resolve) => {
+    executionStartedResolve = resolve;
+  });
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 12,
+      title: "Lease-loss regression",
+      body: "Abort when another worker recovers the lease.",
+      labels: ["agent:ready"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/12"
+    }),
+    editIssue: async (_repoSlug, _issueNumber, edit) => {
+      issueEdits.push(edit);
+    },
+    commentIssue: async (_repoSlug, _issueNumber, body) => {
+      comments.push(body);
+    },
+    findPullRequestForBranch: async () => null,
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    }
+  };
+
+  const firstWorker = runGitHubIssueWorker(
+    path.resolve(__dirname, "..", ".."),
+    "owner/repo",
+    process.cwd(),
+    12,
+    {
+      runtimeRoot: tempRoot,
+      github,
+      leaseTtlMs: 50,
+      leaseHeartbeatMs: 20,
+      createIssueWorktree: async () => ({
+        branchName: "agent/issue-12",
+        baseBranch: "main",
+        worktreePath: "/tmp/fake-worktree-lease-loss"
+      }),
+      shapeGitHubIssue: async () => ({
+        payload: {
+          route: "execute",
+          summary: "Shaped and ready.",
+          acceptanceCriteria: ["Execution stops after lease ownership is lost."],
+          nonGoals: [],
+          splitIssues: []
+        }
+      }),
+      executeGitHubIssue: async () => {
+        executionStartedResolve();
+        await new Promise((resolve) => {
+          continueExecution = resolve;
+        });
+
+        return {
+          payload: {
+            status: "blocked",
+            summary: "Execution would have completed without lease-loss handling.",
+            blockers: ["lease-loss-test"]
+          }
+        };
+      }
+    }
+  );
+
+  try {
+    await executionStarted;
+
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const recoveredLease = await acquireIssueLease(
+      runtimePaths,
+      12,
+      {
+        holderId: "recovery-claimant",
+        holderType: "worker",
+        runId: "run-recovered"
+      },
+      {
+        ttlMs: 50,
+        forceRecover: true
+      }
+    );
+
+    assert.equal(recoveredLease.acquired, true);
+    assert.equal(recoveredLease.action, "force_recovered");
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    continueExecution();
+
+    const result = await firstWorker;
+    const runRecord = await readRunRecord(runtimePaths, result.runId);
+    const events = JSON.parse(
+      `[${(await fs.readFile(runtimePaths.eventsFilePath, "utf8")).trim().replace(/\n/g, ",")}]`
+    );
+
+    assert.equal(result.status, "failed");
+    assert.match(result.summary, /Lease lost for issue #12/);
+    assert.equal(runRecord.lease.holderId, result.runId);
+    assert.equal(runRecord.leaseFailure.reason, "holder_mismatch");
+    assert.equal(runRecord.leaseFailure.observedLease.holderId, "recovery-claimant");
+    assert.notEqual(runRecord.lease.holderId, runRecord.leaseFailure.observedLease.holderId);
+    assert.equal(comments.length, 1);
+    assert.equal(issueEdits.length, 1);
+    assert.ok(events.some((event) => event.event === "lease_lost"));
+    assert.ok(events.some((event) => event.event === "lease_release_skipped"));
+  } finally {
+    if (continueExecution) {
+      continueExecution();
+    }
+    await firstWorker.catch(() => {});
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
