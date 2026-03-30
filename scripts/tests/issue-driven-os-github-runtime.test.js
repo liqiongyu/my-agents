@@ -9,6 +9,8 @@ const {
   parseIssueDependencies,
   planConsumableIssues,
   produceGitHubIssue,
+  recoverIssueRun,
+  runGitHubDaemon,
   runGitHubIssueWorker
 } = require("../lib/issue-driven-os-github-runtime");
 const {
@@ -17,6 +19,7 @@ const {
   buildRuntimePaths,
   persistArtifact,
   persistRunRecord,
+  readLease,
   readRunRecord,
   recordRunUpdate
 } = require("../lib/issue-driven-os-state-store");
@@ -326,141 +329,27 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
   }
 });
 
-test("runGitHubIssueWorker renews active leases and skips concurrent claimants", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-heartbeat-"));
-  let continueExecution;
-  let executionStartedResolve;
-  const executionStarted = new Promise((resolve) => {
-    executionStartedResolve = resolve;
-  });
-
-  const github = {
-    ensureLabels: async () => {},
-    viewIssue: async () => ({
-      number: 12,
-      title: "Long-running worker",
-      body: "Simulate a long execution path.",
-      labels: ["agent:ready"],
-      comments: [],
-      state: "OPEN",
-      url: "https://example.test/issues/12"
-    }),
-    editIssue: async () => {},
-    commentIssue: async () => {},
-    findPullRequestForBranch: async () => null,
-    createIssue: async () => {
-      throw new Error("unexpected child issue creation");
-    }
-  };
-
-  const firstWorker = runGitHubIssueWorker(
-    path.resolve(__dirname, "..", ".."),
-    "owner/repo",
-    process.cwd(),
-    12,
-    {
-      runtimeRoot: tempRoot,
-      github,
-      leaseTtlMs: 50,
-      leaseHeartbeatMs: 20,
-      createIssueWorktree: async () => ({
-        branchName: "agent/issue-12",
-        baseBranch: "main",
-        worktreePath: "/tmp/fake-worktree-heartbeat"
-      }),
-      shapeGitHubIssue: async () => ({
-        payload: {
-          route: "execute",
-          summary: "Shaped and ready.",
-          acceptanceCriteria: ["Lease stays active during a long run."],
-          nonGoals: [],
-          splitIssues: []
-        }
-      }),
-      executeGitHubIssue: async () => {
-        executionStartedResolve();
-        await new Promise((resolve) => {
-          continueExecution = resolve;
-        });
-
-        return {
-          payload: {
-            status: "blocked",
-            summary: "Stopped after heartbeat verification.",
-            blockers: ["heartbeat-test"]
-          }
-        };
-      }
-    }
-  );
-
-  try {
-    await executionStarted;
-    await new Promise((resolve) => setTimeout(resolve, 90));
-
-    const concurrentClaim = await runGitHubIssueWorker(
-      path.resolve(__dirname, "..", ".."),
-      "owner/repo",
-      process.cwd(),
-      12,
-      {
-        runtimeRoot: tempRoot,
-        github,
-        leaseTtlMs: 50,
-        leaseHeartbeatMs: 20
-      }
-    );
-
-    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
-    const activeLease = JSON.parse(
-      await fs.readFile(path.join(runtimePaths.leasesDir, "issue-12.json"), "utf8")
-    );
-
-    assert.equal(concurrentClaim.status, "skipped");
-    assert.equal(concurrentClaim.leaseAction, "active_collision");
-    assert.equal(concurrentClaim.lease.holderId, activeLease.holderId);
-    assert.equal(concurrentClaim.lease.lastOutcome, "renewed");
-    assert.equal(concurrentClaim.lease.renewalCount > 0, true);
-
-    continueExecution();
-    const firstResult = await firstWorker;
-    const runRecord = await readRunRecord(runtimePaths, firstResult.runId);
-    const state = JSON.parse(await fs.readFile(runtimePaths.stateFilePath, "utf8"));
-
-    assert.equal(firstResult.status, "blocked");
-    assert.equal(runRecord.lease.lastOutcome, "renewed");
-    assert.equal(runRecord.lease.renewalCount > 0, true);
-    assert.equal(state.issues["12"].lease.lastOutcome, "renewed");
-    assert.equal(state.issues["12"].lease.renewalCount > 0, true);
-  } finally {
-    if (continueExecution) {
-      continueExecution();
-    }
-    await firstWorker.catch(() => {});
-    await fs.rm(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test("runGitHubIssueWorker aborts after lease loss without overwriting its lease snapshot", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-lease-loss-"));
+test("runGitHubIssueWorker automatically reruns execution after needs_changes in the same worker pass", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-auto-review-loop-"));
   const comments = [];
   const issueEdits = [];
-  let continueExecution;
-  let executionStartedResolve;
-  const executionStarted = new Promise((resolve) => {
-    executionStartedResolve = resolve;
-  });
+  const reviews = [];
+  const executionContexts = [];
+  const critiqueContexts = [];
+  let executeCalls = 0;
+  let critiqueCalls = 0;
+  let findPrCalls = 0;
 
   const github = {
     ensureLabels: async () => {},
     viewIssue: async () => ({
-      number: 12,
-      title: "Lease-loss regression",
-      body: "Abort when another worker recovers the lease.",
+      number: 21,
+      title: "Keep reworking until ready",
+      body: "The worker should continue after critic feedback without manual resume.",
       labels: ["agent:ready"],
       comments: [],
       state: "OPEN",
-      url: "https://example.test/issues/12"
+      url: "https://example.test/issues/21"
     }),
     editIssue: async (_repoSlug, _issueNumber, edit) => {
       issueEdits.push(edit);
@@ -468,98 +357,326 @@ test("runGitHubIssueWorker aborts after lease loss without overwriting its lease
     commentIssue: async (_repoSlug, _issueNumber, body) => {
       comments.push(body);
     },
-    findPullRequestForBranch: async () => null,
     createIssue: async () => {
       throw new Error("unexpected child issue creation");
-    }
+    },
+    findPullRequestForBranch: async (_repoSlug, _branchName, options = {}) => {
+      findPrCalls += 1;
+      if (options.state === "open") {
+        return executeCalls === 0
+          ? null
+          : {
+              number: 91,
+              url: "https://example.test/pull/91",
+              state: "OPEN",
+              mergeStateStatus: "CLEAN"
+            };
+      }
+
+      return {
+        number: 91,
+        url: "https://example.test/pull/91",
+        state: "MERGED",
+        mergeStateStatus: "MERGED"
+      };
+    },
+    editPullRequest: async () => {},
+    listPullRequestReviews: async () => [],
+    listPullRequestReviewComments: async () => [],
+    createPullRequest: async () => ({
+      number: 91,
+      url: "https://example.test/pull/91"
+    }),
+    submitPullRequestReview: async (_repoSlug, _pullNumber, review) => {
+      reviews.push(review);
+    },
+    enableAutoMerge: async () => {},
+    closeIssue: async () => {}
   };
 
-  const firstWorker = runGitHubIssueWorker(
-    path.resolve(__dirname, "..", ".."),
-    "owner/repo",
-    process.cwd(),
-    12,
-    {
-      runtimeRoot: tempRoot,
-      github,
-      leaseTtlMs: 50,
-      leaseHeartbeatMs: 20,
-      createIssueWorktree: async () => ({
-        branchName: "agent/issue-12",
-        baseBranch: "main",
-        worktreePath: "/tmp/fake-worktree-lease-loss"
-      }),
-      shapeGitHubIssue: async () => ({
-        payload: {
-          route: "execute",
-          summary: "Shaped and ready.",
-          acceptanceCriteria: ["Execution stops after lease ownership is lost."],
-          nonGoals: [],
-          splitIssues: []
-        }
-      }),
-      executeGitHubIssue: async () => {
-        executionStartedResolve();
-        await new Promise((resolve) => {
-          continueExecution = resolve;
-        });
-
-        return {
-          payload: {
-            status: "blocked",
-            summary: "Execution would have completed without lease-loss handling.",
-            blockers: ["lease-loss-test"]
-          }
-        };
-      }
-    }
-  );
-
   try {
-    await executionStarted;
-
-    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
-    const recoveredLease = await acquireIssueLease(
-      runtimePaths,
-      12,
+    const result = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      21,
       {
-        holderId: "recovery-claimant",
-        holderType: "worker",
-        runId: "run-recovered"
-      },
-      {
-        ttlMs: 50,
-        forceRecover: true
+        runtimeRoot: tempRoot,
+        github,
+        createIssueWorktree: async () => ({
+          branchName: "agent/issue-21",
+          baseBranch: "main",
+          worktreePath: "/tmp/fake-auto-review-loop-worktree",
+          reused: false
+        }),
+        refreshIssueBranch: async () => ({
+          status: "merged",
+          baseBranch: "main",
+          baseRef: "origin/main",
+          conflictedFiles: []
+        }),
+        commitAllChanges: async () => ({
+          changed: true,
+          commitSha: `auto-review-loop-${executeCalls + 1}`
+        }),
+        pushBranch: async () => {},
+        cleanupIssueWorktree: async () => {},
+        shapeGitHubIssue: async () => ({
+          payload: {
+            route: "execute",
+            summary: "Ready for execution.",
+            acceptanceCriteria: ["needs_changes auto-loops without manual intervention"],
+            nonGoals: [],
+            splitIssues: []
+          }
+        }),
+        executeGitHubIssue: async (_repoRoot, _cwd, context) => {
+          executeCalls += 1;
+          executionContexts.push(context);
+          return {
+            payload: {
+              status: "implemented",
+              summary:
+                executeCalls === 1
+                  ? "Initial implementation completed."
+                  : "Follow-up implementation addressed critic feedback.",
+              changeSummary:
+                executeCalls === 1
+                  ? "Initial runtime loop wiring."
+                  : "Bound the review loop and kept the worker running.",
+              verificationSummary:
+                executeCalls === 1
+                  ? "Initial tests pass."
+                  : "Updated tests pass after review feedback.",
+              commitMessage:
+                executeCalls === 1
+                  ? "feat(issue-os): start runtime review loop"
+                  : "fix(issue-os): continue worker review loop automatically",
+              prTitle: "Automatic review loop support",
+              prBody: "The worker keeps reworking after critic feedback.",
+              blockers: []
+            }
+          };
+        },
+        critiqueGitHubIssue: async (_repoRoot, _cwd, context) => {
+          critiqueCalls += 1;
+          critiqueContexts.push(context);
+          if (critiqueCalls === 1) {
+            return {
+              payload: {
+                verdict: "needs_changes",
+                verificationVerdict: "verified-fail",
+                summary: "The worker stops after review instead of continuing automatically.",
+                blockingFindings: ["Continue to a second execution pass automatically."],
+                nonBlockingFindings: []
+              }
+            };
+          }
+          return {
+            payload: {
+              verdict: "ready",
+              verificationVerdict: "verified-pass",
+              summary: "The automatic rework loop now continues correctly.",
+              blockingFindings: [],
+              nonBlockingFindings: []
+            }
+          };
+        }
       }
     );
 
-    assert.equal(recoveredLease.acquired, true);
-    assert.equal(recoveredLease.action, "force_recovered");
-
-    await new Promise((resolve) => setTimeout(resolve, 40));
-    continueExecution();
-
-    const result = await firstWorker;
-    const runRecord = await readRunRecord(runtimePaths, result.runId);
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const updatedRun = JSON.parse(
+      await fs.readFile(path.join(runtimePaths.runsDir, `${result.runId}.json`), "utf8")
+    );
     const events = JSON.parse(
       `[${(await fs.readFile(runtimePaths.eventsFilePath, "utf8")).trim().replace(/\n/g, ",")}]`
     );
 
-    assert.equal(result.status, "failed");
-    assert.match(result.summary, /Lease lost for issue #12/);
-    assert.equal(runRecord.lease.holderId, result.runId);
-    assert.equal(runRecord.leaseFailure.reason, "holder_mismatch");
-    assert.equal(runRecord.leaseFailure.observedLease.holderId, "recovery-claimant");
-    assert.notEqual(runRecord.lease.holderId, runRecord.leaseFailure.observedLease.holderId);
-    assert.equal(comments.length, 1);
-    assert.equal(issueEdits.length, 1);
-    assert.ok(events.some((event) => event.event === "lease_lost"));
-    assert.ok(events.some((event) => event.event === "lease_release_skipped"));
+    assert.equal(result.status, "merged");
+    assert.equal(executeCalls, 2);
+    assert.equal(critiqueCalls, 2);
+    assert.equal(executionContexts.length, 2);
+    assert.match(
+      executionContexts[1].reviewFeedback.requestedChanges[0].body,
+      /Continue to a second execution pass automatically\./
+    );
+    assert.equal(reviews.length, 2);
+    assert.deepEqual(
+      reviews.map((review) => review.event),
+      ["COMMENT", "COMMENT"]
+    );
+    assert.equal(updatedRun.status, "merged");
+    assert.equal(updatedRun.lastCompletedPhase, "reconciled");
+    assert.equal(updatedRun.reviewLoopCount, 1);
+    assert.equal(updatedRun.reviewLoopsMax, 3);
+    assert.equal(updatedRun.terminationReason, null);
+    assert.ok(events.some((event) => event.event === "review_loop_continued"));
+    assert.ok(events.some((event) => event.event === "auto_merge_enabled"));
+    assert.ok(
+      issueEdits.some(
+        (edit) => Array.isArray(edit.addLabels) && edit.addLabels.includes("agent:done")
+      )
+    );
+    assert.ok(comments.some((body) => /claimed this issue/i.test(body)));
+    assert.ok(findPrCalls >= 2);
+    assert.equal(critiqueContexts.length, 2);
   } finally {
-    if (continueExecution) {
-      continueExecution();
-    }
-    await firstWorker.catch(() => {});
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker stops after the review-loop budget is exhausted", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-review-budget-"));
+  const reviews = [];
+  const issueEdits = [];
+  let executeCalls = 0;
+  let critiqueCalls = 0;
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 23,
+      title: "Bound review loop retries",
+      body: "The worker should stop once the review-loop budget is exhausted.",
+      labels: ["agent:ready"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/23"
+    }),
+    editIssue: async (_repoSlug, _issueNumber, edit) => {
+      issueEdits.push(edit);
+    },
+    commentIssue: async () => {},
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    },
+    findPullRequestForBranch: async (_repoSlug, _branchName, options = {}) => {
+      if (options.state === "open") {
+        return executeCalls === 0
+          ? null
+          : {
+              number: 93,
+              url: "https://example.test/pull/93",
+              state: "OPEN",
+              mergeStateStatus: "CLEAN"
+            };
+      }
+      return {
+        number: 93,
+        url: "https://example.test/pull/93",
+        state: "OPEN",
+        mergeStateStatus: "DIRTY"
+      };
+    },
+    editPullRequest: async () => {},
+    listPullRequestReviews: async () => [],
+    listPullRequestReviewComments: async () => [],
+    createPullRequest: async () => ({
+      number: 93,
+      url: "https://example.test/pull/93"
+    }),
+    submitPullRequestReview: async (_repoSlug, _pullNumber, review) => {
+      reviews.push(review);
+    },
+    enableAutoMerge: async () => {
+      throw new Error("should not enable auto-merge after review budget exhaustion");
+    },
+    closeIssue: async () => {}
+  };
+
+  try {
+    const result = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      23,
+      {
+        runtimeRoot: tempRoot,
+        reviewLoopsMax: 1,
+        github,
+        createIssueWorktree: async () => ({
+          branchName: "agent/issue-23",
+          baseBranch: "main",
+          worktreePath: "/tmp/fake-review-budget-worktree",
+          reused: false
+        }),
+        refreshIssueBranch: async () => ({
+          status: "merged",
+          baseBranch: "main",
+          baseRef: "origin/main",
+          conflictedFiles: []
+        }),
+        commitAllChanges: async () => {
+          executeCalls += 1;
+          return {
+            changed: true,
+            commitSha: `review-budget-${executeCalls}`
+          };
+        },
+        pushBranch: async () => {},
+        cleanupIssueWorktree: async () => {},
+        shapeGitHubIssue: async () => ({
+          payload: {
+            route: "execute",
+            summary: "Ready for execution.",
+            acceptanceCriteria: ["review loop stops after the configured budget"],
+            nonGoals: [],
+            splitIssues: []
+          }
+        }),
+        executeGitHubIssue: async () => ({
+          payload: {
+            status: "implemented",
+            summary: "Implementation still needs follow-up.",
+            changeSummary: "Another execution pass completed.",
+            verificationSummary: "Tests keep passing, but critic still disagrees.",
+            commitMessage: "fix(issue-os): another review loop pass",
+            prTitle: "Review-loop budget handling",
+            prBody: "Continues until budget is exhausted.",
+            blockers: []
+          }
+        }),
+        critiqueGitHubIssue: async () => {
+          critiqueCalls += 1;
+          return {
+            payload: {
+              verdict: "needs_changes",
+              verificationVerdict: "verified-fail",
+              summary: `Still not good enough after pass ${critiqueCalls}.`,
+              blockingFindings: [`Critique pass ${critiqueCalls} still fails.`],
+              nonBlockingFindings: []
+            }
+          };
+        }
+      }
+    );
+
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const updatedRun = JSON.parse(
+      await fs.readFile(path.join(runtimePaths.runsDir, `${result.runId}.json`), "utf8")
+    );
+    const events = JSON.parse(
+      `[${(await fs.readFile(runtimePaths.eventsFilePath, "utf8")).trim().replace(/\n/g, ",")}]`
+    );
+
+    assert.equal(result.status, "blocked");
+    assert.match(result.summary, /Review-loop budget exhausted/);
+    assert.equal(executeCalls, 2);
+    assert.equal(critiqueCalls, 2);
+    assert.equal(reviews.length, 2);
+    assert.equal(updatedRun.status, "blocked");
+    assert.equal(updatedRun.reviewLoopCount, 2);
+    assert.equal(updatedRun.reviewLoopsMax, 1);
+    assert.equal(updatedRun.terminationReason, "review_loop_budget_exhausted");
+    assert.ok(events.some((event) => event.event === "review_loop_continued"));
+    assert.ok(events.some((event) => event.event === "review_loop_budget_exhausted"));
+    assert.ok(
+      issueEdits.some(
+        (edit) => Array.isArray(edit.addLabels) && edit.addLabels.includes("agent:blocked")
+      )
+    );
+  } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
@@ -706,6 +823,153 @@ test("runGitHubIssueWorker downgrades self-approval to a comment review and stil
           event.data?.executionSummary?.limits === "github_self_review_restriction"
       )
     );
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("recoverIssueRun releases a stale lease and marks a claimed run as failed", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-recover-"));
+  const issueEdits = [];
+  const comments = [];
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const runRecord = buildRunRecord(19, {
+      repoSlug: "owner/repo",
+      status: "claimed",
+      startedAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:10:00.000Z",
+      branchRef: "agent/issue-19",
+      lastCompletedPhase: "workspace",
+      summary: "Claimed but never released."
+    });
+
+    await persistRunRecord(runtimePaths, runRecord);
+    await recordRunUpdate(runtimePaths, "owner/repo", runRecord);
+    await acquireIssueLease(
+      runtimePaths,
+      19,
+      {
+        holderId: runRecord.id,
+        holderType: "worker",
+        runId: runRecord.id
+      },
+      {
+        now: new Date("2026-03-30T00:10:00.000Z"),
+        ttlMs: 30 * 60 * 1000
+      }
+    );
+
+    const result = await recoverIssueRun("owner/repo", 19, {
+      runtimeRoot: tempRoot,
+      github: {
+        editIssue: async (_repoSlug, _issueNumber, edit) => {
+          issueEdits.push(edit);
+        },
+        commentIssue: async (_repoSlug, _issueNumber, body) => {
+          comments.push(body);
+        }
+      }
+    });
+
+    const recoveredRun = await readRunRecord(runtimePaths, runRecord.id);
+    const lease = await readLease(runtimePaths, 19);
+
+    assert.equal(result.status, "recovered");
+    assert.equal(recoveredRun.status, "failed");
+    assert.equal(recoveredRun.lastCompletedPhase, "workspace");
+    assert.equal(lease, null);
+    assert.ok(
+      issueEdits.some(
+        (edit) => Array.isArray(edit.removeLabels) && edit.removeLabels.includes("agent:claimed")
+      )
+    );
+    assert.ok(comments.some((body) => /recovered a stale claim/i.test(body)));
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubDaemon auto-recovers stale claimed issues and requeues them", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-daemon-recover-"));
+  const issueEdits = [];
+  const comments = [];
+  const workerCalls = [];
+  let claimedRecovered = false;
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const runRecord = buildRunRecord(24, {
+      id: "run_issue_24_20260330T000000Z",
+      repoSlug: "owner/repo",
+      status: "claimed",
+      startedAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:05:00.000Z",
+      branchRef: "agent/issue-24",
+      lastCompletedPhase: "workspace",
+      summary: "Claimed and then lost."
+    });
+
+    await persistRunRecord(runtimePaths, runRecord);
+    await recordRunUpdate(runtimePaths, "owner/repo", runRecord);
+
+    const github = {
+      ensureLabels: async () => {},
+      listIssues: async () => [
+        {
+          number: 24,
+          title: "Recoverable claimed issue",
+          body: "",
+          labels: claimedRecovered ? ["agent:ready"] : ["agent:claimed"],
+          comments: [],
+          createdAt: "2026-03-30T00:00:00Z",
+          updatedAt: "2026-03-30T00:05:00Z",
+          url: "https://example.test/issues/24",
+          state: "OPEN"
+        }
+      ],
+      editIssue: async (_repoSlug, _issueNumber, edit) => {
+        issueEdits.push(edit);
+        if (Array.isArray(edit.addLabels) && edit.addLabels.includes("agent:ready")) {
+          claimedRecovered = true;
+        }
+      },
+      commentIssue: async (_repoSlug, _issueNumber, body) => {
+        comments.push(body);
+      },
+      viewIssue: async () => {
+        throw new Error("unexpected dependency lookup");
+      }
+    };
+
+    const result = await runGitHubDaemon(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      {
+        once: true,
+        runtimeRoot: tempRoot,
+        github,
+        runGitHubIssueWorker: async (_repoRoot, _repoSlug, _repoPath, issueNumber) => {
+          workerCalls.push(issueNumber);
+          return { status: "claimed", summary: "worker stub ran", runId: "stub" };
+        }
+      }
+    );
+
+    const recoveredRun = await readRunRecord(runtimePaths, runRecord.id);
+
+    assert.deepEqual(workerCalls, [24]);
+    assert.equal(result.recoveredClaims.length, 1);
+    assert.equal(result.recoveredClaims[0].issueNumber, 24);
+    assert.equal(recoveredRun.status, "failed");
+    assert.ok(
+      issueEdits.some(
+        (edit) => Array.isArray(edit.addLabels) && edit.addLabels.includes("agent:ready")
+      )
+    );
+    assert.ok(comments.some((body) => /automatically requeued/i.test(body)));
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -902,6 +1166,167 @@ test("runGitHubIssueWorker resumes a failed run from persisted execution state",
     assert.ok(events.some((event) => event.event === "commit_reused"));
     assert.ok(findPrCalls >= 1);
     assert.equal(issueEdits.length >= 2, true);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker does not reuse stale execution artifacts before execution completed", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-stage-safe-resume-"));
+  const executionContexts = [];
+  let shapeCalls = 0;
+  let executeCalls = 0;
+  let critiqueCalls = 0;
+
+  const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+  const priorRun = buildRunRecord(23, {
+    id: "run_issue_23_20260330T000000Z",
+    repoSlug: "owner/repo",
+    status: "failed",
+    startedAt: "2026-03-30T00:00:00.000Z",
+    updatedAt: "2026-03-30T00:10:00.000Z",
+    finishedAt: "2026-03-30T00:10:00.000Z",
+    branchRef: "agent/issue-23",
+    worktreePath: "/tmp/fake-stage-safe-worktree",
+    lastCompletedPhase: "workspace",
+    summary: "Worker died after workspace setup.",
+    artifacts: []
+  });
+
+  await persistRunRecord(runtimePaths, priorRun);
+  await persistArtifact(runtimePaths, priorRun.id, "shaping", {
+    route: "execute",
+    summary: "Shaped and ready.",
+    acceptanceCriteria: ["resume reuses only safe artifacts"],
+    nonGoals: [],
+    splitIssues: []
+  });
+  await persistArtifact(runtimePaths, priorRun.id, "execution", {
+    status: "implemented",
+    summary: "This stale execution artifact should not be reused.",
+    changeSummary: "stale",
+    verificationSummary: "stale",
+    commitMessage: "stale",
+    prTitle: "stale",
+    prBody: "stale",
+    blockers: []
+  });
+  await persistArtifact(runtimePaths, priorRun.id, "critic", {
+    verdict: "ready",
+    verificationVerdict: "verified-pass",
+    summary: "stale critic",
+    blockingFindings: [],
+    nonBlockingFindings: []
+  });
+  await recordRunUpdate(runtimePaths, "owner/repo", priorRun);
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 23,
+      title: "Resume from workspace after worker died",
+      body: "Stale execution artifacts should not be reused.",
+      labels: ["agent:blocked"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/23"
+    }),
+    editIssue: async () => {},
+    commentIssue: async () => {},
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    },
+    findPullRequestForBranch: async () => null,
+    editPullRequest: async () => {},
+    listPullRequestReviews: async () => [],
+    listPullRequestReviewComments: async () => [],
+    createPullRequest: async () => ({
+      number: 93,
+      url: "https://example.test/pull/93",
+      state: "OPEN",
+      mergeStateStatus: "CLEAN"
+    }),
+    submitPullRequestReview: async () => {},
+    enableAutoMerge: async () => {},
+    closeIssue: async () => {}
+  };
+
+  const workspace = {
+    createIssueWorktree: async () => ({
+      branchName: "agent/issue-23",
+      baseBranch: "main",
+      worktreePath: "/tmp/fake-stage-safe-worktree",
+      reused: true
+    }),
+    refreshIssueBranch: async () => ({
+      status: "up_to_date",
+      baseBranch: "main",
+      baseRef: "origin/main",
+      conflictedFiles: []
+    }),
+    commitAllChanges: async () => ({
+      changed: true,
+      commitSha: "stageSafe123"
+    }),
+    pushBranch: async () => {},
+    cleanupIssueWorktree: async () => {}
+  };
+
+  try {
+    const result = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      23,
+      {
+        runtimeRoot: tempRoot,
+        github,
+        createIssueWorktree: workspace.createIssueWorktree,
+        refreshIssueBranch: workspace.refreshIssueBranch,
+        commitAllChanges: workspace.commitAllChanges,
+        pushBranch: workspace.pushBranch,
+        cleanupIssueWorktree: workspace.cleanupIssueWorktree,
+        shapeGitHubIssue: async () => {
+          shapeCalls += 1;
+          throw new Error("shaping should not rerun");
+        },
+        executeGitHubIssue: async (_repoRoot, _cwd, context) => {
+          executeCalls += 1;
+          executionContexts.push(context);
+          return {
+            payload: {
+              status: "implemented",
+              summary: "Fresh execution reran after recovery.",
+              changeSummary: "Recovered from workspace checkpoint.",
+              verificationSummary: "Fresh execution path ran.",
+              commitMessage: "fix(issue-os): rerun after stale claimed run",
+              prTitle: "Rerun after stale claimed run",
+              prBody: "Fresh execution path after recovery.",
+              blockers: []
+            }
+          };
+        },
+        critiqueGitHubIssue: async () => {
+          critiqueCalls += 1;
+          return {
+            payload: {
+              verdict: "ready",
+              verificationVerdict: "verified-pass",
+              summary: "Fresh execution result is ready.",
+              blockingFindings: [],
+              nonBlockingFindings: []
+            }
+          };
+        }
+      }
+    );
+
+    assert.equal(result.status, "awaiting_merge");
+    assert.equal(shapeCalls, 0);
+    assert.equal(executeCalls, 1);
+    assert.equal(critiqueCalls, 1);
+    assert.equal(executionContexts.length, 1);
+    assert.equal(executionContexts[0].reviewFeedback.requestedChanges.length, 0);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -1149,6 +1574,555 @@ test("runGitHubIssueWorker reruns execution after needs_changes using prior crit
     assert.ok(!events.some((event) => event.event === "critic_resumed"));
     assert.ok(findPrCalls >= 1);
   } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker resumes failed review-projected runs as rework using persisted loop budget", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-failed-rework-"));
+  const executionContexts = [];
+  let executeCalls = 0;
+  let critiqueCalls = 0;
+
+  const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+  const priorRun = buildRunRecord(24, {
+    id: "run_issue_24_20260330T000000Z",
+    repoSlug: "owner/repo",
+    status: "failed",
+    startedAt: "2026-03-30T00:00:00.000Z",
+    updatedAt: "2026-03-30T00:30:00.000Z",
+    finishedAt: "2026-03-30T00:30:00.000Z",
+    branchRef: "agent/issue-24",
+    worktreePath: "/tmp/fake-failed-rework-worktree",
+    commitSha: "failedreview123",
+    prNumber: 94,
+    prUrl: "https://example.test/pull/94",
+    lastCompletedPhase: "review_projected",
+    summary: "Worker lost the lease after critic requested more changes.",
+    artifacts: [],
+    reviewLoopCount: 1,
+    reviewLoopsMax: 5,
+    terminationReason: "lease_lost"
+  });
+
+  await persistRunRecord(runtimePaths, priorRun);
+  await persistArtifact(runtimePaths, priorRun.id, "shaping", {
+    route: "execute",
+    summary: "Shaped and ready.",
+    acceptanceCriteria: ["failed rework resumes from execution"],
+    nonGoals: [],
+    splitIssues: []
+  });
+  await persistArtifact(runtimePaths, priorRun.id, "execution", {
+    status: "implemented",
+    summary: "Initial implementation exists.",
+    changeSummary: "Added early auto-loop support.",
+    verificationSummary: "Existing tests passed.",
+    commitMessage: "feat(issue-os): initial review loop support",
+    prTitle: "Initial review loop support",
+    prBody: "Initial pass before rework.",
+    blockers: []
+  });
+  await persistArtifact(runtimePaths, priorRun.id, "critic", {
+    verdict: "needs_changes",
+    verificationVerdict: "verified-fail",
+    summary: "The failed run still needs another execution pass.",
+    blockingFindings: ["Resume from execution using the prior critic feedback."],
+    nonBlockingFindings: []
+  });
+  await recordRunUpdate(runtimePaths, "owner/repo", priorRun);
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 24,
+      title: "Resume failed review-projected rework",
+      body: "A failed run should still resume from execution after needs_changes.",
+      labels: ["agent:review"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/24"
+    }),
+    editIssue: async () => {},
+    commentIssue: async () => {},
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    },
+    findPullRequestForBranch: async (_repoSlug, _branchName, options = {}) => {
+      if (options.state === "open") {
+        return {
+          number: 94,
+          url: "https://example.test/pull/94",
+          state: "OPEN",
+          mergeStateStatus: "CLEAN"
+        };
+      }
+
+      return {
+        number: 94,
+        url: "https://example.test/pull/94",
+        state: "MERGED",
+        mergeStateStatus: "MERGED"
+      };
+    },
+    editPullRequest: async () => {},
+    listPullRequestReviews: async () => [],
+    listPullRequestReviewComments: async () => [],
+    createPullRequest: async () => {
+      throw new Error("unexpected pull request creation");
+    },
+    submitPullRequestReview: async () => {},
+    enableAutoMerge: async () => {},
+    closeIssue: async () => {}
+  };
+
+  try {
+    const result = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      24,
+      {
+        runtimeRoot: tempRoot,
+        github,
+        createIssueWorktree: async () => ({
+          branchName: "agent/issue-24",
+          baseBranch: "main",
+          worktreePath: "/tmp/fake-failed-rework-worktree",
+          reused: true
+        }),
+        refreshIssueBranch: async () => ({
+          status: "merged",
+          baseBranch: "main",
+          baseRef: "origin/main",
+          conflictedFiles: []
+        }),
+        commitAllChanges: async () => ({
+          changed: true,
+          commitSha: "failedreview456"
+        }),
+        pushBranch: async () => {},
+        cleanupIssueWorktree: async () => {},
+        shapeGitHubIssue: async () => {
+          throw new Error("shaping should not rerun");
+        },
+        executeGitHubIssue: async (_repoRoot, _cwd, context) => {
+          executeCalls += 1;
+          executionContexts.push(context);
+          return {
+            payload: {
+              status: "implemented",
+              summary: "Failed review-projected run resumed from execution.",
+              changeSummary: "Used persisted critic feedback after failure.",
+              verificationSummary: "Resume path regression test added.",
+              commitMessage: "fix(issue-os): resume failed rework from execution",
+              prTitle: "Resume failed review-projected rework",
+              prBody: "Failed rework resumes correctly.",
+              blockers: []
+            }
+          };
+        },
+        critiqueGitHubIssue: async () => {
+          critiqueCalls += 1;
+          return {
+            payload: {
+              verdict: "ready",
+              verificationVerdict: "verified-pass",
+              summary: "Failed rework resume is ready.",
+              blockingFindings: [],
+              nonBlockingFindings: []
+            }
+          };
+        }
+      }
+    );
+
+    const updatedRun = JSON.parse(
+      await fs.readFile(path.join(runtimePaths.runsDir, `${priorRun.id}.json`), "utf8")
+    );
+
+    assert.equal(result.status, "merged");
+    assert.equal(executeCalls, 1);
+    assert.equal(critiqueCalls, 1);
+    assert.equal(updatedRun.reviewLoopCount, 1);
+    assert.equal(updatedRun.reviewLoopsMax, 5);
+    assert.equal(updatedRun.terminationReason, null);
+    assert.match(
+      executionContexts[0].reviewFeedback.requestedChanges[0].body,
+      /Resume from execution using the prior critic feedback\./
+    );
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker renews its lease during long execution loops", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-lease-renew-"));
+  const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 25,
+      title: "Renew lease during long execution",
+      body: "The worker should keep its lease alive while a long execution is running.",
+      labels: ["agent:ready"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/25"
+    }),
+    editIssue: async () => {},
+    commentIssue: async () => {},
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    },
+    findPullRequestForBranch: async (_repoSlug, _branchName, options = {}) => {
+      if (options.state === "open") {
+        return null;
+      }
+
+      return {
+        number: 95,
+        url: "https://example.test/pull/95",
+        state: "MERGED",
+        mergeStateStatus: "MERGED"
+      };
+    },
+    editPullRequest: async () => {},
+    listPullRequestReviews: async () => [],
+    listPullRequestReviewComments: async () => [],
+    createPullRequest: async () => ({
+      number: 95,
+      url: "https://example.test/pull/95"
+    }),
+    submitPullRequestReview: async () => {},
+    enableAutoMerge: async () => {},
+    closeIssue: async () => {}
+  };
+
+  try {
+    const result = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      25,
+      {
+        runtimeRoot: tempRoot,
+        leaseTtlMs: 80,
+        leaseRenewIntervalMs: 20,
+        github,
+        createIssueWorktree: async () => ({
+          branchName: "agent/issue-25",
+          baseBranch: "main",
+          worktreePath: "/tmp/fake-lease-renew-worktree",
+          reused: false
+        }),
+        refreshIssueBranch: async () => ({
+          status: "merged",
+          baseBranch: "main",
+          baseRef: "origin/main",
+          conflictedFiles: []
+        }),
+        commitAllChanges: async () => ({
+          changed: true,
+          commitSha: "leaserenew123"
+        }),
+        pushBranch: async () => {},
+        cleanupIssueWorktree: async () => {},
+        shapeGitHubIssue: async () => ({
+          payload: {
+            route: "execute",
+            summary: "Ready for execution.",
+            acceptanceCriteria: ["lease stays valid during long execution"],
+            nonGoals: [],
+            splitIssues: []
+          }
+        }),
+        executeGitHubIssue: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 160));
+          const liveLease = await readLease(runtimePaths, 25);
+          const competingLease = await acquireIssueLease(
+            runtimePaths,
+            25,
+            {
+              holderId: "run-rival",
+              holderType: "worker"
+            },
+            {
+              ttlMs: 80
+            }
+          );
+
+          assert.ok(liveLease);
+          assert.match(liveLease.holderId, /^run_issue_25_/);
+          assert.ok(Date.parse(liveLease.expiresAt) > Date.now());
+          assert.equal(competingLease.acquired, false);
+
+          return {
+            payload: {
+              status: "implemented",
+              summary: "Long execution completed with a renewed lease.",
+              changeSummary: "Worker heartbeats lease ownership during execution.",
+              verificationSummary: "Lease remained valid after a long-running execution step.",
+              commitMessage: "fix(issue-os): renew lease during execution",
+              prTitle: "Renew worker lease during long execution",
+              prBody: "Keeps the lease alive while the worker is still running.",
+              blockers: []
+            }
+          };
+        },
+        critiqueGitHubIssue: async () => ({
+          payload: {
+            verdict: "ready",
+            verificationVerdict: "verified-pass",
+            summary: "Lease renewal kept the worker safely alive.",
+            blockingFindings: [],
+            nonBlockingFindings: []
+          }
+        })
+      }
+    );
+
+    assert.equal(result.status, "merged");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker keeps renewed leases visible to concurrent claimants", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-heartbeat-"));
+  let continueExecution;
+  let executionStartedResolve;
+  const executionStarted = new Promise((resolve) => {
+    executionStartedResolve = resolve;
+  });
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 12,
+      title: "Long-running worker",
+      body: "Simulate a long execution path.",
+      labels: ["agent:ready"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/12"
+    }),
+    editIssue: async () => {},
+    commentIssue: async () => {},
+    findPullRequestForBranch: async () => null,
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    }
+  };
+
+  const firstWorker = runGitHubIssueWorker(
+    path.resolve(__dirname, "..", ".."),
+    "owner/repo",
+    process.cwd(),
+    12,
+    {
+      runtimeRoot: tempRoot,
+      github,
+      leaseTtlMs: 50,
+      leaseHeartbeatMs: 20,
+      createIssueWorktree: async () => ({
+        branchName: "agent/issue-12",
+        baseBranch: "main",
+        worktreePath: "/tmp/fake-worktree-heartbeat"
+      }),
+      shapeGitHubIssue: async () => ({
+        payload: {
+          route: "execute",
+          summary: "Shaped and ready.",
+          acceptanceCriteria: ["Lease stays active during a long run."],
+          nonGoals: [],
+          splitIssues: []
+        }
+      }),
+      executeGitHubIssue: async () => {
+        executionStartedResolve();
+        await new Promise((resolve) => {
+          continueExecution = resolve;
+        });
+
+        return {
+          payload: {
+            status: "blocked",
+            summary: "Stopped after heartbeat verification.",
+            blockers: ["heartbeat-test"]
+          }
+        };
+      }
+    }
+  );
+
+  try {
+    await executionStarted;
+    await new Promise((resolve) => setTimeout(resolve, 90));
+
+    const concurrentClaim = await runGitHubIssueWorker(
+      path.resolve(__dirname, "..", ".."),
+      "owner/repo",
+      process.cwd(),
+      12,
+      {
+        runtimeRoot: tempRoot,
+        github,
+        leaseTtlMs: 50,
+        leaseHeartbeatMs: 20
+      }
+    );
+
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const activeLease = JSON.parse(
+      await fs.readFile(path.join(runtimePaths.leasesDir, "issue-12.json"), "utf8")
+    );
+
+    assert.equal(concurrentClaim.status, "skipped");
+    assert.equal(concurrentClaim.leaseAction, "active_collision");
+    assert.equal(concurrentClaim.lease.holderId, activeLease.holderId);
+    assert.equal(concurrentClaim.lease.lastOutcome, "renewed");
+    assert.equal(concurrentClaim.lease.renewalCount > 0, true);
+
+    continueExecution();
+    const firstResult = await firstWorker;
+    const runRecord = await readRunRecord(runtimePaths, firstResult.runId);
+    const state = JSON.parse(await fs.readFile(runtimePaths.stateFilePath, "utf8"));
+
+    assert.equal(firstResult.status, "blocked");
+    assert.equal(runRecord.lease.lastOutcome, "renewed");
+    assert.equal(runRecord.lease.renewalCount > 0, true);
+    assert.equal(state.issues["12"].lease.lastOutcome, "renewed");
+    assert.equal(state.issues["12"].lease.renewalCount > 0, true);
+  } finally {
+    if (continueExecution) {
+      continueExecution();
+    }
+    await firstWorker.catch(() => {});
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("runGitHubIssueWorker aborts after lease loss without overwriting its lease snapshot", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-lease-loss-"));
+  const comments = [];
+  const issueEdits = [];
+  let continueExecution;
+  let executionStartedResolve;
+  const executionStarted = new Promise((resolve) => {
+    executionStartedResolve = resolve;
+  });
+
+  const github = {
+    ensureLabels: async () => {},
+    viewIssue: async () => ({
+      number: 12,
+      title: "Lease-loss regression",
+      body: "Abort when another worker recovers the lease.",
+      labels: ["agent:ready"],
+      comments: [],
+      state: "OPEN",
+      url: "https://example.test/issues/12"
+    }),
+    editIssue: async (_repoSlug, _issueNumber, edit) => {
+      issueEdits.push(edit);
+    },
+    commentIssue: async (_repoSlug, _issueNumber, body) => {
+      comments.push(body);
+    },
+    findPullRequestForBranch: async () => null,
+    createIssue: async () => {
+      throw new Error("unexpected child issue creation");
+    }
+  };
+
+  const firstWorker = runGitHubIssueWorker(
+    path.resolve(__dirname, "..", ".."),
+    "owner/repo",
+    process.cwd(),
+    12,
+    {
+      runtimeRoot: tempRoot,
+      github,
+      leaseTtlMs: 50,
+      leaseHeartbeatMs: 20,
+      createIssueWorktree: async () => ({
+        branchName: "agent/issue-12",
+        baseBranch: "main",
+        worktreePath: "/tmp/fake-worktree-lease-loss"
+      }),
+      shapeGitHubIssue: async () => ({
+        payload: {
+          route: "execute",
+          summary: "Shaped and ready.",
+          acceptanceCriteria: ["Execution stops after lease ownership is lost."],
+          nonGoals: [],
+          splitIssues: []
+        }
+      }),
+      executeGitHubIssue: async () => {
+        executionStartedResolve();
+        await new Promise((resolve) => {
+          continueExecution = resolve;
+        });
+
+        return {
+          payload: {
+            status: "blocked",
+            summary: "Execution would have completed without lease-loss handling.",
+            blockers: ["lease-loss-test"]
+          }
+        };
+      }
+    }
+  );
+
+  try {
+    await executionStarted;
+
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const recoveredLease = await acquireIssueLease(
+      runtimePaths,
+      12,
+      {
+        holderId: "recovery-claimant",
+        holderType: "worker",
+        runId: "run-recovered"
+      },
+      {
+        ttlMs: 50,
+        forceRecover: true
+      }
+    );
+
+    assert.equal(recoveredLease.acquired, true);
+    assert.equal(recoveredLease.action, "force_recovered");
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    continueExecution();
+
+    const result = await firstWorker;
+    const runRecord = await readRunRecord(runtimePaths, result.runId);
+    const events = JSON.parse(
+      `[${(await fs.readFile(runtimePaths.eventsFilePath, "utf8")).trim().replace(/\n/g, ",")}]`
+    );
+
+    assert.equal(result.status, "failed");
+    assert.match(result.summary, /Lease lost for issue #12/);
+    assert.equal(runRecord.lease.holderId, result.runId);
+    assert.equal(runRecord.leaseFailure.reason, "holder_mismatch");
+    assert.equal(runRecord.leaseFailure.observedLease.holderId, "recovery-claimant");
+    assert.notEqual(runRecord.lease.holderId, runRecord.leaseFailure.observedLease.holderId);
+    assert.equal(comments.length, 1);
+    assert.equal(issueEdits.length, 1);
+    assert.ok(events.some((event) => event.event === "lease_lost"));
+    assert.ok(events.some((event) => event.event === "lease_release_skipped"));
+  } finally {
+    if (continueExecution) {
+      continueExecution();
+    }
+    await firstWorker.catch(() => {});
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

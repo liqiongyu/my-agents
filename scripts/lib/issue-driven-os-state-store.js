@@ -234,6 +234,22 @@ function buildLeaseRecord(issueNumber, leaseData, options = {}) {
   };
 }
 
+function leaseMatchesIdentity(lease, holderId, runId = null) {
+  if (!lease || typeof lease !== "object") {
+    return false;
+  }
+
+  if (holderId && lease.holderId !== holderId) {
+    return false;
+  }
+
+  if (runId && lease.runId && lease.runId !== runId) {
+    return false;
+  }
+
+  return true;
+}
+
 async function readLease(runtimePaths, issueNumber) {
   const leasePath = leasePathForIssue(runtimePaths, issueNumber);
   if (!(await fileExists(leasePath))) {
@@ -321,49 +337,132 @@ async function renewIssueLease(runtimePaths, issueNumber, holderId, options = {}
   const now = options.now ?? new Date();
   const ttlMs = options.ttlMs ?? DEFAULT_LEASE_TTL_MS;
   const leasePath = leasePathForIssue(runtimePaths, issueNumber);
+  const runId = options.runId ?? null;
+
+  await ensureRuntimeLayout(runtimePaths);
+
+  let handle;
+  try {
+    handle = await fs.open(leasePath, "r+");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return {
+        renewed: false,
+        reason: "missing",
+        lease: null,
+        leasePath
+      };
+    }
+    throw error;
+  }
+
+  try {
+    const raw = await handle.readFile("utf8");
+    let existing = null;
+    try {
+      existing = raw.trim() ? JSON.parse(raw) : null;
+    } catch {
+      existing = null;
+    }
+
+    if (!existing) {
+      return {
+        renewed: false,
+        reason: "missing",
+        lease: null,
+        leasePath
+      };
+    }
+
+    if (!leaseMatchesIdentity(existing, holderId, runId)) {
+      return {
+        renewed: false,
+        reason: "holder_mismatch",
+        lease: decorateLeaseRecord(existing, leasePath, now),
+        leasePath
+      };
+    }
+
+    if (isLeaseExpired(existing, now)) {
+      return {
+        renewed: false,
+        reason: "expired",
+        lease: decorateLeaseRecord(existing, leasePath, now),
+        leasePath
+      };
+    }
+
+    const renewedLease = {
+      ...existing,
+      updatedAt: now.toISOString(),
+      renewedAt: now.toISOString(),
+      renewalCount: normalizeLeaseRenewalCount(existing.renewalCount) + 1,
+      expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
+      lastOutcome: "renewed"
+    };
+
+    if (typeof options.beforeWrite === "function") {
+      await options.beforeWrite(existing, renewedLease);
+    }
+
+    await handle.truncate(0);
+    await handle.write(`${JSON.stringify(renewedLease, null, 2)}\n`, 0, "utf8");
+
+    const currentLease = await readLease(runtimePaths, issueNumber);
+    if (!currentLease) {
+      return {
+        renewed: false,
+        reason: "missing",
+        lease: null,
+        leasePath
+      };
+    }
+
+    if (!leaseMatchesIdentity(currentLease, holderId, runId)) {
+      return {
+        renewed: false,
+        reason: "holder_mismatch",
+        lease: decorateLeaseRecord(currentLease, leasePath, now),
+        leasePath
+      };
+    }
+
+    if (isLeaseExpired(currentLease, now)) {
+      return {
+        renewed: false,
+        reason: "expired",
+        lease: decorateLeaseRecord(currentLease, leasePath, now),
+        leasePath
+      };
+    }
+
+    return {
+      renewed: true,
+      reason: "renewed",
+      lease: decorateLeaseRecord(currentLease, leasePath, now),
+      leasePath
+    };
+  } finally {
+    await handle.close();
+  }
+}
+
+async function forceReleaseIssueLease(runtimePaths, issueNumber) {
+  const leasePath = leasePathForIssue(runtimePaths, issueNumber);
   const existing = await readLease(runtimePaths, issueNumber);
 
   if (!existing) {
     return {
-      renewed: false,
-      reason: "missing",
+      released: false,
       lease: null,
       leasePath
     };
   }
 
-  if (holderId && existing.holderId !== holderId) {
-    return {
-      renewed: false,
-      reason: "holder_mismatch",
-      lease: decorateLeaseRecord(existing, leasePath, now),
-      leasePath
-    };
-  }
-
-  if (isLeaseExpired(existing, now)) {
-    return {
-      renewed: false,
-      reason: "expired",
-      lease: decorateLeaseRecord(existing, leasePath, now),
-      leasePath
-    };
-  }
-
-  const renewedLease = {
-    ...existing,
-    updatedAt: now.toISOString(),
-    renewedAt: now.toISOString(),
-    renewalCount: normalizeLeaseRenewalCount(existing.renewalCount) + 1,
-    expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
-    lastOutcome: "renewed"
-  };
-  await writeJsonAtomic(leasePath, renewedLease);
-
+  await fs.rm(leasePath, { force: true });
   return {
-    renewed: true,
-    reason: "renewed",
-    lease: decorateLeaseRecord(renewedLease, leasePath, now),
+    released: true,
+    lease: existing,
     leasePath
   };
 }
@@ -417,6 +516,12 @@ function buildRunId(issueNumber, options = {}) {
 
 function buildRunRecord(issueNumber, data = {}) {
   const startedAt = data.startedAt ?? new Date().toISOString();
+  const reviewLoopCount = Number.isFinite(Number(data.reviewLoopCount))
+    ? Number(data.reviewLoopCount)
+    : 0;
+  const reviewLoopsMax = Number.isFinite(Number(data.reviewLoopsMax))
+    ? Number(data.reviewLoopsMax)
+    : null;
   return {
     id: data.id ?? buildRunId(issueNumber, { startedAt }),
     issueNumber,
@@ -436,7 +541,10 @@ function buildRunRecord(issueNumber, data = {}) {
     lease: data.lease ?? null,
     leaseFailure: data.leaseFailure ?? null,
     artifacts: data.artifacts ?? [],
-    notes: data.notes ?? []
+    notes: data.notes ?? [],
+    reviewLoopCount,
+    reviewLoopsMax,
+    terminationReason: data.terminationReason ?? null
   };
 }
 
@@ -498,7 +606,10 @@ async function recordRunUpdate(runtimePaths, repoSlug, runRecord) {
     branchRef: runRecord.branchRef ?? null,
     prNumber: runRecord.prNumber ?? null,
     lease: runRecord.lease ?? existingRunSummary.lease ?? null,
-    leaseFailure: runRecord.leaseFailure ?? existingRunSummary.leaseFailure ?? null
+    leaseFailure: runRecord.leaseFailure ?? existingRunSummary.leaseFailure ?? null,
+    reviewLoopCount: runRecord.reviewLoopCount ?? existingRunSummary.reviewLoopCount ?? 0,
+    reviewLoopsMax: runRecord.reviewLoopsMax ?? existingRunSummary.reviewLoopsMax ?? null,
+    terminationReason: runRecord.terminationReason ?? existingRunSummary.terminationReason ?? null
   };
   state.issues[String(runRecord.issueNumber)] = {
     ...existingIssueSummary,
@@ -508,7 +619,10 @@ async function recordRunUpdate(runtimePaths, repoSlug, runRecord) {
     updatedAt: runRecord.updatedAt ?? new Date().toISOString(),
     branchRef: runRecord.branchRef ?? null,
     prNumber: runRecord.prNumber ?? null,
-    lease: runRecord.lease ?? existingIssueSummary.lease ?? null
+    lease: runRecord.lease ?? existingIssueSummary.lease ?? null,
+    reviewLoopCount: runRecord.reviewLoopCount ?? existingIssueSummary.reviewLoopCount ?? 0,
+    reviewLoopsMax: runRecord.reviewLoopsMax ?? existingIssueSummary.reviewLoopsMax ?? null,
+    terminationReason: runRecord.terminationReason ?? existingIssueSummary.terminationReason ?? null
   };
   await writeRuntimeState(runtimePaths, state);
 }
@@ -670,7 +784,12 @@ async function listRuntimeEvents(runtimePaths, options = {}) {
 async function inspectRuntimeState(runtimePaths, repoSlug, options = {}) {
   const warnings = [];
   const state = await readRuntimeState(runtimePaths, repoSlug);
-  const activeLeases = await listActiveLeases(runtimePaths, { warnings });
+  const allLeases = await listIssueLeases(runtimePaths, {
+    warnings,
+    includeExpired: true
+  });
+  const activeLeases = allLeases.filter((lease) => lease?.leaseStatus !== "expired");
+  const staleLeases = allLeases.filter((lease) => lease?.leaseStatus === "expired");
   const recentRuns = await listRunRecords(runtimePaths, {
     warnings,
     limit: options.limit ?? 10
@@ -694,6 +813,7 @@ async function inspectRuntimeState(runtimePaths, repoSlug, options = {}) {
     observedAt: new Date().toISOString(),
     state,
     activeLeases,
+    staleLeases,
     recentRuns,
     run,
     artifacts,
@@ -716,6 +836,7 @@ module.exports = {
   createEmptyRuntimeState,
   decorateLeaseRecord,
   ensureRuntimeLayout,
+  forceReleaseIssueLease,
   inspectRuntimeState,
   isLeaseExpired,
   leaseStatusFor,

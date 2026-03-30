@@ -21,6 +21,7 @@ const {
 const { buildRuntimePaths, listRuntimeEvents } = require("./lib/issue-driven-os-state-store");
 const {
   produceGitHubIssue,
+  recoverIssueRun,
   reconcileIssue,
   runGitHubDaemon,
   runGitHubIssueWorker
@@ -34,9 +35,10 @@ const ISSUE_DRIVEN_OS_USAGE = `Usage:
   npx my-agents issue-driven-os pipeline <scenario-id> [--out-dir <path>] [--json]
   npx my-agents issue-driven-os github produce <owner>/<repo> --repo-path <path> --from <path|->
   npx my-agents issue-driven-os github inspect <owner>/<repo> [--run <id>] [--limit <n>] [--events <n>] [--runtime-root <path>] [--json]
-  npx my-agents issue-driven-os github run <owner>/<repo> --repo-path <path> --issue <number> [--follow] [--json] [--no-resume]
-  npx my-agents issue-driven-os github resume <owner>/<repo> --repo-path <path> --issue <number> [--follow] [--json]
-  npx my-agents issue-driven-os github daemon <owner>/<repo> --repo-path <path> [--concurrency <n>] [--poll-seconds <n>] [--once] [--json]
+  npx my-agents issue-driven-os github run <owner>/<repo> --repo-path <path> --issue <number> [--follow] [--json] [--no-resume] [--review-loops-max <n>]
+  npx my-agents issue-driven-os github resume <owner>/<repo> --repo-path <path> --issue <number> [--follow] [--json] [--review-loops-max <n>]
+  npx my-agents issue-driven-os github recover <owner>/<repo> --issue <number> [--json]
+  npx my-agents issue-driven-os github daemon <owner>/<repo> --repo-path <path> [--concurrency <n>] [--poll-seconds <n>] [--once] [--json] [--review-loops-max <n>]
   npx my-agents issue-driven-os github reconcile <owner>/<repo> --issue <number> [--branch <name>] [--json]
 
 Examples:
@@ -47,9 +49,10 @@ Examples:
   npx my-agents issue-driven-os pipeline G1
   npx my-agents issue-driven-os pipeline GT1 --out-dir .tmp/gt1-pipeline
   npx my-agents issue-driven-os github inspect owner/repo --events 20
-  npx my-agents issue-driven-os github run owner/repo --repo-path /path/to/repo --issue 123 --follow
-  npx my-agents issue-driven-os github resume owner/repo --repo-path /path/to/repo --issue 123 --follow
-  npx my-agents issue-driven-os github daemon owner/repo --repo-path /path/to/repo --concurrency 4 --once`;
+  npx my-agents issue-driven-os github run owner/repo --repo-path /path/to/repo --issue 123 --follow --review-loops-max 3
+  npx my-agents issue-driven-os github resume owner/repo --repo-path /path/to/repo --issue 123 --follow --review-loops-max 3
+  npx my-agents issue-driven-os github recover owner/repo --issue 123
+  npx my-agents issue-driven-os github daemon owner/repo --repo-path /path/to/repo --concurrency 4 --once --review-loops-max 3`;
 
 function printUsage() {
   console.log(ISSUE_DRIVEN_OS_USAGE);
@@ -354,7 +357,12 @@ async function runGitHubSingleIssue(repoRoot, args, options = {}) {
   const repoSlug = firstPositionalArg(
     args,
     new Set([
-      ...excludedFlagValues(args, ["--repo-path", "--runtime-root", "--issue"]),
+      ...excludedFlagValues(args, [
+        "--repo-path",
+        "--runtime-root",
+        "--issue",
+        "--review-loops-max"
+      ]),
       String(issueNumber)
     ])
   );
@@ -379,7 +387,8 @@ async function runGitHubSingleIssue(repoRoot, args, options = {}) {
   try {
     result = await runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, {
       runtimeRoot: resolvedRuntimeRoot,
-      resume: options.forceResume ? true : !args.includes("--no-resume")
+      resume: options.forceResume ? true : !args.includes("--no-resume"),
+      reviewLoopsMax: parseIntegerFlag(args, "--review-loops-max")
     });
   } finally {
     if (stopFollowing) {
@@ -413,7 +422,8 @@ async function runGitHubDaemonMode(repoRoot, args) {
       "--runtime-root",
       "--concurrency",
       "--poll-seconds",
-      "--limit"
+      "--limit",
+      "--review-loops-max"
     ])
   );
   if (!repoSlug) throw new Error("Missing owner/repo.");
@@ -425,7 +435,8 @@ async function runGitHubDaemonMode(repoRoot, args) {
     pollSeconds: parseIntegerFlag(args, "--poll-seconds", 60),
     limit: parseIntegerFlag(args, "--limit", 100),
     once: args.includes("--once"),
-    runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined
+    runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined,
+    reviewLoopsMax: parseIntegerFlag(args, "--review-loops-max")
   });
 
   if (asJson) {
@@ -473,6 +484,37 @@ async function runGitHubReconcile(repoRoot, args) {
   );
 }
 
+async function runGitHubRecover(_repoRoot, args) {
+  const asJson = args.includes("--json");
+  const issueNumber = parseIntegerFlag(args, "--issue");
+  if (!issueNumber) throw new Error("Missing --issue.");
+  const repoSlug = firstPositionalArg(
+    args,
+    new Set([...excludedFlagValues(args, ["--issue", "--runtime-root"]), String(issueNumber)])
+  );
+  if (!repoSlug) throw new Error("Missing owner/repo.");
+  const runtimeRoot = parseValueFlag(args, "--runtime-root");
+
+  const result = await recoverIssueRun(repoSlug, issueNumber, {
+    runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined
+  });
+
+  if (asJson) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  console.log(
+    [
+      `Recover status: ${result.status}`,
+      `Summary: ${result.summary}`,
+      result.runId ? `Run id: ${result.runId}` : null
+    ]
+      .filter(Boolean)
+      .join("\n")
+  );
+}
+
 async function runGitHub(repoRoot, args) {
   const [subcommand, ...rest] = args;
   if (!subcommand || subcommand === "--help" || subcommand === "-h" || subcommand === "help") {
@@ -497,6 +539,11 @@ async function runGitHub(repoRoot, args) {
 
   if (subcommand === "resume") {
     await runGitHubSingleIssue(repoRoot, rest, { forceResume: true });
+    return;
+  }
+
+  if (subcommand === "recover") {
+    await runGitHubRecover(repoRoot, rest);
     return;
   }
 

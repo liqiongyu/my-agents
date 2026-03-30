@@ -3,8 +3,7 @@ const path = require("node:path");
 
 const {
   buildRuntimePaths,
-  inspectRuntimeState: inspectStoredRuntimeState,
-  listIssueLeases
+  inspectRuntimeState: inspectStoredRuntimeState
 } = require("./issue-driven-os-state-store");
 
 function compareIssueNumbers(left, right) {
@@ -177,11 +176,11 @@ async function inspectGitHubRuntime(repoSlug, options = {}) {
     eventLimit: options.eventLimit
   });
   const state = snapshot.state;
-  const allLeaseRecords = (await listIssueLeases(runtimePaths, { includeExpired: true })).map(
-    normalizeLease
+  const activeLeases = (snapshot.activeLeases ?? []).map(normalizeLease);
+  const staleLeases = (snapshot.staleLeases ?? []).map(normalizeLease);
+  const allLeaseRecords = [...activeLeases, ...staleLeases].sort((left, right) =>
+    compareIssueNumbers(left?.issueNumber, right?.issueNumber)
   );
-  const activeLeases = allLeaseRecords.filter((lease) => lease?.leaseStatus !== "expired");
-  const staleLeases = allLeaseRecords.filter((lease) => lease?.leaseStatus === "expired");
 
   if (options.runId) {
     const runRecord = snapshot.run
