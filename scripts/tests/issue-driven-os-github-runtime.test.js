@@ -469,12 +469,15 @@ test("runGitHubIssueWorker executes, critiques, and records a successful issue r
     assert.equal(statuses.length, 1);
     assert.equal(runFiles.length, 1);
     assert.match(comments[0], /claimed this issue/);
-    assert.match(comments[0], /Agent type: worker/);
     assert.match(comments[0], /Execution Summary: agents=worker;/);
-    assert.match(pullRequests[0].body, /Agent type: issue-cell-executor/);
     assert.match(pullRequests[0].body, /Execution Summary: agents=issue-cell-executor;/);
-    assert.match(reviews[0].body, /Agent type: issue-cell-critic/);
     assert.match(reviews[0].body, /Execution Summary: agents=issue-cell-critic;/);
+    assert.doesNotMatch(comments[0], /Agent type:/);
+    assert.doesNotMatch(pullRequests[0].body, /Agent type:/);
+    assert.doesNotMatch(reviews[0].body, /Agent type:/);
+    assert.doesNotMatch(comments[0], /limits=/);
+    assert.doesNotMatch(pullRequests[0].body, /limits=/);
+    assert.doesNotMatch(reviews[0].body, /limits=/);
     assert.equal(reviews[0].event, "COMMENT");
     assert.deepEqual(statuses[0], {
       commitSha: "abc123",
@@ -1033,7 +1036,7 @@ test("runGitHubIssueWorker downgrades self-approval to a comment review and stil
       /same GitHub account for both the PR author and the reviewer \(APPROVE\)/
     );
     assert.match(reviews[1].body, /Execution Summary: agents=issue-cell-critic;/);
-    assert.match(reviews[1].body, /limits=github_self_review_restriction/);
+    assert.doesNotMatch(reviews[1].body, /limits=/);
     assert.ok(events.some((event) => event.event === "pull_request_review_downgraded"));
     assert.ok(
       events.some(
@@ -1041,7 +1044,7 @@ test("runGitHubIssueWorker downgrades self-approval to a comment review and stil
           event.event === "pull_request_review_submitted" &&
           event.data?.requestedReviewEvent === "APPROVE" &&
           event.data?.submittedReviewEvent === "COMMENT" &&
-          event.data?.executionSummary?.limits === "github_self_review_restriction"
+          event.data?.executionSummary?.verification === "verified-pass"
       )
     );
   } finally {
@@ -1385,14 +1388,7 @@ test("runGitHubIssueWorker resumes a failed run from persisted execution state",
     assert.equal(pushCalls.length, 1);
     assert.equal(pushCalls[0].forceWithLease, true);
     assert.equal(reviews[0].event, "COMMENT");
-    assert.ok(comments.some((body) => /resumed this issue/i.test(body)));
-    assert.ok(
-      comments.some(
-        (body) =>
-          /Execution Summary: agents=worker;/.test(body) &&
-          /verification=resume-from-execution/.test(body)
-      )
-    );
+    assert.ok(!comments.some((body) => /resumed this issue/i.test(body)));
     assert.equal(updatedRun.id, priorRun.id);
     assert.equal(updatedRun.commitSha, "resume123");
     assert.equal(updatedRun.lastCompletedPhase, "reconciled");
@@ -1776,14 +1772,7 @@ test("runGitHubIssueWorker reruns execution after needs_changes using prior crit
     assert.equal(pushCalls.length, 1);
     assert.equal(pushCalls[0].forceWithLease, true);
     assert.equal(reviews[0].event, "COMMENT");
-    assert.ok(comments.some((body) => /resumed this issue/i.test(body)));
-    assert.ok(
-      comments.some(
-        (body) =>
-          /Execution Summary: agents=worker;/.test(body) &&
-          /verification=resume-from-execution/.test(body)
-      )
-    );
+    assert.ok(!comments.some((body) => /resumed this issue/i.test(body)));
     assert.ok(
       issueEdits.some(
         (edit) => Array.isArray(edit.removeLabels) && edit.removeLabels.includes("agent:review")

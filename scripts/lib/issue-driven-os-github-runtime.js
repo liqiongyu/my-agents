@@ -621,14 +621,13 @@ function buildExecutionSummary(summary = {}) {
     agents: formatExecutionSummaryField(summary.agents),
     skills: formatExecutionSummaryField(summary.skills),
     tools: formatExecutionSummaryField(summary.tools),
-    verification: formatExecutionSummaryField(summary.verification),
-    limits: formatExecutionSummaryField(summary.limits)
+    verification: formatExecutionSummaryField(summary.verification)
   };
 }
 
 function buildExecutionSummaryLine(summary = {}) {
   const normalized = buildExecutionSummary(summary);
-  return `Execution Summary: agents=${normalized.agents}; skills=${normalized.skills}; tools=${normalized.tools}; verification=${normalized.verification}; limits=${normalized.limits}`;
+  return `Execution Summary: agents=${normalized.agents}; skills=${normalized.skills}; tools=${normalized.tools}; verification=${normalized.verification}`;
 }
 
 function buildContentPreview(body, maxLength = 180) {
@@ -647,13 +646,6 @@ function buildProjectionFooter(metadata = {}) {
   const signature = buildProjectionSignature(metadata);
   const executionSummary = buildExecutionSummary(metadata.executionSummary);
   const lines = [
-    "---",
-    `Agent type: ${signature.actor}`,
-    `Phase: ${signature.phase}`,
-    signature.runId ? `Run id: ${signature.runId}` : null,
-    signature.issueNumber ? `Issue: #${signature.issueNumber}` : null,
-    signature.pullRequestNumber ? `Pull request: #${signature.pullRequestNumber}` : null,
-    `Workflow: ${signature.workflow}`,
     buildExecutionSummaryLine(executionSummary),
     `<!-- issue-driven-os-summary ${JSON.stringify(executionSummary)} -->`,
     `<!-- issue-driven-os-meta ${JSON.stringify(signature)} -->`
@@ -674,18 +666,16 @@ function buildWorkerExecutionSummary(overrides = {}) {
     skills: "none",
     tools: ["github issue edit", "github issue comment"],
     verification: "none",
-    limits: "none",
     ...overrides
   };
 }
 
-function buildShaperExecutionSummary(route, overrides = {}) {
+function buildShaperExecutionSummary(overrides = {}) {
   return {
     agents: "issue-shaper",
     skills: ["issue-shaping"],
     tools: ["codex exec", "github issue edit", "github issue comment"],
     verification: "shaping-complete",
-    limits: route && route !== "execute" ? `route=${route}` : "none",
     ...overrides
   };
 }
@@ -696,10 +686,6 @@ function buildExecutorExecutionSummary(execution = {}, overrides = {}) {
     skills: ["clarify", "execution-briefing", "handoff-bundle-writing"],
     tools: ["codex exec", "git commit", "git push", "github pull request"],
     verification: execution.verificationSummary || execution.summary || "none",
-    limits:
-      Array.isArray(execution.blockers) && execution.blockers.length > 0
-        ? execution.blockers
-        : "none",
     ...overrides
   };
 }
@@ -710,10 +696,6 @@ function buildCriticExecutionSummary(critic = {}, overrides = {}) {
     skills: ["review", "acceptance-verification"],
     tools: ["codex exec", "github commit status", "github pull request review"],
     verification: critic.verificationVerdict || critic.summary || "none",
-    limits:
-      Array.isArray(critic.blockingFindings) && critic.blockingFindings.length > 0
-        ? critic.blockingFindings
-        : "none",
     ...overrides
   };
 }
@@ -888,18 +870,6 @@ function buildIssueStartComment(runRecord) {
   return [
     `Agent worker claimed this issue.`,
     `Run id: ${runRecord.id}`,
-    runRecord.branchRef ? `Branch: ${runRecord.branchRef}` : null
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-function buildIssueResumeComment(runRecord, resumeContext) {
-  return [
-    `Agent worker resumed this issue.`,
-    `Run id: ${runRecord.id}`,
-    resumeContext?.run?.status ? `Previous status: ${resumeContext.run.status}` : null,
-    inferResumePhase(resumeContext) ? `Resume phase: ${inferResumePhase(resumeContext)}` : null,
     runRecord.branchRef ? `Branch: ${runRecord.branchRef}` : null
   ]
     .filter(Boolean)
@@ -1692,26 +1662,24 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       removeLabels: ["agent:ready", "agent:blocked", "agent:review"],
       commandOptions: options.commandOptions
     });
-    await postIssueComment(
-      runtimePaths,
-      deps,
-      repoSlug,
-      issueNumber,
-      resumeContext
-        ? buildIssueResumeComment(runRecord, resumeContext)
-        : buildIssueStartComment(runRecord),
-      {
-        actor: "worker",
-        phase: "claim",
-        runId: runRecord.id,
-        executionSummary: buildWorkerExecutionSummary({
-          verification: resumeContext
-            ? `resume-from-${inferResumePhase(resumeContext) ?? "claim"}`
-            : "claimed"
-        })
-      },
-      options
-    );
+    if (!resumeContext) {
+      await postIssueComment(
+        runtimePaths,
+        deps,
+        repoSlug,
+        issueNumber,
+        buildIssueStartComment(runRecord),
+        {
+          actor: "worker",
+          phase: "claim",
+          runId: runRecord.id,
+          executionSummary: buildWorkerExecutionSummary({
+            verification: "claimed"
+          })
+        },
+        options
+      );
+    }
     await recordRuntimeEvent(runtimePaths, {
       repoSlug,
       issueNumber,
@@ -1830,7 +1798,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
           actor: "issue-shaper",
           phase: "shaping",
           runId: runRecord.id,
-          executionSummary: buildShaperExecutionSummary("split", {
+          executionSummary: buildShaperExecutionSummary({
             tools: [
               "codex exec",
               "github issue create",
@@ -2008,7 +1976,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         eventActor: "worker",
         phase: "shaping",
         summary: shaping.payload.summary,
-        executionSummary: buildShaperExecutionSummary(shaping.payload.route, {
+        executionSummary: buildShaperExecutionSummary({
           limits: shaping.payload.summary
         }),
         event: "issue_blocked_after_shaping",
