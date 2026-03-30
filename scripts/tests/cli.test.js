@@ -4,7 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { execFileSync, spawnSync } = require("node:child_process");
-const { followRuntimeEvents } = require("../issue-driven-os-cli");
+const { followRuntimeEvents, formatDaemonPassSummary } = require("../issue-driven-os-cli");
 const {
   appendRuntimeEvent,
   buildRunRecord,
@@ -208,4 +208,37 @@ test("followRuntimeEvents emits matching runtime events for live debugging", asy
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test("formatDaemonPassSummary surfaces dependency-blocked issues in operator output", () => {
+  const rendered = formatDaemonPassSummary({
+    checked: 6,
+    consumed: 2,
+    ready: [
+      {
+        issueNumber: 9,
+        priorityRank: 1,
+        dependencies: []
+      }
+    ],
+    blocked: [
+      {
+        issueNumber: 12,
+        unresolvedDependencies: [
+          { repoSlug: "owner/repo", issueNumber: 11 },
+          { repoSlug: "other/repo", issueNumber: 5 }
+        ],
+        warnings: ["Failed to load dependency other/repo#5: 404"]
+      }
+    ],
+    results: [{ issueNumber: 9 }, { issueNumber: 14 }]
+  });
+
+  assert.match(rendered, /Ready candidates: 1/);
+  assert.match(rendered, /Blocked by dependency: 1/);
+  assert.match(rendered, /Ready queue/);
+  assert.match(rendered, /- issue #9 \| priority 1/);
+  assert.match(rendered, /Blocked queue/);
+  assert.match(rendered, /- issue #12 \| waiting on owner\/repo#11, other\/repo#5/);
+  assert.match(rendered, /warnings: Failed to load dependency other\/repo#5: 404/);
 });

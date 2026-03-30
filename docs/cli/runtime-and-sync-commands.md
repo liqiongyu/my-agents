@@ -7,6 +7,17 @@ status with context `issue-driven-os/verification` onto the pull request head
 commit. That status is derived from runtime truth and complements, rather than
 replaces, the persisted run and critic artifacts.
 
+The GitHub daemon scheduler also supports explicit dependency markers in issue
+bodies:
+
+- `Depends-On: #123`
+- `Depends-On: owner/repo#456`
+- `Blocked-By:` with bullet items such as `- #123`
+
+Only dependency-ready issues are claimed. The daemon sorts ready candidates by
+priority label rank, then oldest issue creation time, then issue number. Both
+the daemon's text output and `--json` payload surface dependency-blocked cases.
+
 ## Inspect GitHub Runtime State
 
 Use `issue-driven-os github inspect` when you need operator diagnostics for one GitHub-backed runtime root without opening `state.json`, `leases/*.json`, `runs/*.json`, or `artifacts/<runId>/` by hand:
