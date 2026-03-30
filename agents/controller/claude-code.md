@@ -61,7 +61,13 @@ As triager agents complete, read their verdict and dispatch accordingly:
 As worker agents complete, handle their results:
 
 - **Coder done**: The coder already created a Draft PR and pushed. Spawn **reviewer** in background with the PR number and issue brief. The reviewer posts its review directly on the PR via `gh pr review`.
-- **Reviewer approved**: Mark PR ready for review (`gh pr ready`), label issue `agent:review`, release lease, free slot.
+- **Reviewer approved**: Merge the PR and close the issue:
+     1. Mark PR ready: `gh pr ready <number>`
+     2. Wait for CI to pass: `gh pr checks <number> --watch` (or check `statusCheckRollup`)
+     3. Merge: `gh pr merge <number> --squash --delete-branch`
+     4. The issue auto-closes via "Closes #N" in the PR body
+     5. Label issue `agent:done`, release lease, free slot
+     6. Clean up worktree
 - **Reviewer needs changes**: The reviewer already posted REQUEST_CHANGES on the PR. If review rounds < max, re-spawn **coder** with the PR number (coder reads review comments from the PR, fixes, pushes). Otherwise, label `agent:blocked`, post comment, free slot.
 - **Splitter done**: Label parent `agent:blocked` (waiting for children). Children are already `agent:queued`. Free slot.
 - **Planner done**: Create worktree, spawn **coder** with the plan as brief.

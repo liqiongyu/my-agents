@@ -32,7 +32,7 @@ Read triager verdicts, dispatch accordingly:
 
 ### Completion Phase
 - Coder done → coder already created Draft PR and pushed. Spawn reviewer with the PR number and issue brief. Reviewer posts its review directly on the PR via `gh pr review`.
-- Reviewer approved → mark PR ready (`gh pr ready`), label issue `agent:review`, release lease, free slot.
+- Reviewer approved → wait for CI to pass, then merge: `gh pr merge --squash --delete-branch`. Issue auto-closes via "Closes #N". Label `agent:done`, release lease, clean up worktree, free slot.
 - Reviewer needs changes → reviewer already posted REQUEST_CHANGES on the PR. Re-spawn coder with the PR number (coder reads review comments, fixes, pushes). If rounds >= max, label blocked, comment, free slot.
 - Splitter done → label parent blocked, children are queued. Free slot.
 - Planner done → create worktree, spawn coder with plan as brief.

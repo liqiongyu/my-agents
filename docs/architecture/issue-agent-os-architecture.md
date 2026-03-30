@@ -204,8 +204,11 @@ loop:
         track(issue, reviewer)
 
       reviewer_done(approved):
-        create_pr(result.issue, result.worktree)
-        label(issue, agent:review)
+        gh_pr_ready(result.pr)
+        wait_ci(result.pr)
+        gh_pr_merge(result.pr, squash=true, delete_branch=true)
+        label(issue, agent:done)             ← issue auto-closes via "Closes #N"
+        cleanup_worktree(issue)
         release_lease(issue)
         untrack(issue)
 
