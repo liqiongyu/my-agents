@@ -284,6 +284,49 @@ test("issue-driven-os state store exposes inspection snapshots and recent events
   }
 });
 
+test("issue-driven-os state store reuses state summaries for recent runs", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-runs-"));
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    await fs.mkdir(runtimePaths.runsDir, { recursive: true });
+
+    const runIds = [];
+    for (let index = 0; index < 40; index += 1) {
+      const timestamp = new Date(Date.UTC(2026, 2, 30, 0, 0, index)).toISOString();
+      const runRecord = buildRunRecord(index + 1, {
+        id: `run_issue_${index + 1}`,
+        repoSlug: "owner/repo",
+        status: "claimed",
+        startedAt: timestamp,
+        updatedAt: timestamp,
+        summary: `Run ${index + 1}`
+      });
+      runIds.push(runRecord.id);
+      await recordRunUpdate(runtimePaths, "owner/repo", runRecord);
+      await fs.writeFile(
+        path.join(runtimePaths.runsDir, `${runRecord.id}.json`),
+        '{"broken"',
+        "utf8"
+      );
+    }
+
+    const snapshot = await inspectRuntimeState(runtimePaths, "owner/repo", {
+      limit: 3
+    });
+
+    assert.deepEqual(
+      snapshot.recentRuns.map((run) => run.id),
+      runIds.slice(-3).reverse()
+    );
+    assert.equal(snapshot.recentRuns[0].summary, "Run 40");
+    assert.match(snapshot.recentRuns[0].runPath, /run_issue_40\.json$/);
+    assert.deepEqual(snapshot.warnings, []);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("issue-driven-os state store tails recent events without parsing older malformed history", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-tail-"));
 
