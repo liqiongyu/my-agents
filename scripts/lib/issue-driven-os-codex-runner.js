@@ -25,7 +25,8 @@ function runCodexExec(args, options = {}) {
     const traceMode = resolveTraceMode(options);
     const captureRichTrace = traceMode === "rich";
     const startedAt = new Date().toISOString();
-    const child = spawn("codex", args, {
+    const spawnImpl = options.spawnImpl ?? spawn;
+    const child = spawnImpl("codex", args, {
       cwd: options.cwd,
       stdio: ["ignore", "pipe", "pipe"],
       env: process.env
@@ -74,9 +75,7 @@ function runCodexExec(args, options = {}) {
     });
 
     child.stderr.on("data", (chunk) => {
-      if (captureRichTrace) {
-        stderr += chunk.toString("utf8");
-      }
+      stderr += chunk.toString("utf8");
     });
 
     child.on("error", reject);
@@ -384,5 +383,6 @@ module.exports = {
   executeGitHubIssue,
   findCodexSessionPath,
   normalizeIssueInput,
+  runCodexExec,
   shapeGitHubIssue
 };

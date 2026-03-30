@@ -1,9 +1,11 @@
 const fs = require("node:fs/promises");
+const { EventEmitter } = require("node:events");
 const path = require("node:path");
+const { PassThrough } = require("node:stream");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { executeGitHubIssue } = require("../lib/issue-driven-os-codex-runner");
+const { executeGitHubIssue, runCodexExec } = require("../lib/issue-driven-os-codex-runner");
 
 function buildAgentDefinition() {
   return {
@@ -100,4 +102,34 @@ test("executeGitHubIssue preserves rich trace data when requested", async () => 
   assert.equal(result.trace.events.length, 2);
   assert.equal(result.trace.eventCount, 2);
   assert.equal(result.trace.threadId, "thread_456");
+});
+
+test("runCodexExec keeps stderr diagnostics in compact mode failures", async () => {
+  const repoRoot = path.resolve(__dirname, "..", "..");
+
+  await assert.rejects(
+    runCodexExec(["exec"], {
+      cwd: repoRoot,
+      spawnImpl: () => {
+        const child = new EventEmitter();
+        child.stdout = new PassThrough();
+        child.stderr = new PassThrough();
+
+        setImmediate(() => {
+          child.stderr.write("structured stderr");
+          child.stderr.end();
+          child.stdout.end();
+          child.emit("close", 1);
+        });
+
+        return child;
+      }
+    }),
+    (error) => {
+      assert.match(error.message, /structured stderr/);
+      assert.equal(error.stderr, "structured stderr");
+      assert.equal(error.stdout, "");
+      return true;
+    }
+  );
 });
