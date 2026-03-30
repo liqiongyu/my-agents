@@ -1,7 +1,7 @@
 const {
   DEFAULT_LEASE_TTL_MS,
-  appendRuntimeEvent,
   buildLeaseHistoryRecord,
+  recordRuntimeEvent,
   renewIssueLease
 } = require("../../scripts/lib/issue-driven-os-state-store");
 
@@ -37,14 +37,6 @@ function resolveReviewLoopsMax(runRecord, options = {}) {
 function buildReviewLoopBudgetExceededSummary(critic, reviewLoopCount, reviewLoopsMax) {
   const baseSummary = critic?.summary?.trim() || "Critic requested additional changes.";
   return `${baseSummary} Review-loop budget exhausted (${reviewLoopCount}/${reviewLoopsMax}).`;
-}
-
-async function recordRuntimeEvent(runtimePaths, data) {
-  try {
-    return await appendRuntimeEvent(runtimePaths, data);
-  } catch {
-    return null;
-  }
 }
 
 function snapshotLeaseForRun(lease) {

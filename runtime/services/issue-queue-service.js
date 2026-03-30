@@ -173,14 +173,20 @@ async function planConsumableIssues(repoSlug, issues, github, options = {}) {
     const unresolvedDependencies = [];
     const dependencyWarnings = [];
 
+    const externalDeps = [];
     for (const dependency of dependencies) {
       if (dependency.repoSlug === repoSlug && dependency.issueNumber === issue.number) {
         unresolvedDependencies.push(dependency);
         dependencyWarnings.push(`Issue depends on itself: ${dependency.raw}`);
-        continue;
+      } else {
+        externalDeps.push(dependency);
       }
+    }
 
-      const dependencyIssue = await loadDependencyIssue(dependency);
+    const resolvedDeps = await Promise.all(externalDeps.map((dep) => loadDependencyIssue(dep)));
+    for (let i = 0; i < externalDeps.length; i++) {
+      const dependency = externalDeps[i];
+      const dependencyIssue = resolvedDeps[i];
       if (dependencyIssue?.loadError) {
         unresolvedDependencies.push(dependency);
         dependencyWarnings.push(

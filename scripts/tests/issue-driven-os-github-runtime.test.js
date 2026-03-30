@@ -5,14 +5,16 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
-  getIssuePriorityRank,
-  parseIssueDependencies,
-  planConsumableIssues,
   produceGitHubIssue,
   recoverIssueRun,
   runGitHubDaemon,
   runGitHubIssueWorker
 } = require("../lib/issue-driven-os-github-runtime");
+const {
+  getIssuePriorityRank,
+  parseIssueDependencies,
+  planConsumableIssues
+} = require("../../runtime/services/issue-queue-service");
 const {
   acquireIssueLease,
   buildRunRecord,

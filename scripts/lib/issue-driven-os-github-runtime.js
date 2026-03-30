@@ -8,11 +8,11 @@ const {
 const { buildGhAdapter } = require("./issue-driven-os-github-adapter");
 const {
   acquireIssueLease,
-  appendRuntimeEvent,
   buildRunRecord,
   buildRuntimePaths,
   ensureRuntimeLayout,
   forceReleaseIssueLease,
+  isLeaseExpired,
   listRunArtifacts,
   persistArtifact,
   persistRunRecord,
@@ -20,6 +20,7 @@ const {
   readRunRecord,
   readRuntimeState,
   recordRunUpdate,
+  recordRuntimeEvent,
   releaseIssueLease
 } = require("./issue-driven-os-state-store");
 const {
@@ -33,12 +34,9 @@ const {
 } = require("./issue-driven-os-workspace");
 const { readJson } = require("./fs-utils");
 const {
-  compareScheduledIssues,
-  getIssuePriorityRank,
   isClaimedIssue,
   isConsumerCandidate,
   normalizeStateName,
-  parseIssueDependencies,
   planConsumableIssues
 } = require("../../runtime/services/issue-queue-service");
 const {
@@ -53,6 +51,9 @@ const {
 } = require("../../runtime/services/issue-lease-service");
 
 const DEFAULT_ORCHESTRATION_STEP_LIMIT = 16;
+// Intentional subset of ISSUE_ORCHESTRATOR_WORKER_KINDS from contracts.
+// The schema allows additional kinds (explorer, debugger, docs-researcher)
+// but only these three are wired to Codex worker calls in the runtime.
 const ORCHESTRATOR_SUPPORTED_WORKER_KINDS = new Set([
   "issue-shaper",
   "issue-cell-executor",
@@ -280,14 +281,6 @@ function buildRunSummary(status, summary, extra = {}) {
     summary,
     ...extra
   };
-}
-
-async function recordRuntimeEvent(runtimePaths, data) {
-  try {
-    return await appendRuntimeEvent(runtimePaths, data);
-  } catch {
-    return null;
-  }
 }
 
 function buildProjectionSignature(metadata = {}) {
@@ -581,15 +574,6 @@ async function submitPullRequestReview(
   };
 }
 
-function isLeaseExpired(lease, now = new Date()) {
-  if (!lease?.expiresAt) {
-    return true;
-  }
-
-  const expiresAt = Date.parse(lease.expiresAt);
-  return !Number.isFinite(expiresAt) || expiresAt <= now.getTime();
-}
-
 function buildIssueStartComment(runRecord) {
   return [
     `Agent worker claimed this issue.`,
@@ -601,11 +585,12 @@ function buildIssueStartComment(runRecord) {
 }
 
 function buildIssueResumeComment(runRecord, resumeContext) {
+  const resumePhase = inferResumePhase(resumeContext);
   return [
     `Agent worker resumed this issue.`,
     `Run id: ${runRecord.id}`,
     resumeContext?.run?.status ? `Previous status: ${resumeContext.run.status}` : null,
-    inferResumePhase(resumeContext) ? `Resume phase: ${inferResumePhase(resumeContext)}` : null,
+    resumePhase ? `Resume phase: ${resumePhase}` : null,
     runRecord.branchRef ? `Branch: ${runRecord.branchRef}` : null
   ]
     .filter(Boolean)
@@ -1343,7 +1328,7 @@ async function recoverStaleClaimedIssues(repoSlug, issues, options = {}) {
     }
 
     const lease = await readLease(runtimePaths, issue.number);
-    if (lease && !isLeaseExpired(lease, now)) {
+    if (lease && lease.expiresAt && !isLeaseExpired(lease, now)) {
       continue;
     }
 
@@ -1862,19 +1847,22 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         });
       }
 
-      const reviewFeedback = buildExecutionReviewFeedback(
-        activePullRequest
-          ? extractReviewFeedback(
-              await deps.github.listPullRequestReviews(repoSlug, activePullRequest.number, options),
-              await deps.github.listPullRequestReviewComments(
-                repoSlug,
-                activePullRequest.number,
-                options
-              )
-            )
-          : { requestedChanges: [], inlineComments: [] },
-        reviewResumeContext
-      );
+      let reviewFeedback;
+      if (activePullRequest) {
+        const [reviews, reviewComments] = await Promise.all([
+          deps.github.listPullRequestReviews(repoSlug, activePullRequest.number, options),
+          deps.github.listPullRequestReviewComments(repoSlug, activePullRequest.number, options)
+        ]);
+        reviewFeedback = buildExecutionReviewFeedback(
+          extractReviewFeedback(reviews, reviewComments),
+          reviewResumeContext
+        );
+      } else {
+        reviewFeedback = buildExecutionReviewFeedback(
+          { requestedChanges: [], inlineComments: [] },
+          reviewResumeContext
+        );
+      }
 
       await recordRuntimeEvent(runtimePaths, {
         repoSlug,
@@ -2717,7 +2705,6 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       }
     );
   } catch (error) {
-    const runtimePathsLocal = buildRuntimePaths(repoSlug, { runtimeRoot: options.runtimeRoot });
     const isLeaseLost = error?.code === "ISSUE_LEASE_LOST";
     const failedRecord = buildRunRecord(issueNumber, {
       id: runRecord.id,
@@ -2743,11 +2730,11 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       terminationReason: error?.terminationReason ?? runRecord.terminationReason
     });
 
-    await persistRunRecord(runtimePathsLocal, failedRecord);
+    await persistRunRecord(runtimePaths, failedRecord);
     if (!isLeaseLost) {
-      await recordRunUpdate(runtimePathsLocal, repoSlug, failedRecord);
+      await recordRunUpdate(runtimePaths, repoSlug, failedRecord);
     }
-    await recordRuntimeEvent(runtimePathsLocal, {
+    await recordRuntimeEvent(runtimePaths, {
       repoSlug,
       issueNumber,
       runId: runRecord.id,
@@ -2766,7 +2753,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
           commandOptions: options.commandOptions
         });
         await postIssueComment(
-          runtimePathsLocal,
+          runtimePaths,
           deps,
           repoSlug,
           issueNumber,
@@ -2793,9 +2780,8 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
     });
   } finally {
     await leaseSupervisor.stop();
-    const runtimePathsLocal = buildRuntimePaths(repoSlug, { runtimeRoot: options.runtimeRoot });
-    const released = await releaseIssueLease(runtimePathsLocal, issueNumber, runRecord.id);
-    await recordRuntimeEvent(runtimePathsLocal, {
+    const released = await releaseIssueLease(runtimePaths, issueNumber, runRecord.id);
+    await recordRuntimeEvent(runtimePaths, {
       repoSlug,
       issueNumber,
       runId: runRecord.id,
@@ -2937,11 +2923,6 @@ async function runGitHubDaemon(repoRoot, repoSlug, repoPath, options = {}) {
 
 module.exports = {
   buildRuntimeDeps,
-  compareScheduledIssues,
-  getIssuePriorityRank,
-  isConsumerCandidate,
-  parseIssueDependencies,
-  planConsumableIssues,
   produceGitHubIssue,
   recoverStaleClaimedIssues,
   recoverIssueRun,

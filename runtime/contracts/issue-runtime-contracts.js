@@ -15,6 +15,17 @@ const ISSUE_ORCHESTRATOR_WORKER_KINDS = [
   "docs-researcher"
 ];
 
+const SPLIT_ISSUE_ITEM_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "body", "labels"],
+  properties: {
+    title: { type: "string" },
+    body: { type: "string" },
+    labels: { type: "array", items: { type: "string" } }
+  }
+};
+
 function buildIssueNormalizationSchema() {
   return {
     type: "object",
@@ -53,16 +64,7 @@ function buildIssueShapingSchema() {
       },
       splitIssues: {
         type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["title", "body", "labels"],
-          properties: {
-            title: { type: "string" },
-            body: { type: "string" },
-            labels: { type: "array", items: { type: "string" } }
-          }
-        }
+        items: SPLIT_ISSUE_ITEM_SCHEMA
       }
     }
   };
@@ -170,16 +172,7 @@ function buildIssueOrchestratorSchema() {
       },
       splitIssues: {
         type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["title", "body", "labels"],
-          properties: {
-            title: { type: "string" },
-            body: { type: "string" },
-            labels: { type: "array", items: { type: "string" } }
-          }
-        }
+        items: SPLIT_ISSUE_ITEM_SCHEMA
       },
       blockers: {
         type: "array",

@@ -1003,6 +1003,14 @@ async function inspectRuntimeState(runtimePaths, repoSlug, options = {}) {
   };
 }
 
+async function recordRuntimeEvent(runtimePaths, data) {
+  try {
+    return await appendRuntimeEvent(runtimePaths, data);
+  } catch {
+    return null;
+  }
+}
+
 module.exports = {
   DEFAULT_LEASE_TTL_MS,
   acquireIssueLease,
@@ -1035,6 +1043,7 @@ module.exports = {
   readRuntimeEventsSince,
   readRuntimeState,
   recordRunUpdate,
+  recordRuntimeEvent,
   releaseIssueLease,
   renewIssueLease,
   sanitizeRepoSlug,
