@@ -1,0 +1,47 @@
+[
+  {
+    "number": 10,
+    "title": "Fix critical auth bypass vulnerability",
+    "body": "Users can bypass authentication under certain race conditions.\n\nAcceptance criteria:\n- Race condition is eliminated\n- Auth tokens are validated on every request",
+    "labels": ["agent:queued", "p0"],
+    "state": "open",
+    "createdAt": "2026-03-25T10:00:00Z",
+    "updatedAt": "2026-03-25T10:00:00Z"
+  },
+  {
+    "number": 11,
+    "title": "Add rate limiting to the API gateway",
+    "body": "Depends-On: #10\n\nImplement per-client rate limiting on the API gateway to prevent abuse.",
+    "labels": ["agent:queued", "p1"],
+    "state": "open",
+    "createdAt": "2026-03-25T11:00:00Z",
+    "updatedAt": "2026-03-25T11:00:00Z"
+  },
+  {
+    "number": 12,
+    "title": "Refactor user profile page",
+    "body": "Refactor the user profile component to use the new design system tokens.",
+    "labels": ["agent:queued", "p2"],
+    "state": "open",
+    "createdAt": "2026-03-26T09:00:00Z",
+    "updatedAt": "2026-03-26T09:00:00Z"
+  },
+  {
+    "number": 13,
+    "title": "Update third-party dependency audit",
+    "body": "Depends-On: #12\n\nRun a full dependency audit and update any packages flagged as vulnerable.",
+    "labels": ["agent:queued", "p3"],
+    "state": "open",
+    "createdAt": "2026-03-26T10:00:00Z",
+    "updatedAt": "2026-03-26T10:00:00Z"
+  },
+  {
+    "number": 14,
+    "title": "Improve CI pipeline caching",
+    "body": "Cache node_modules and build artifacts across CI runs to reduce average build time.",
+    "labels": ["agent:queued"],
+    "state": "open",
+    "createdAt": "2026-03-27T08:00:00Z",
+    "updatedAt": "2026-03-27T08:00:00Z"
+  }
+]
