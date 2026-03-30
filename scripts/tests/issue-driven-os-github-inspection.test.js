@@ -205,6 +205,53 @@ test("issue-driven-os github inspect returns populated runtime summaries in text
   }
 });
 
+test("issue-driven-os github inspect handles legacy lease snapshots without previousLease", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-legacy-lease-"));
+
+  try {
+    const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
+    const runRecord = buildRunRecord(9, {
+      id: "run_issue_9_20260329T110000Z",
+      repoSlug: "owner/repo",
+      status: "claimed",
+      updatedAt: "2026-03-29T11:05:00.000Z",
+      summary: "Legacy lease snapshot fixture.",
+      lease: {
+        issueNumber: 9,
+        holderId: "run_issue_9_20260329T110000Z",
+        holderType: "worker",
+        runId: "run_issue_9_20260329T110000Z",
+        createdAt: "2026-03-29T11:00:00.000Z",
+        updatedAt: "2026-03-29T11:05:00.000Z",
+        expiresAt: "2026-03-29T11:20:00.000Z",
+        lastOutcome: "acquired",
+        leaseStatus: "active"
+      }
+    });
+
+    await persistRunRecord(runtimePaths, runRecord);
+    await recordRunUpdate(runtimePaths, "owner/repo", runRecord);
+
+    const jsonOutput = runCli([
+      "issue-driven-os",
+      "github",
+      "inspect",
+      "owner/repo",
+      "--runtime-root",
+      tempRoot,
+      "--json"
+    ]);
+    const payload = JSON.parse(jsonOutput);
+
+    assert.equal(payload.issueSummaries[0].issueNumber, 9);
+    assert.equal(payload.issueSummaries[0].lease.lastOutcome, "acquired");
+    assert.equal(payload.issueSummaries[0].lease.previousLease, null);
+    assert.equal(payload.recentRuns[0].lease.previousLease, null);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("issue-driven-os github inspect returns run detail with artifact locations", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-inspect-run-"));
 

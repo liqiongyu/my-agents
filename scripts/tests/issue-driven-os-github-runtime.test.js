@@ -17,6 +17,7 @@ const {
   acquireIssueLease,
   buildRunRecord,
   buildRuntimePaths,
+  inspectRuntimeState,
   persistArtifact,
   persistRunRecord,
   readLease,
@@ -832,14 +833,16 @@ test("recoverIssueRun releases a stale lease and marks a claimed run as failed",
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "issue-os-runtime-recover-"));
   const issueEdits = [];
   const comments = [];
+  const claimedAt = new Date();
+  const updatedAt = new Date(claimedAt.getTime() + 10 * 60 * 1000);
 
   try {
     const runtimePaths = buildRuntimePaths("owner/repo", { runtimeRoot: tempRoot });
     const runRecord = buildRunRecord(19, {
       repoSlug: "owner/repo",
       status: "claimed",
-      startedAt: "2026-03-30T00:00:00.000Z",
-      updatedAt: "2026-03-30T00:10:00.000Z",
+      startedAt: claimedAt.toISOString(),
+      updatedAt: updatedAt.toISOString(),
       branchRef: "agent/issue-19",
       lastCompletedPhase: "workspace",
       summary: "Claimed but never released."
@@ -847,7 +850,7 @@ test("recoverIssueRun releases a stale lease and marks a claimed run as failed",
 
     await persistRunRecord(runtimePaths, runRecord);
     await recordRunUpdate(runtimePaths, "owner/repo", runRecord);
-    await acquireIssueLease(
+    const acquiredLease = await acquireIssueLease(
       runtimePaths,
       19,
       {
@@ -856,10 +859,11 @@ test("recoverIssueRun releases a stale lease and marks a claimed run as failed",
         runId: runRecord.id
       },
       {
-        now: new Date("2026-03-30T00:10:00.000Z"),
+        now: updatedAt,
         ttlMs: 30 * 60 * 1000
       }
     );
+    runRecord.lease = acquiredLease.lease;
 
     const result = await recoverIssueRun("owner/repo", 19, {
       runtimeRoot: tempRoot,
@@ -875,11 +879,22 @@ test("recoverIssueRun releases a stale lease and marks a claimed run as failed",
 
     const recoveredRun = await readRunRecord(runtimePaths, runRecord.id);
     const lease = await readLease(runtimePaths, 19);
+    const snapshot = await inspectRuntimeState(runtimePaths, "owner/repo");
 
     assert.equal(result.status, "recovered");
     assert.equal(recoveredRun.status, "failed");
     assert.equal(recoveredRun.lastCompletedPhase, "workspace");
+    assert.equal(recoveredRun.lease.lastOutcome, "force_recovered");
+    assert.equal(recoveredRun.lease.leaseStatus, "released");
+    assert.equal(recoveredRun.lease.previousLease.holderId, runRecord.id);
+    assert.equal(recoveredRun.lease.previousLease.leaseStatus, "active");
     assert.equal(lease, null);
+    assert.equal(snapshot.activeLeases.length, 0);
+    assert.equal(snapshot.staleLeases.length, 0);
+    assert.equal(snapshot.state.issues["19"].lease.lastOutcome, "force_recovered");
+    assert.equal(snapshot.state.issues["19"].lease.leaseStatus, "released");
+    assert.equal(snapshot.state.runs[runRecord.id].lease.lastOutcome, "force_recovered");
+    assert.equal(snapshot.state.runs[runRecord.id].lease.leaseStatus, "released");
     assert.ok(
       issueEdits.some(
         (edit) => Array.isArray(edit.removeLabels) && edit.removeLabels.includes("agent:claimed")
@@ -1808,8 +1823,8 @@ test("runGitHubIssueWorker renews its lease during long execution loops", async 
       25,
       {
         runtimeRoot: tempRoot,
-        leaseTtlMs: 80,
-        leaseRenewIntervalMs: 20,
+        leaseTtlMs: 500,
+        leaseRenewIntervalMs: 100,
         github,
         createIssueWorktree: async () => ({
           branchName: "agent/issue-25",
@@ -1839,7 +1854,7 @@ test("runGitHubIssueWorker renews its lease during long execution loops", async 
           }
         }),
         executeGitHubIssue: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 160));
+          await new Promise((resolve) => setTimeout(resolve, 650));
           const liveLease = await readLease(runtimePaths, 25);
           const competingLease = await acquireIssueLease(
             runtimePaths,
@@ -1849,7 +1864,7 @@ test("runGitHubIssueWorker renews its lease during long execution loops", async 
               holderType: "worker"
             },
             {
-              ttlMs: 80
+              ttlMs: 500
             }
           );
 

@@ -9,6 +9,7 @@ const {
   DEFAULT_LEASE_TTL_MS,
   acquireIssueLease,
   appendRuntimeEvent,
+  buildLeaseHistoryRecord,
   buildRunRecord,
   buildRuntimePaths,
   ensureRuntimeLayout,
@@ -328,6 +329,36 @@ function snapshotLeaseForRun(lease) {
   const snapshot = { ...lease };
   delete snapshot.leasePath;
   return snapshot;
+}
+
+function buildRecoveredLeaseSnapshot(lease, options = {}) {
+  if (!lease || typeof lease !== "object") {
+    return null;
+  }
+
+  const recoveredAt = options.recoveredAt ?? new Date().toISOString();
+  const recoveredAtDate = new Date(recoveredAt);
+  const snapshotNow = Number.isNaN(recoveredAtDate.getTime()) ? new Date() : recoveredAtDate;
+  const previousLease = buildLeaseHistoryRecord(lease, snapshotNow);
+
+  if (!previousLease) {
+    return null;
+  }
+
+  const recoveryReason =
+    options.recoveryReason ?? (previousLease.leaseStatus === "expired" ? "expired" : "force");
+  const lastOutcome =
+    options.lastOutcome ?? (recoveryReason === "expired" ? "expired_recovered" : "force_recovered");
+
+  return {
+    ...previousLease,
+    updatedAt: recoveredAt,
+    lastOutcome,
+    recoveredAt,
+    recoveryReason,
+    leaseStatus: "released",
+    previousLease
+  };
 }
 
 function isLeaseOwnedByRun(lease, runRecord) {
@@ -1308,6 +1339,12 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
   const lease = await readLease(runtimePaths, issueNumber);
   const forceRelease = await forceReleaseIssueLease(runtimePaths, issueNumber);
   const recoveredAt = new Date().toISOString();
+  const recoveredLease = buildRecoveredLeaseSnapshot(
+    forceRelease.lease ?? latestRun?.lease ?? lease,
+    {
+      recoveredAt
+    }
+  );
 
   if (!latestRun && !forceRelease.released) {
     return buildRunSummary("noop", "No claimed run or lease needed recovery.", {
@@ -1325,6 +1362,7 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
       updatedAt: recoveredAt,
       finishedAt: recoveredAt,
       summary: "Recovered stale claimed run after worker exit before lease release.",
+      lease: recoveredLease,
       notes: [...(latestRun.notes ?? []), `Recovered stale claim at ${recoveredAt}.`]
     });
     await persistRunRecord(runtimePaths, recoveredRun);
@@ -1376,7 +1414,11 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
         deps,
         repoSlug,
         issueNumber,
-        buildIssueRecoveryComment(recoveredRun, lease, options),
+        buildIssueRecoveryComment(
+          recoveredRun,
+          recoveredLease ?? forceRelease.lease ?? lease,
+          options
+        ),
         {
           actor: "worker",
           phase: "recovery",
@@ -1396,7 +1438,7 @@ async function recoverIssueRun(repoSlug, issueNumber, options = {}) {
 
   return buildRunSummary("recovered", "Recovered stale claim and released the issue lease.", {
     runId: recoveredRun?.id ?? latestRun?.id ?? null,
-    lease: forceRelease.lease ?? lease ?? null
+    lease: recoveredLease ?? forceRelease.lease ?? lease ?? null
   });
 }
 

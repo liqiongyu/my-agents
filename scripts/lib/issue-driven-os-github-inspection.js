@@ -33,7 +33,7 @@ function normalizeIssueSummary(issueSummary = {}) {
   };
 }
 
-function normalizeLease(lease = {}) {
+function normalizeLease(lease) {
   if (!lease || typeof lease !== "object") {
     return null;
   }
