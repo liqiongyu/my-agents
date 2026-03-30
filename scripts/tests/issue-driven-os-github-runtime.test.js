@@ -1387,7 +1387,12 @@ test("runGitHubIssueWorker resumes a failed run from persisted execution state",
     assert.equal(pushCalls.length, 1);
     assert.equal(pushCalls[0].forceWithLease, true);
     assert.equal(reviews[0].event, "COMMENT");
-    assert.ok(comments.some((body) => /resumed this issue/i.test(body)));
+    assert.ok(
+      comments.some(
+        (body) =>
+          /Agent worker resumed this issue\./.test(body) && /Resume phase: execution/.test(body)
+      )
+    );
     assert.ok(
       comments.some(
         (body) =>
@@ -1398,7 +1403,14 @@ test("runGitHubIssueWorker resumes a failed run from persisted execution state",
     assert.equal(updatedRun.id, priorRun.id);
     assert.equal(updatedRun.commitSha, "resume123");
     assert.equal(updatedRun.lastCompletedPhase, "reconciled");
-    assert.ok(events.some((event) => event.event === "run_resumed"));
+    assert.ok(
+      events.some(
+        (event) =>
+          event.event === "run_resumed" &&
+          event.message === `Resuming run ${priorRun.id} from execution.` &&
+          event.data?.resumePhase === "execution"
+      )
+    );
     assert.ok(events.some((event) => event.event === "execution_resumed"));
     assert.ok(events.some((event) => event.event === "commit_reused"));
     assert.ok(findPrCalls >= 1);
@@ -1778,7 +1790,12 @@ test("runGitHubIssueWorker reruns execution after needs_changes using prior crit
     assert.equal(pushCalls.length, 1);
     assert.equal(pushCalls[0].forceWithLease, true);
     assert.equal(reviews[0].event, "COMMENT");
-    assert.ok(comments.some((body) => /resumed this issue/i.test(body)));
+    assert.ok(
+      comments.some(
+        (body) =>
+          /Agent worker resumed this issue\./.test(body) && /Resume phase: execution/.test(body)
+      )
+    );
     assert.ok(
       comments.some(
         (body) =>
@@ -1796,7 +1813,10 @@ test("runGitHubIssueWorker reruns execution after needs_changes using prior crit
     assert.equal(updatedRun.lastCompletedPhase, "reconciled");
     assert.ok(
       events.some(
-        (event) => event.event === "run_resumed" && event.data?.resumePhase === "execution"
+        (event) =>
+          event.event === "run_resumed" &&
+          event.message === `Resuming run ${priorRun.id} from execution.` &&
+          event.data?.resumePhase === "execution"
       )
     );
     assert.ok(events.some((event) => event.event === "execution_started"));

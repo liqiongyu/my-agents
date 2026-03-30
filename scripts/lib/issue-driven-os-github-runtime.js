@@ -584,17 +584,37 @@ function buildIssueStartComment(runRecord) {
     .join("\n");
 }
 
-function buildIssueResumeComment(runRecord, resumeContext) {
-  const resumePhase = inferResumePhase(resumeContext);
+function buildIssueResumeComment(runRecord, resumeContext, resumePhase) {
+  const effectiveResumePhase =
+    typeof resumePhase === "undefined" ? inferResumePhase(resumeContext) : resumePhase;
   return [
     `Agent worker resumed this issue.`,
     `Run id: ${runRecord.id}`,
     resumeContext?.run?.status ? `Previous status: ${resumeContext.run.status}` : null,
-    resumePhase ? `Resume phase: ${resumePhase}` : null,
+    effectiveResumePhase ? `Resume phase: ${effectiveResumePhase}` : null,
     runRecord.branchRef ? `Branch: ${runRecord.branchRef}` : null
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function buildResumeClaimMetadata(runRecord, resumeContext) {
+  if (!resumeContext) {
+    return null;
+  }
+
+  const resumePhase = inferResumePhase(resumeContext);
+
+  return {
+    resumePhase,
+    eventMessage: `Resuming run ${runRecord.id} from ${resumePhase ?? "claim"}.`,
+    eventData: {
+      previousStatus: resumeContext.run.status,
+      resumePhase
+    },
+    issueComment: buildIssueResumeComment(runRecord, resumeContext, resumePhase),
+    executionSummaryVerification: `resume-from-${resumePhase ?? "claim"}`
+  };
 }
 
 function buildIssueRecoveryComment(runRecord, lease, options = {}) {
@@ -1366,6 +1386,7 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         repoSlug,
         status: "claimed"
       });
+  const resumeClaim = buildResumeClaimMetadata(runRecord, resumeContext);
   const reviewLoopsMax = resolveReviewLoopsMax(runRecord, options);
   runRecord.reviewLoopCount = normalizeNonNegativeInteger(runRecord.reviewLoopCount, 0);
   runRecord.reviewLoopsMax = reviewLoopsMax;
@@ -1445,11 +1466,8 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         actor: "worker",
         phase: "resume",
         event: "run_resumed",
-        message: `Resuming run ${runRecord.id} from ${inferResumePhase(resumeContext) ?? "claim"}.`,
-        data: {
-          previousStatus: resumeContext.run.status,
-          resumePhase: inferResumePhase(resumeContext)
-        }
+        message: resumeClaim.eventMessage,
+        data: resumeClaim.eventData
       });
     }
     await leaseSupervisor.assertActive("claim");
@@ -1482,17 +1500,13 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       deps,
       repoSlug,
       issueNumber,
-      resumeContext
-        ? buildIssueResumeComment(runRecord, resumeContext)
-        : buildIssueStartComment(runRecord),
+      resumeClaim ? resumeClaim.issueComment : buildIssueStartComment(runRecord),
       {
         actor: "worker",
         phase: "claim",
         runId: runRecord.id,
         executionSummary: buildWorkerExecutionSummary({
-          verification: resumeContext
-            ? `resume-from-${inferResumePhase(resumeContext) ?? "claim"}`
-            : "claimed"
+          verification: resumeClaim ? resumeClaim.executionSummaryVerification : "claimed"
         })
       },
       options
