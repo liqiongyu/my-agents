@@ -607,6 +607,61 @@
   ],
   "agents": [
     {
+      "name": "coder",
+      "path": "agents/coder",
+      "displayName": "Coder",
+      "description": "Issue Agent OS coding worker. Implements features, fixes, refactors, and docs changes in an isolated worktree based on a triager-written brief.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "coding"
+      ],
+      "tags": [
+        "implementation",
+        "coding",
+        "worker",
+        "issue-agent-os"
+      ],
+      "archetype": "implementer",
+      "skills": [],
+      "agents": [],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
+      "name": "controller",
+      "path": "agents/controller",
+      "displayName": "Controller",
+      "description": "Issue Agent OS controller. Thin concurrent dispatcher that pulls from the GitHub issue queue, fans out triage to parallel agents, and dispatches workers based on verdicts. Must run as the top-level session.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow"
+      ],
+      "tags": [
+        "controller",
+        "dispatcher",
+        "orchestration",
+        "issue-agent-os"
+      ],
+      "archetype": "custom",
+      "skills": [],
+      "agents": [
+        "triager",
+        "coder",
+        "reviewer",
+        "splitter",
+        "planner",
+        "debugger"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
       "name": "debugger",
       "path": "agents/debugger",
       "displayName": "Debugger",
@@ -962,6 +1017,55 @@
         "claude-code",
         "codex"
       ]
+    },
+    {
+      "name": "splitter",
+      "path": "agents/splitter",
+      "displayName": "Splitter",
+      "description": "Issue Agent OS decomposition worker. Breaks large or vague issues into 2-5 concrete, right-sized sub-issues with dependency links.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow"
+      ],
+      "tags": [
+        "decomposition",
+        "issue",
+        "splitting",
+        "issue-agent-os"
+      ],
+      "archetype": "custom",
+      "skills": [],
+      "agents": [],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
+      "name": "triager",
+      "path": "agents/triager",
+      "displayName": "Triager",
+      "description": "Issue triage agent that reads an issue, assesses actionability, decides routing (execute/split/plan/investigate/defer/reject/escalate), and writes an execution brief for workers.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow"
+      ],
+      "tags": [
+        "triage",
+        "issue",
+        "routing",
+        "brief",
+        "issue-agent-os"
+      ],
+      "archetype": "custom",
+      "skills": [],
+      "agents": [],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
     }
   ],
   "packs": [
@@ -1077,5 +1181,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-30T09:28:16.704Z"
+  "generatedAt": "2026-03-30T11:28:34.022Z"
 }
