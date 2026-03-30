@@ -97,7 +97,10 @@ function renderAgentsMarkdown(items) {
   ];
 
   const rows = items.map((item) => {
-    const link = `[${item.name}](../../${item.path}/claude-code.md)`;
+    const docName = (item.platforms ?? []).includes("claude-code")
+      ? "claude-code.md"
+      : "codex.toml";
+    const link = `[${item.name}](../../${item.path}/${docName})`;
     const platforms = (item.platforms ?? []).join(", ");
     const categories = (item.categories ?? []).join(", ");
     const desc = (item.description ?? "").replace(/\r?\n/g, " ");

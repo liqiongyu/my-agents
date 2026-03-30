@@ -160,9 +160,113 @@ async function syncGitRepository(entry, depth, label) {
   return "cloned";
 }
 
+function parseGitHubRepoSlugFromRemoteUrl(remoteUrl) {
+  const trimmedUrl = String(remoteUrl ?? "").trim();
+  if (!trimmedUrl) {
+    return null;
+  }
+
+  const matchers = [
+    /^(?:git@github\.com:)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i,
+    /^(?:https?:\/\/github\.com\/)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i,
+    /^(?:ssh:\/\/git@github\.com\/)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i
+  ];
+
+  for (const matcher of matchers) {
+    const match = trimmedUrl.match(matcher);
+    if (match) {
+      return `${match[1]}/${match[2]}`;
+    }
+  }
+
+  return null;
+}
+
+async function resolveGitHubRepoSlug(repoPath, options = {}) {
+  const preferredRemoteName = options.remoteName ?? "origin";
+  const { stdout: topLevelStdout } = await runCommandCapture("git", [
+    "-C",
+    repoPath,
+    "rev-parse",
+    "--show-toplevel"
+  ]);
+  const resolvedRepoPath = topLevelStdout.trim();
+
+  const { stdout: remotesStdout } = await runCommandCapture("git", [
+    "-C",
+    resolvedRepoPath,
+    "remote"
+  ]);
+  const remoteNames = remotesStdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (remoteNames.length === 0) {
+    throw new Error(`No git remotes configured for project repository: ${resolvedRepoPath}`);
+  }
+
+  const inspectedRemotes = [];
+  for (const remoteName of remoteNames) {
+    const { stdout: remoteUrlStdout } = await runCommandCapture("git", [
+      "-C",
+      resolvedRepoPath,
+      "remote",
+      "get-url",
+      remoteName
+    ]);
+    const remoteUrl = remoteUrlStdout.trim();
+    const repoSlug = parseGitHubRepoSlugFromRemoteUrl(remoteUrl);
+    inspectedRemotes.push({
+      remoteName,
+      remoteUrl,
+      repoSlug
+    });
+  }
+
+  const preferredRemote = inspectedRemotes.find(
+    (remote) => remote.remoteName === preferredRemoteName && remote.repoSlug
+  );
+  if (preferredRemote) {
+    return {
+      repoPath: resolvedRepoPath,
+      remoteName: preferredRemote.remoteName,
+      remoteUrl: preferredRemote.remoteUrl,
+      repoSlug: preferredRemote.repoSlug
+    };
+  }
+
+  const githubRemotes = inspectedRemotes.filter((remote) => remote.repoSlug);
+  if (githubRemotes.length === 0) {
+    throw new Error(
+      `No resolvable GitHub remote found for project repository: ${resolvedRepoPath}`
+    );
+  }
+
+  if (githubRemotes.length > 1) {
+    const uniqueRepoSlugs = [...new Set(githubRemotes.map((remote) => remote.repoSlug))];
+    if (uniqueRepoSlugs.length > 1) {
+      throw new Error(
+        `Ambiguous GitHub remotes for project repository ${resolvedRepoPath}: ${githubRemotes
+          .map((remote) => `${remote.remoteName}=${remote.repoSlug}`)
+          .join(", ")}`
+      );
+    }
+  }
+
+  return {
+    repoPath: resolvedRepoPath,
+    remoteName: githubRemotes[0].remoteName,
+    remoteUrl: githubRemotes[0].remoteUrl,
+    repoSlug: githubRemotes[0].repoSlug
+  };
+}
+
 module.exports = {
   cloneGitRepository,
+  parseGitHubRepoSlugFromRemoteUrl,
   resolveGitRemoteRef,
+  resolveGitHubRepoSlug,
   runCommand,
   runCommandCapture,
   syncGitRepository
