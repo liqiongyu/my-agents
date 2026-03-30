@@ -2,46 +2,6 @@
   "schemaVersion": 1,
   "skills": [
     {
-      "name": "acceptance-verification",
-      "path": "skills/acceptance-verification",
-      "displayName": "Acceptance Verification",
-      "description": "Manual-first workflow for deciding whether current evidence satisfies an issue's acceptance criteria and done contract, and for drafting a structured verification verdict. Use after execution or before merge when acceptance evidence matters; do not use for generic code review or backlog triage.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "coding",
-        "review"
-      ],
-      "tags": [
-        "verification",
-        "acceptance",
-        "done-contract",
-        "gate",
-        "evidence"
-      ]
-    },
-    {
-      "name": "admission-routing",
-      "path": "skills/admission-routing",
-      "displayName": "Admission Routing",
-      "description": "Manual-first workflow for deciding the next governance route for a normalized or shaped issue: admit now, hold, send back for shaping or clarify, or escalate. Use when the issue exists and the next need is an explicit routing verdict rather than execution or queue scoring.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "productivity",
-        "design"
-      ],
-      "tags": [
-        "admission",
-        "routing",
-        "triage",
-        "governance",
-        "queue"
-      ]
-    },
-    {
       "name": "agent-lifecycle-manager",
       "path": "skills/agent-lifecycle-manager",
       "displayName": "Agent Lifecycle Manager",
@@ -88,46 +48,6 @@
       ]
     },
     {
-      "name": "artifact-linking",
-      "path": "skills/artifact-linking",
-      "displayName": "Artifact Linking",
-      "description": "Manual-first workflow for linking issue, run, change, verification, and handoff artifacts together and exposing those refs cleanly on projection surfaces. Use when artifact traceability matters more than generic synchronization or summary writing.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "documentation",
-        "productivity"
-      ],
-      "tags": [
-        "artifact",
-        "linking",
-        "traceability",
-        "refs",
-        "projection"
-      ]
-    },
-    {
-      "name": "backlog-curation",
-      "path": "skills/backlog-curation",
-      "displayName": "Backlog Curation",
-      "description": "Manual-first workflow for curating backlog state after execution, review, or learning passes: deduping, recycling, follow-up issue generation, and closure hygiene. Use when the next need is backlog cleanliness and durable work tracking, not fresh intake or queue prioritization.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "productivity",
-        "design"
-      ],
-      "tags": [
-        "backlog",
-        "curation",
-        "dedupe",
-        "follow-up",
-        "recycle"
-      ]
-    },
-    {
       "name": "brainstorming",
       "path": "skills/brainstorming",
       "displayName": "Brainstorming",
@@ -146,26 +66,6 @@
         "decision-making",
         "requirements",
         "architecture"
-      ]
-    },
-    {
-      "name": "budget-decision",
-      "path": "skills/budget-decision",
-      "displayName": "Budget Decision",
-      "description": "Manual-first workflow for proposing or revising a run budget envelope, including loop limits, specialist-call limits, and escalation thresholds. Use when governance needs an explicit execution budget decision rather than issue shaping, risk gating, or implementation planning.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "productivity",
-        "business"
-      ],
-      "tags": [
-        "budget",
-        "run-budget",
-        "limits",
-        "escalation",
-        "governance"
       ]
     },
     {
@@ -257,28 +157,6 @@
       ]
     },
     {
-      "name": "execution-briefing",
-      "path": "skills/execution-briefing",
-      "displayName": "Execution Briefing",
-      "description": "Manual-first workflow for converting a shaped issue into an execution-ready brief, optional approval checkpoint, and initial done contract for a run. Use when the issue boundary is already chosen and the next need is a clear run brief, verification focus, gate framing, or pre-execution handoff before execution. Do not use for raw intake, issue shaping, backlog prioritization, or deep implementation planning.",
-      "version": "0.2.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "coding",
-        "productivity"
-      ],
-      "tags": [
-        "execution-briefing",
-        "execution-brief",
-        "done-contract",
-        "handoff",
-        "run-brief",
-        "verification",
-        "approval-checkpoint"
-      ]
-    },
-    {
       "name": "future-aware-architecture",
       "path": "skills/future-aware-architecture",
       "displayName": "Future-Aware Architecture",
@@ -327,27 +205,6 @@
       ]
     },
     {
-      "name": "handoff-bundle-writing",
-      "path": "skills/handoff-bundle-writing",
-      "displayName": "Handoff Bundle Writing",
-      "description": "Manual-first workflow for turning an in-progress, paused, interrupted, or transferred run into a structured handoff bundle with current state, completed work, remaining work, blockers, next step, and artifact references for safe resume. Use when execution has already started and the next need is transfer, pause, or recovery context. Do not use for pre-execution briefing, memory writeback, generic summarization, or run-state sync.",
-      "version": "0.1.1",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "coding",
-        "productivity"
-      ],
-      "tags": [
-        "handoff-bundle-writing",
-        "handoff-bundle",
-        "handoff",
-        "resume",
-        "transfer-context",
-        "artifact"
-      ]
-    },
-    {
       "name": "implementation-planning",
       "path": "skills/implementation-planning",
       "displayName": "Implementation Planning",
@@ -389,69 +246,6 @@
       ]
     },
     {
-      "name": "issue-normalization",
-      "path": "skills/issue-normalization",
-      "displayName": "Issue Normalization",
-      "description": "Hybrid workflow for turning raw task signals, bug reports, handoff notes, review findings, or issue comments into a normalized issue draft with clear problem, evidence, acceptance criteria, and missing-info markers before shaping or execution. Use for issue intake and issue drafting, not prioritization, decomposition, planning, or ordinary implementation clarification.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "productivity",
-        "design"
-      ],
-      "tags": [
-        "issue-normalization",
-        "issue-intake",
-        "task-normalization",
-        "canonical-issue",
-        "acceptance-criteria",
-        "handoff",
-        "review-follow-up"
-      ]
-    },
-    {
-      "name": "issue-shaping",
-      "path": "skills/issue-shaping",
-      "displayName": "Issue Shaping",
-      "description": "Manual-first workflow for turning a normalized issue into a shaped, execution-ready work item with clear scope, non-goals, acceptance criteria, dependencies, and next-step routing. Use when an issue already exists but still needs boundary tightening, execution-readiness judgment, or a decomposition recommendation before admission or execution. Do not use for raw issue intake, backlog prioritization, or detailed implementation planning.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "design",
-        "productivity"
-      ],
-      "tags": [
-        "issue-shaping",
-        "scope-shaping",
-        "acceptance-criteria",
-        "non-goals",
-        "execution-readiness",
-        "decomposition"
-      ]
-    },
-    {
-      "name": "priority-scoring",
-      "path": "skills/priority-scoring",
-      "displayName": "Priority Scoring",
-      "description": "Manual-first workflow for scoring a normalized or shaped issue for relative urgency and queue placement using impact, urgency, reversibility, dependency pressure, and confidence. Use after issue intake or shaping when the next need is a governance-ready priority recommendation, not implementation planning or risk gating.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "productivity",
-        "business"
-      ],
-      "tags": [
-        "priority",
-        "triage",
-        "admission",
-        "queueing",
-        "backlog"
-      ]
-    },
-    {
       "name": "project-documentation",
       "path": "skills/project-documentation",
       "displayName": "Docs Governance",
@@ -473,26 +267,6 @@
         "docs-navigation",
         "information-architecture",
         "knowledge-base"
-      ]
-    },
-    {
-      "name": "projection-sync",
-      "path": "skills/projection-sync",
-      "displayName": "Projection Sync",
-      "description": "Manual-first workflow for synchronizing canonical issue-driven objects to projection surfaces such as GitHub issue, PR, and check metadata without letting projections become the source of truth. Use for explicit projection updates, not canonical state mutation.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "documentation",
-        "productivity"
-      ],
-      "tags": [
-        "projection",
-        "sync",
-        "github",
-        "state",
-        "control-plane"
       ]
     },
     {
@@ -560,26 +334,6 @@
         "architecture",
         "security",
         "quality"
-      ]
-    },
-    {
-      "name": "risk-gating",
-      "path": "skills/risk-gating",
-      "displayName": "Risk Gating",
-      "description": "Manual-first workflow for deciding whether an issue, run, or change can proceed under current risk conditions and which mitigations, specialists, or approval gates are required. Use for governance and go/no-go boundary setting, not backlog prioritization or final acceptance verification.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "security",
-        "productivity"
-      ],
-      "tags": [
-        "risk",
-        "gate",
-        "mitigation",
-        "governance",
-        "approval"
       ]
     },
     {
@@ -931,5 +685,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-30T13:23:53.353Z"
+  "generatedAt": "2026-03-30T13:30:43.295Z"
 }
