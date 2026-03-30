@@ -15,10 +15,10 @@ const {
 const { runReferenceScenario } = require("./lib/issue-driven-os-run-manager");
 const { projectReferenceRuntimeSession } = require("./lib/issue-driven-os-projection-adapter");
 const {
-  buildRuntimePaths,
-  inspectRuntimeState,
-  listRuntimeEvents
-} = require("./lib/issue-driven-os-state-store");
+  formatGitHubRuntimeInspection,
+  inspectGitHubRuntime
+} = require("./lib/issue-driven-os-github-inspection");
+const { buildRuntimePaths, listRuntimeEvents } = require("./lib/issue-driven-os-state-store");
 const {
   produceGitHubIssue,
   reconcileIssue,
@@ -213,54 +213,11 @@ function requireRepoPath(args) {
 }
 
 function formatInspection(payload) {
-  const lines = [
-    `Runtime root: ${payload.runtimeRoot}`,
-    `Repo slug: ${payload.repoSlug}`,
-    `Observed at: ${payload.observedAt}`,
-    `Active leases: ${payload.activeLeases.length}`,
-    `Recent runs: ${payload.recentRuns.length}`,
-    `Recent events: ${payload.recentEvents.length}`
-  ];
+  const base = formatGitHubRuntimeInspection(payload).trimEnd();
+  const lines = [base];
 
-  if (payload.activeLeases.length > 0) {
-    lines.push("", "Active leases:");
-    for (const lease of payload.activeLeases) {
-      lines.push(
-        `- issue #${lease.issueNumber} | run ${lease.runId ?? "n/a"} | holder ${lease.holderId} | expires ${lease.expiresAt}`
-      );
-    }
-  }
-
-  if (payload.recentRuns.length > 0) {
-    lines.push("", "Recent runs:");
-    for (const run of payload.recentRuns) {
-      lines.push(
-        `- ${run.id} | issue #${run.issueNumber} | ${run.status} | updated ${run.updatedAt ?? run.startedAt ?? "n/a"}`
-      );
-    }
-  }
-
-  if (payload.run) {
-    lines.push(
-      "",
-      "Run detail:",
-      `- run id: ${payload.run.id}`,
-      `- issue: #${payload.run.issueNumber}`,
-      `- status: ${payload.run.status}`,
-      `- branch: ${payload.run.branchRef ?? "n/a"}`,
-      `- pr: ${payload.run.prNumber ?? "n/a"}`
-    );
-  }
-
-  if (payload.artifacts.length > 0) {
-    lines.push("", "Artifacts:");
-    for (const artifact of payload.artifacts) {
-      lines.push(`- ${artifact.kind}: ${artifact.path}`);
-    }
-  }
-
-  if (payload.recentEvents.length > 0) {
-    lines.push("", "Recent events:");
+  if ((payload.recentEvents ?? []).length > 0) {
+    lines.push("", "Recent events");
     for (const event of payload.recentEvents) {
       lines.push(
         `- ${event.timestamp} | ${event.phase}/${event.event} | issue #${event.issueNumber ?? "n/a"} | run ${event.runId ?? "n/a"} | ${event.message}`
@@ -268,14 +225,14 @@ function formatInspection(payload) {
     }
   }
 
-  if (payload.warnings.length > 0) {
-    lines.push("", "Warnings:");
+  if ((payload.warnings ?? []).length > 0) {
+    lines.push("", "Warnings");
     for (const warning of payload.warnings) {
       lines.push(`- ${warning}`);
     }
   }
 
-  return lines.join("\n");
+  return `${lines.join("\n")}\n`;
 }
 
 function formatRuntimeEventLine(event) {
@@ -374,17 +331,12 @@ async function runGitHubInspect(_repoRoot, args) {
 
   const runtimeRoot = parseValueFlag(args, "--runtime-root");
   const runId = parseValueFlag(args, "--run");
-  const payload = await inspectRuntimeState(
-    buildRuntimePaths(repoSlug, {
-      runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined
-    }),
-    repoSlug,
-    {
-      runId,
-      limit: parseIntegerFlag(args, "--limit", 10),
-      eventLimit: parseIntegerFlag(args, "--events", 20)
-    }
-  );
+  const payload = await inspectGitHubRuntime(repoSlug, {
+    runtimeRoot: runtimeRoot ? path.resolve(process.cwd(), runtimeRoot) : undefined,
+    runId,
+    limit: parseIntegerFlag(args, "--limit", 10),
+    eventLimit: parseIntegerFlag(args, "--events", 20)
+  });
 
   if (asJson) {
     console.log(JSON.stringify(payload, null, 2));
