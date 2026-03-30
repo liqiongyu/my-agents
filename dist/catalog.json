@@ -811,6 +811,45 @@
       ]
     },
     {
+      "name": "issue-orchestrator",
+      "path": "agents/issue-orchestrator",
+      "displayName": "Issue Orchestrator",
+      "description": "Primary lifecycle owner for one issue. It decides the next bounded action, spawns workers on demand, and drives split/execute/review/rework/merge recommendations without owning global state authority.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "coding",
+        "productivity"
+      ],
+      "tags": [
+        "issue-orchestration",
+        "agentic-runtime",
+        "delegation",
+        "review-loop"
+      ],
+      "archetype": "planner",
+      "skills": [
+        "artifact-linking",
+        "clarify",
+        "execution-briefing",
+        "handoff-bundle-writing",
+        "issue-shaping"
+      ],
+      "agents": [
+        "explorer",
+        "issue-shaper",
+        "issue-cell-executor",
+        "issue-cell-critic",
+        "debugger",
+        "docs-researcher"
+      ],
+      "platforms": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    {
       "name": "issue-shaper",
       "path": "agents/issue-shaper",
       "displayName": "Issue Shaper",
@@ -1042,5 +1081,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-30T08:46:19.045Z"
+  "generatedAt": "2026-03-30T09:25:54.706Z"
 }

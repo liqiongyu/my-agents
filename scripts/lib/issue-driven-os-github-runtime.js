@@ -1,4 +1,5 @@
 const {
+  orchestrateGitHubIssue,
   critiqueGitHubIssue,
   executeGitHubIssue,
   normalizeIssueInput,
@@ -6,10 +7,8 @@ const {
 } = require("./issue-driven-os-codex-runner");
 const { buildGhAdapter } = require("./issue-driven-os-github-adapter");
 const {
-  DEFAULT_LEASE_TTL_MS,
   acquireIssueLease,
   appendRuntimeEvent,
-  buildLeaseHistoryRecord,
   buildRunRecord,
   buildRuntimePaths,
   ensureRuntimeLayout,
@@ -21,7 +20,6 @@ const {
   readRunRecord,
   readRuntimeState,
   recordRunUpdate,
-  renewIssueLease,
   releaseIssueLease
 } = require("./issue-driven-os-state-store");
 const {
@@ -34,229 +32,232 @@ const {
   pushBranch
 } = require("./issue-driven-os-workspace");
 const { readJson } = require("./fs-utils");
+const {
+  compareScheduledIssues,
+  getIssuePriorityRank,
+  isClaimedIssue,
+  isConsumerCandidate,
+  normalizeStateName,
+  parseIssueDependencies,
+  planConsumableIssues
+} = require("../../runtime/services/issue-queue-service");
+const {
+  buildLeaseCollisionSummary,
+  buildLeaseRecoveryNote,
+  buildRecoveredLeaseSnapshot,
+  buildReviewLoopBudgetExceededSummary,
+  createLeaseSupervisor,
+  normalizeNonNegativeInteger,
+  resolveReviewLoopsMax,
+  snapshotLeaseForRun
+} = require("../../runtime/services/issue-lease-service");
 
-const DEFAULT_PRIORITY_RANK = 2;
-const PRIORITY_LABEL_RANKS = new Map([
-  ["agent:priority-critical", 0],
-  ["priority:critical", 0],
-  ["priority:p0", 0],
-  ["p0", 0],
-  ["agent:priority-high", 1],
-  ["priority:high", 1],
-  ["priority:p1", 1],
-  ["p1", 1],
-  ["agent:priority-medium", 2],
-  ["priority:medium", 2],
-  ["priority:normal", 2],
-  ["priority:p2", 2],
-  ["p2", 2],
-  ["agent:priority-low", 3],
-  ["priority:low", 3],
-  ["priority:p3", 3],
-  ["p3", 3]
+const DEFAULT_ORCHESTRATION_STEP_LIMIT = 16;
+const ORCHESTRATOR_SUPPORTED_WORKER_KINDS = new Set([
+  "issue-shaper",
+  "issue-cell-executor",
+  "issue-cell-critic"
 ]);
 const GITHUB_VERIFICATION_STATUS_CONTEXT = "issue-driven-os/verification";
 const GITHUB_STATUS_DESCRIPTION_MAX_LENGTH = 140;
 
-function labelSet(issue) {
-  return new Set(issue?.labels ?? []);
-}
+function buildCompatibilityIssueOrchestrator() {
+  return async (_repoRoot, _cwd, orchestrationContext = {}) => {
+    const run = orchestrationContext?.run ?? {};
+    const shaping = orchestrationContext?.artifacts?.shaping ?? null;
+    const execution = orchestrationContext?.artifacts?.execution ?? null;
+    const critic = orchestrationContext?.artifacts?.critic ?? null;
+    const splitIssues = shaping?.splitIssues ?? [];
+    const needsExecutionPostProcessing =
+      execution?.status === "implemented" &&
+      ![
+        "pull_request_prepared",
+        "critic",
+        "review_projected",
+        "merge_enabled",
+        "reconciled"
+      ].includes(run.lastCompletedPhase ?? "");
 
-function normalizeStateName(value) {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase();
-}
+    if (!shaping) {
+      return {
+        payload: {
+          action: "spawn_worker",
+          summary: "Shape the issue for execution readiness.",
+          worker: {
+            kind: "issue-shaper",
+            task: "Shape this issue and decide whether it should execute, split, clarify, or block.",
+            acceptanceFocus: ["Return the next route for this issue."]
+          },
+          splitIssues: [],
+          blockers: [],
+          mergeReadiness: "none"
+        }
+      };
+    }
 
-function parseIssueDependencies(issue, defaultRepoSlug) {
-  const lines = String(issue?.body ?? "").split(/\r?\n/);
-  const dependencies = new Map();
+    if (shaping.route === "split") {
+      return {
+        payload: {
+          action: "split_issue",
+          summary: shaping.summary,
+          worker: null,
+          splitIssues,
+          blockers: [],
+          mergeReadiness: "none"
+        }
+      };
+    }
 
-  function addDependency(rawValue) {
-    const refPattern = /(?:(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+))?#(?<number>\d+)/g;
+    if (shaping.route !== "execute") {
+      return {
+        payload: {
+          action: "block_issue",
+          summary: shaping.summary,
+          worker: null,
+          splitIssues: [],
+          blockers: [],
+          mergeReadiness: "not_ready"
+        }
+      };
+    }
 
-    for (const match of rawValue.matchAll(refPattern)) {
-      const issueNumber = Number.parseInt(match.groups?.number ?? "", 10);
-      if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
-        continue;
+    if (critic?.verdict === "needs_changes") {
+      return {
+        payload: {
+          action: "spawn_worker",
+          summary: critic.summary || "Address requested review changes.",
+          worker: {
+            kind: "issue-cell-executor",
+            task: "Address the latest requested changes and update the pull request.",
+            acceptanceFocus: critic.blockingFindings ?? []
+          },
+          splitIssues: [],
+          blockers: [],
+          mergeReadiness: "not_ready"
+        }
+      };
+    }
+
+    if (!execution) {
+      return {
+        payload: {
+          action: "spawn_worker",
+          summary: shaping.summary || "Execute the shaped issue.",
+          worker: {
+            kind: "issue-cell-executor",
+            task: "Implement the shaped issue in the repository.",
+            acceptanceFocus: shaping.acceptanceCriteria ?? []
+          },
+          splitIssues: [],
+          blockers: [],
+          mergeReadiness: "not_ready"
+        }
+      };
+    }
+
+    if (needsExecutionPostProcessing) {
+      return {
+        payload: {
+          action: "spawn_worker",
+          summary: execution.summary || "Resume execution post-processing.",
+          worker: {
+            kind: "issue-cell-executor",
+            task: "Resume execution from the saved artifact and finish commit, push, and pull request preparation.",
+            acceptanceFocus: shaping.acceptanceCriteria ?? []
+          },
+          splitIssues: [],
+          blockers: [],
+          mergeReadiness: "not_ready"
+        }
+      };
+    }
+
+    if (execution.status === "split_required") {
+      return {
+        payload: {
+          action: "split_issue",
+          summary: execution.summary || shaping.summary,
+          worker: null,
+          splitIssues,
+          blockers: execution.blockers ?? [],
+          mergeReadiness: "not_ready"
+        }
+      };
+    }
+
+    if (execution.status === "blocked" || execution.status === "no_changes") {
+      return {
+        payload: {
+          action: "block_issue",
+          summary: execution.summary || "Execution did not produce mergeable changes.",
+          worker: null,
+          splitIssues: [],
+          blockers: execution.blockers ?? [],
+          mergeReadiness: "not_ready"
+        }
+      };
+    }
+
+    if (!critic) {
+      return {
+        payload: {
+          action: "spawn_worker",
+          summary: "Review the implementation result and decide whether it is ready.",
+          worker: {
+            kind: "issue-cell-critic",
+            task: "Review the current implementation and produce a merge readiness verdict.",
+            acceptanceFocus: shaping.acceptanceCriteria ?? []
+          },
+          splitIssues: [],
+          blockers: [],
+          mergeReadiness: "not_ready"
+        }
+      };
+    }
+
+    if (critic.verdict === "ready") {
+      return {
+        payload: {
+          action: "request_merge",
+          summary: critic.summary || "Ready to merge.",
+          worker: null,
+          splitIssues: [],
+          blockers: [],
+          mergeReadiness: "ready"
+        }
+      };
+    }
+
+    return {
+      payload: {
+        action: "block_issue",
+        summary: critic.summary || "Review blocked the issue.",
+        worker: null,
+        splitIssues: [],
+        blockers: critic.blockingFindings ?? [],
+        mergeReadiness: "not_ready"
       }
-
-      const repoSlug =
-        match.groups?.owner && match.groups?.repo
-          ? `${match.groups.owner}/${match.groups.repo}`
-          : defaultRepoSlug;
-      const key = `${repoSlug}#${issueNumber}`;
-
-      if (!dependencies.has(key)) {
-        dependencies.set(key, {
-          repoSlug,
-          issueNumber,
-          raw: match[0]
-        });
-      }
-    }
-  }
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index].trim();
-    const marker = /^(depends[- ]on|blocked[- ]by)\s*:(.*)$/i.exec(line);
-
-    if (!marker) {
-      continue;
-    }
-
-    const inlineRefs = marker[2].trim();
-    if (inlineRefs) {
-      addDependency(inlineRefs);
-      continue;
-    }
-
-    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
-      const nextLine = lines[nextIndex].trim();
-
-      if (!nextLine || /^(depends[- ]on|blocked[- ]by)\s*:/i.test(nextLine)) {
-        break;
-      }
-
-      if (/^#{1,6}\s/.test(nextLine)) {
-        break;
-      }
-
-      if (/^[-*]\s+/.test(nextLine) || /#\d+/.test(nextLine)) {
-        addDependency(nextLine);
-        continue;
-      }
-
-      break;
-    }
-  }
-
-  return [...dependencies.values()];
-}
-
-function getIssuePriorityRank(issue) {
-  let rank = Number.POSITIVE_INFINITY;
-
-  for (const label of issue?.labels ?? []) {
-    const normalizedLabel = normalizeStateName(typeof label === "string" ? label : label?.name);
-    if (!normalizedLabel) {
-      continue;
-    }
-
-    if (PRIORITY_LABEL_RANKS.has(normalizedLabel)) {
-      rank = Math.min(rank, PRIORITY_LABEL_RANKS.get(normalizedLabel));
-    }
-  }
-
-  return Number.isFinite(rank) ? rank : DEFAULT_PRIORITY_RANK;
-}
-
-function compareScheduledIssues(left, right) {
-  const priorityDelta = left.priorityRank - right.priorityRank;
-  if (priorityDelta !== 0) {
-    return priorityDelta;
-  }
-
-  const leftCreatedAt = Date.parse(left.issue.createdAt ?? "");
-  const rightCreatedAt = Date.parse(right.issue.createdAt ?? "");
-  const safeLeftCreatedAt = Number.isFinite(leftCreatedAt)
-    ? leftCreatedAt
-    : Number.MAX_SAFE_INTEGER;
-  const safeRightCreatedAt = Number.isFinite(rightCreatedAt)
-    ? rightCreatedAt
-    : Number.MAX_SAFE_INTEGER;
-  const createdAtDelta = safeLeftCreatedAt - safeRightCreatedAt;
-
-  if (createdAtDelta !== 0) {
-    return createdAtDelta;
-  }
-
-  return left.issue.number - right.issue.number;
-}
-
-function isDependencySatisfied(issue) {
-  if (!issue) {
-    return false;
-  }
-
-  return normalizeStateName(issue.state) !== "open" || labelSet(issue).has("agent:done");
-}
-
-async function planConsumableIssues(repoSlug, issues, github, options = {}) {
-  const openIssueMap = new Map(issues.map((issue) => [`${repoSlug}#${issue.number}`, issue]));
-  const dependencyCache = new Map();
-
-  async function loadDependencyIssue(dependency) {
-    const dependencyKey = `${dependency.repoSlug}#${dependency.issueNumber}`;
-
-    if (openIssueMap.has(dependencyKey)) {
-      return openIssueMap.get(dependencyKey);
-    }
-
-    if (!dependencyCache.has(dependencyKey)) {
-      dependencyCache.set(
-        dependencyKey,
-        github
-          .viewIssue(dependency.repoSlug, dependency.issueNumber, options)
-          .catch((error) => ({ loadError: error }))
-      );
-    }
-
-    return dependencyCache.get(dependencyKey);
-  }
-
-  const analyzedIssues = [];
-
-  for (const issue of issues) {
-    const dependencies = parseIssueDependencies(issue, repoSlug);
-    const unresolvedDependencies = [];
-    const dependencyWarnings = [];
-
-    for (const dependency of dependencies) {
-      if (dependency.repoSlug === repoSlug && dependency.issueNumber === issue.number) {
-        unresolvedDependencies.push(dependency);
-        dependencyWarnings.push(`Issue depends on itself: ${dependency.raw}`);
-        continue;
-      }
-
-      const dependencyIssue = await loadDependencyIssue(dependency);
-      if (dependencyIssue?.loadError) {
-        unresolvedDependencies.push(dependency);
-        dependencyWarnings.push(
-          `Failed to load dependency ${dependency.repoSlug}#${dependency.issueNumber}: ${dependencyIssue.loadError.message}`
-        );
-        continue;
-      }
-
-      if (!isDependencySatisfied(dependencyIssue)) {
-        unresolvedDependencies.push(dependency);
-      }
-    }
-
-    analyzedIssues.push({
-      issue,
-      priorityRank: getIssuePriorityRank(issue),
-      dependencies,
-      unresolvedDependencies,
-      dependencyWarnings
-    });
-  }
-
-  const ready = analyzedIssues
-    .filter((entry) => entry.unresolvedDependencies.length === 0)
-    .sort(compareScheduledIssues);
-  const blocked = analyzedIssues
-    .filter((entry) => entry.unresolvedDependencies.length > 0)
-    .sort(compareScheduledIssues);
-
-  return { ready, blocked };
+    };
+  };
 }
 
 function buildRuntimeDeps(options = {}) {
+  const compatibilityOrchestratorNeeded =
+    typeof options.orchestrateGitHubIssue !== "function" &&
+    [options.shapeGitHubIssue, options.executeGitHubIssue, options.critiqueGitHubIssue].some(
+      (candidate) => typeof candidate === "function"
+    );
+
   return {
     github: options.github ?? buildGhAdapter(),
     codex: {
       normalizeIssueInput: options.normalizeIssueInput ?? normalizeIssueInput,
+      orchestrateGitHubIssue:
+        options.orchestrateGitHubIssue ??
+        (compatibilityOrchestratorNeeded
+          ? buildCompatibilityIssueOrchestrator()
+          : orchestrateGitHubIssue),
+      compatibilityOrchestrator: compatibilityOrchestratorNeeded,
       shapeGitHubIssue: options.shapeGitHubIssue ?? shapeGitHubIssue,
       executeGitHubIssue: options.executeGitHubIssue ?? executeGitHubIssue,
       critiqueGitHubIssue: options.critiqueGitHubIssue ?? critiqueGitHubIssue
@@ -281,310 +282,12 @@ function buildRunSummary(status, summary, extra = {}) {
   };
 }
 
-function normalizeNonNegativeInteger(value, fallback) {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return fallback;
-  }
-  return parsed;
-}
-
-function getReviewLoopsMax(options = {}) {
-  return normalizeNonNegativeInteger(
-    options.reviewLoopsMax ?? process.env.ISSUE_DRIVEN_OS_REVIEW_LOOPS_MAX,
-    3
-  );
-}
-
-function resolveReviewLoopsMax(runRecord, options = {}) {
-  const explicitReviewLoopsMax = normalizeNonNegativeInteger(options.reviewLoopsMax, null);
-  if (explicitReviewLoopsMax !== null) {
-    return explicitReviewLoopsMax;
-  }
-
-  const persistedReviewLoopsMax = normalizeNonNegativeInteger(runRecord?.reviewLoopsMax, null);
-  if (persistedReviewLoopsMax !== null) {
-    return persistedReviewLoopsMax;
-  }
-
-  return getReviewLoopsMax(options);
-}
-
-function buildReviewLoopBudgetExceededSummary(critic, reviewLoopCount, reviewLoopsMax) {
-  const baseSummary = critic?.summary?.trim() || "Critic requested additional changes.";
-  return `${baseSummary} Review-loop budget exhausted (${reviewLoopCount}/${reviewLoopsMax}).`;
-}
-
 async function recordRuntimeEvent(runtimePaths, data) {
   try {
     return await appendRuntimeEvent(runtimePaths, data);
   } catch {
     return null;
   }
-}
-
-function snapshotLeaseForRun(lease) {
-  if (!lease || typeof lease !== "object") {
-    return null;
-  }
-
-  const snapshot = { ...lease };
-  delete snapshot.leasePath;
-  return snapshot;
-}
-
-function buildRecoveredLeaseSnapshot(lease, options = {}) {
-  if (!lease || typeof lease !== "object") {
-    return null;
-  }
-
-  const recoveredAt = options.recoveredAt ?? new Date().toISOString();
-  const recoveredAtDate = new Date(recoveredAt);
-  const snapshotNow = Number.isNaN(recoveredAtDate.getTime()) ? new Date() : recoveredAtDate;
-  const previousLease = buildLeaseHistoryRecord(lease, snapshotNow);
-
-  if (!previousLease) {
-    return null;
-  }
-
-  const recoveryReason =
-    options.recoveryReason ?? (previousLease.leaseStatus === "expired" ? "expired" : "force");
-  const lastOutcome =
-    options.lastOutcome ?? (recoveryReason === "expired" ? "expired_recovered" : "force_recovered");
-
-  return {
-    ...previousLease,
-    updatedAt: recoveredAt,
-    lastOutcome,
-    recoveredAt,
-    recoveryReason,
-    leaseStatus: "released",
-    previousLease
-  };
-}
-
-function isLeaseOwnedByRun(lease, runRecord) {
-  if (!lease || !runRecord?.id) {
-    return false;
-  }
-
-  return (
-    lease.holderId === runRecord.id &&
-    (lease.runId === null || lease.runId === undefined || lease.runId === runRecord.id)
-  );
-}
-
-function buildLeaseCollisionSummary(lease) {
-  if (!lease) {
-    return "Issue is already claimed by another active worker.";
-  }
-
-  return [
-    "Issue is already claimed by an active lease.",
-    lease.holderId ? `Holder: ${lease.holderId}` : null,
-    lease.holderType ? `Type: ${lease.holderType}` : null,
-    lease.runId ? `Run: ${lease.runId}` : null,
-    lease.expiresAt ? `Expires: ${lease.expiresAt}` : null
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function buildLeaseRecoveryNote(lease) {
-  if (!lease?.lastOutcome || !lease?.previousLease) {
-    return null;
-  }
-
-  if (lease.lastOutcome !== "expired_recovered" && lease.lastOutcome !== "force_recovered") {
-    return null;
-  }
-
-  return [
-    lease.lastOutcome === "force_recovered" ? "Force-recovered lease." : "Recovered expired lease.",
-    lease.previousLease.holderId ? `Previous holder: ${lease.previousLease.holderId}.` : null,
-    lease.previousLease.runId ? `Previous run: ${lease.previousLease.runId}.` : null,
-    lease.previousLease.leaseStatus ? `Previous state: ${lease.previousLease.leaseStatus}.` : null
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function buildLeaseLossMessage(issueNumber, reason, observedLease, details = {}) {
-  const reasonText =
-    reason === "holder_mismatch"
-      ? "another worker recovered or replaced this lease"
-      : reason === "expired"
-        ? "this lease expired before it could be renewed"
-        : reason === "missing"
-          ? "the lease record disappeared"
-          : reason === "error"
-            ? (details.errorMessage ?? "lease renewal failed")
-            : `lease renewal reported ${reason}`;
-
-  return [
-    `Lease lost for issue #${issueNumber}: ${reasonText}.`,
-    observedLease?.holderId ? `Current holder: ${observedLease.holderId}.` : null,
-    observedLease?.runId ? `Current run: ${observedLease.runId}.` : null,
-    observedLease?.lastOutcome ? `Observed outcome: ${observedLease.lastOutcome}.` : null
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function buildLeaseLostError(issueNumber, runRecord, phase, reason, observedLease, details = {}) {
-  const error = new Error(buildLeaseLossMessage(issueNumber, reason, observedLease, details));
-  error.code = "ISSUE_LEASE_LOST";
-  error.terminationReason = "lease_lost";
-  error.phase = phase ?? null;
-  error.leaseReason = reason;
-  error.observedLease = snapshotLeaseForRun(observedLease);
-  error.runId = runRecord?.id ?? null;
-  return error;
-}
-
-function getLeaseRenewIntervalMs(options = {}) {
-  const explicitHeartbeat = normalizeNonNegativeInteger(options.leaseHeartbeatMs, null);
-  if (explicitHeartbeat !== null) {
-    return explicitHeartbeat;
-  }
-
-  const explicit = normalizeNonNegativeInteger(options.leaseRenewIntervalMs, null);
-  if (explicit !== null) {
-    return explicit;
-  }
-
-  const ttlMs = normalizeNonNegativeInteger(options.leaseTtlMs, DEFAULT_LEASE_TTL_MS);
-  return Math.max(5 * 1000, Math.min(Math.floor(ttlMs / 3), 60 * 1000));
-}
-
-function createLeaseSupervisor(runtimePaths, repoSlug, issueNumber, runRecord, options = {}) {
-  const ttlMs = normalizeNonNegativeInteger(options.leaseTtlMs, DEFAULT_LEASE_TTL_MS);
-  const intervalMs = getLeaseRenewIntervalMs(options);
-  const state = {
-    lost: false,
-    lossError: null,
-    timer: null,
-    inFlight: Promise.resolve()
-  };
-
-  function markLost(reason, phase, observedLease, details = {}) {
-    if (state.lost) {
-      return state.lossError;
-    }
-
-    const detectedAt = new Date().toISOString();
-    const observedLeaseSnapshot = snapshotLeaseForRun(observedLease);
-    const message = buildLeaseLossMessage(issueNumber, reason, observedLeaseSnapshot, details);
-    runRecord.leaseFailure = {
-      reason,
-      detectedAt,
-      observedLease: observedLeaseSnapshot
-    };
-    runRecord.notes.push(message);
-    state.lost = true;
-    state.lossError = buildLeaseLostError(
-      issueNumber,
-      runRecord,
-      phase,
-      reason,
-      observedLeaseSnapshot,
-      details
-    );
-    if (state.timer) {
-      clearInterval(state.timer);
-      state.timer = null;
-    }
-    void recordRuntimeEvent(runtimePaths, {
-      repoSlug,
-      issueNumber,
-      runId: runRecord.id,
-      actor: "worker",
-      phase: "lease",
-      event: "lease_lost",
-      level: "error",
-      message,
-      data: {
-        reason,
-        phase,
-        observedLease: observedLeaseSnapshot
-      }
-    });
-    return state.lossError;
-  }
-
-  async function runRenewal(phase = "heartbeat") {
-    if (state.lost) {
-      throw state.lossError ?? buildLeaseLostError(issueNumber, runRecord, phase, "lease_lost");
-    }
-
-    let renewed;
-    try {
-      renewed = await renewIssueLease(runtimePaths, issueNumber, runRecord.id, {
-        ttlMs,
-        runId: runRecord.id
-      });
-    } catch (error) {
-      throw markLost("error", phase, null, { errorMessage: error.message });
-    }
-
-    if (!renewed.renewed) {
-      throw markLost(renewed.reason, phase, renewed.lease);
-    }
-
-    if (isLeaseOwnedByRun(renewed.lease, runRecord)) {
-      runRecord.lease = snapshotLeaseForRun(renewed.lease);
-    }
-    await recordRuntimeEvent(runtimePaths, {
-      repoSlug,
-      issueNumber,
-      runId: runRecord.id,
-      actor: "worker",
-      phase: "lease",
-      event: "lease_renewed",
-      message: `Renewed lease for issue #${issueNumber}.`,
-      data: {
-        renewalCount: renewed.lease?.renewalCount ?? 0,
-        expiresAt: renewed.lease?.expiresAt ?? null,
-        phase
-      }
-    });
-    return renewed.lease;
-  }
-
-  function renew(phase = "heartbeat") {
-    const operation = state.inFlight.then(() => runRenewal(phase));
-    state.inFlight = operation.catch(() => {});
-    return operation;
-  }
-
-  async function assertActive(phase = "lease_check") {
-    await state.inFlight;
-    if (!state.lost) {
-      return;
-    }
-    throw state.lossError ?? buildLeaseLostError(issueNumber, runRecord, phase, "lease_lost");
-  }
-
-  async function stop() {
-    if (state.timer) {
-      clearInterval(state.timer);
-      state.timer = null;
-    }
-    await state.inFlight;
-  }
-
-  if (intervalMs > 0) {
-    state.timer = setInterval(() => {
-      void renew("heartbeat").catch(() => {});
-    }, intervalMs);
-    state.timer.unref?.();
-  }
-
-  return {
-    renew,
-    assertActive,
-    stop
-  };
 }
 
 function buildProjectionSignature(metadata = {}) {
@@ -714,6 +417,18 @@ function buildCriticExecutionSummary(critic = {}, overrides = {}) {
       Array.isArray(critic.blockingFindings) && critic.blockingFindings.length > 0
         ? critic.blockingFindings
         : "none",
+    ...overrides
+  };
+}
+
+function buildOrchestratorExecutionSummary(decision = {}, overrides = {}) {
+  return {
+    agents: "issue-orchestrator",
+    skills: ["issue-shaping", "execution-briefing", "handoff-bundle-writing"],
+    tools: ["codex exec", "github issue edit", "github issue comment"],
+    verification: decision.summary || "orchestration-decision",
+    limits:
+      Array.isArray(decision.blockers) && decision.blockers.length > 0 ? decision.blockers : "none",
     ...overrides
   };
 }
@@ -864,15 +579,6 @@ async function submitPullRequestReview(
     submittedReviewEvent,
     fallbackReason
   };
-}
-
-function isConsumerCandidate(issue) {
-  const labels = labelSet(issue);
-  return labels.has("agent:ready") || labels.has("agent:review");
-}
-
-function isClaimedIssue(issue) {
-  return labelSet(issue).has("agent:claimed");
 }
 
 function isLeaseExpired(lease, now = new Date()) {
@@ -1264,6 +970,100 @@ function buildExecutionReviewFeedback(reviewFeedback, resumeContext) {
     requestedChanges,
     inlineComments: [...(reviewFeedback?.inlineComments ?? [])]
   };
+}
+
+function getOrchestrationStepLimit(options = {}) {
+  return Math.max(
+    1,
+    normalizeNonNegativeInteger(
+      options.orchestrationStepLimit ?? process.env.ISSUE_DRIVEN_OS_ORCHESTRATION_STEP_LIMIT,
+      DEFAULT_ORCHESTRATION_STEP_LIMIT
+    )
+  );
+}
+
+function buildOrchestrationContext({
+  issue,
+  runRecord,
+  workspace,
+  shaping,
+  execution,
+  critic,
+  pullRequest,
+  reviewFeedback,
+  branchSync,
+  resumeContext,
+  options
+}) {
+  return {
+    issue: {
+      number: issue.number,
+      title: issue.title,
+      body: issue.body,
+      state: issue.state,
+      url: issue.url,
+      labels: issue.labels ?? [],
+      recentComments: issue.comments?.slice(-10) ?? []
+    },
+    run: {
+      id: runRecord.id,
+      status: runRecord.status,
+      summary: runRecord.summary,
+      branchRef: runRecord.branchRef ?? null,
+      worktreePath: runRecord.worktreePath ?? null,
+      commitSha: runRecord.commitSha ?? null,
+      prNumber: runRecord.prNumber ?? null,
+      prUrl: runRecord.prUrl ?? null,
+      lastCompletedPhase: runRecord.lastCompletedPhase ?? null,
+      reviewLoopCount: runRecord.reviewLoopCount,
+      reviewLoopsMax: runRecord.reviewLoopsMax,
+      orchestrationStepCount: runRecord.orchestrationStepCount ?? 0,
+      notes: runRecord.notes ?? [],
+      artifacts: runRecord.artifacts ?? []
+    },
+    workspace: workspace
+      ? {
+          branchName: workspace.branchName,
+          baseBranch: workspace.baseBranch,
+          worktreePath: workspace.worktreePath
+        }
+      : null,
+    artifacts: {
+      shaping,
+      execution,
+      critic,
+      previousExecution: resumeContext?.previousExecution ?? null,
+      previousCritic: resumeContext?.previousCritic ?? null
+    },
+    review: {
+      pullRequest,
+      feedback: reviewFeedback ?? { requestedChanges: [], inlineComments: [] },
+      branchSync: branchSync ?? null
+    },
+    policy: {
+      orchestrationStepLimit: getOrchestrationStepLimit(options),
+      supportedWorkerKinds: [...ORCHESTRATOR_SUPPORTED_WORKER_KINDS],
+      reviewLoopCount: runRecord.reviewLoopCount,
+      reviewLoopsMax: runRecord.reviewLoopsMax,
+      remainingReviewLoops: Math.max(0, runRecord.reviewLoopsMax - runRecord.reviewLoopCount),
+      runtimeGates: [
+        "request_merge requires an existing pull request and critic readiness",
+        "runtime enforces review-loop budget exhaustion"
+      ]
+    }
+  };
+}
+
+function buildOrchestratorSummary(decision) {
+  if (!decision || typeof decision !== "object") {
+    return "invalid";
+  }
+
+  return [decision.action, decision.worker?.kind].filter(Boolean).join(":");
+}
+
+function buildUnsupportedWorkerSummary(kind) {
+  return `Issue orchestrator requested unsupported worker kind "${kind}".`;
 }
 
 async function produceGitHubIssue(repoRoot, repoSlug, repoPath, rawInput, options = {}) {
@@ -1937,173 +1737,488 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       );
     }
 
-    let shaping;
+    let workspace = null;
+    let activePullRequest = null;
+    let shaping = resumeContext?.shaping ? { payload: resumeContext.shaping } : null;
+    let execution = resumeContext?.execution ? { payload: resumeContext.execution } : null;
+    let critic = resumeContext?.critic ? { payload: resumeContext.critic } : null;
     let shapingArtifactPath =
       runRecord.artifacts.find((artifact) => artifact.kind === "shaping")?.path ?? null;
-    if (resumeContext?.shaping) {
-      shaping = { payload: resumeContext.shaping };
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "issue-shaper",
-        phase: "shaping",
-        event: "shaping_resumed",
-        message: `Reused shaping artifact for route ${shaping.payload.route}.`,
-        data: {
-          route: shaping.payload.route,
-          artifactPath: shapingArtifactPath
-        }
-      });
-    } else {
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "issue-shaper",
-        phase: "shaping",
-        event: "shaping_started",
-        message: "Started shaping the issue."
-      });
-      await keepLease("shaping");
-      shaping = await deps.codex.shapeGitHubIssue(repoRoot, repoPath, {
-        issue,
-        recentComments: issue.comments.slice(-10)
-      });
-      await keepLease("shaping_completed");
-      shapingArtifactPath = await persistArtifact(
-        runtimePaths,
-        runRecord.id,
-        "shaping",
-        shaping.payload
-      );
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "issue-shaper",
-        phase: "shaping",
-        event: "shaping_completed",
-        message: `Shaping completed with route ${shaping.payload.route}.`,
-        data: {
-          route: shaping.payload.route,
-          artifactPath: shapingArtifactPath
-        }
-      });
-    }
-    await checkpointPhaseArtifact("shaping", shapingArtifactPath, "shaping");
+    let executionArtifactPath =
+      runRecord.artifacts.find((artifact) => artifact.kind === "execution")?.path ?? null;
+    let criticArtifactPath =
+      runRecord.artifacts.find((artifact) => artifact.kind === "critic")?.path ?? null;
+    const artifactReuse = {
+      shaping: Boolean(resumeContext?.shaping),
+      execution: Boolean(resumeContext?.execution),
+      critic: Boolean(resumeContext?.critic)
+    };
+    let reviewResumeContext = {
+      run: resumeContext?.run ?? null,
+      previousExecution: resumeContext?.previousExecution ?? execution?.payload ?? null,
+      previousCritic: resumeContext?.previousCritic ?? critic?.payload ?? null,
+      needsRework: Boolean(resumeContext?.needsRework)
+    };
 
-    if (shaping.payload.route === "split") {
-      await keepLease("split_issue_creation");
-      const childIssues = await createSplitIssues(repoSlug, shaping.payload, deps.github);
-      await keepLease("split_issue_creation_completed");
-      await keepLease("split_projection");
-      return finalizeSplitRoute(shaping.payload, childIssues);
-    }
+    async function ensureWorkspace() {
+      if (workspace) {
+        return null;
+      }
 
-    if (shaping.payload.route !== "execute") {
-      await keepLease("shaping_blocked");
-      return finalizeIssueCommentBlock({
-        actor: "issue-shaper",
-        eventActor: "worker",
-        phase: "shaping",
-        summary: shaping.payload.summary,
-        executionSummary: buildShaperExecutionSummary(shaping.payload.route, {
-          limits: shaping.payload.summary
-        }),
-        event: "issue_blocked_after_shaping",
-        lastCompletedPhase: "shaping"
-      });
-    }
-
-    const workspace = await deps.workspace.createIssueWorktree(
-      repoPath,
-      runtimePaths,
-      issueNumber,
-      {
+      workspace = await deps.workspace.createIssueWorktree(repoPath, runtimePaths, issueNumber, {
         branchName: options.branchName ?? runRecord.branchRef,
         reuseExisting: true
-      }
-    );
-
-    runRecord.branchRef = workspace.branchName;
-    runRecord.worktreePath = workspace.worktreePath;
-    await recordRuntimeEvent(runtimePaths, {
-      repoSlug,
-      issueNumber,
-      runId: runRecord.id,
-      actor: "workspace",
-      phase: "workspace",
-      event: workspace.reused ? "worktree_reused" : "worktree_created",
-      message: `${workspace.reused ? "Reused" : "Created"} worktree ${workspace.worktreePath}.`,
-      data: {
-        branchRef: workspace.branchName,
-        worktreePath: workspace.worktreePath
-      }
-    });
-    await checkpointRun(runtimePaths, repoSlug, runRecord, {
-      branchRef: workspace.branchName,
-      worktreePath: workspace.worktreePath,
-      lastCompletedPhase: "workspace"
-    });
-
-    const openPullRequest = await deps.github.findPullRequestForBranch(
-      repoSlug,
-      workspace.branchName,
-      {
-        state: "open",
-        commandOptions: options.commandOptions
-      }
-    );
-    const existingPullRequest =
-      openPullRequest ??
-      (resumeContext
-        ? await deps.github.findPullRequestForBranch(repoSlug, workspace.branchName, {
-            state: "all",
-            commandOptions: options.commandOptions
-          })
-        : null);
-
-    if (
-      existingPullRequest &&
-      (normalizeStateName(existingPullRequest.state) === "merged" ||
-        normalizeStateName(existingPullRequest.mergeStateStatus) === "merged")
-    ) {
-      const reconcile = await reconcileIssue(repoSlug, issueNumber, {
-        ...options,
-        branchName: workspace.branchName
       });
-      const finishedAt = new Date().toISOString();
+
+      runRecord.branchRef = workspace.branchName;
+      runRecord.worktreePath = workspace.worktreePath;
+      await recordRuntimeEvent(runtimePaths, {
+        repoSlug,
+        issueNumber,
+        runId: runRecord.id,
+        actor: "workspace",
+        phase: "workspace",
+        event: workspace.reused ? "worktree_reused" : "worktree_created",
+        message: `${workspace.reused ? "Reused" : "Created"} worktree ${workspace.worktreePath}.`,
+        data: {
+          branchRef: workspace.branchName,
+          worktreePath: workspace.worktreePath
+        }
+      });
       await checkpointRun(runtimePaths, repoSlug, runRecord, {
-        status: reconcile.status === "closed" ? "merged" : "awaiting_merge",
-        mergeStatus: reconcile.status,
-        prNumber: existingPullRequest.number,
-        prUrl: existingPullRequest.url,
-        finishedAt,
-        summary: reconcile.summary,
-        lastCompletedPhase: "reconciled"
+        branchRef: workspace.branchName,
+        worktreePath: workspace.worktreePath,
+        lastCompletedPhase: "workspace"
       });
-      return buildRunSummary(
-        reconcile.status === "closed" ? "merged" : "awaiting_merge",
-        reconcile.summary,
+
+      const openPullRequest = await deps.github.findPullRequestForBranch(
+        repoSlug,
+        workspace.branchName,
         {
-          runId: runRecord.id,
-          pullRequest: existingPullRequest
+          state: "open",
+          commandOptions: options.commandOptions
         }
       );
+      const existingPullRequest =
+        openPullRequest ??
+        (resumeContext
+          ? await deps.github.findPullRequestForBranch(repoSlug, workspace.branchName, {
+              state: "all",
+              commandOptions: options.commandOptions
+            })
+          : null);
+
+      if (
+        existingPullRequest &&
+        (normalizeStateName(existingPullRequest.state) === "merged" ||
+          normalizeStateName(existingPullRequest.mergeStateStatus) === "merged")
+      ) {
+        const reconcile = await reconcileIssue(repoSlug, issueNumber, {
+          ...options,
+          branchName: workspace.branchName
+        });
+        const finishedAt = new Date().toISOString();
+        await checkpointRun(runtimePaths, repoSlug, runRecord, {
+          status: reconcile.status === "closed" ? "merged" : "awaiting_merge",
+          mergeStatus: reconcile.status,
+          prNumber: existingPullRequest.number,
+          prUrl: existingPullRequest.url,
+          finishedAt,
+          summary: reconcile.summary,
+          lastCompletedPhase: "reconciled"
+        });
+        return buildRunSummary(
+          reconcile.status === "closed" ? "merged" : "awaiting_merge",
+          reconcile.summary,
+          {
+            runId: runRecord.id,
+            pullRequest: existingPullRequest
+          }
+        );
+      }
+
+      activePullRequest = existingPullRequest;
+      return null;
     }
 
-    let activePullRequest = existingPullRequest;
-    let loopResumeContext = resumeContext;
+    const orchestrationStepLimit = getOrchestrationStepLimit(options);
 
     while (true) {
+      runRecord.orchestrationStepCount =
+        normalizeNonNegativeInteger(runRecord.orchestrationStepCount, 0) + 1;
+      if (runRecord.orchestrationStepCount > orchestrationStepLimit) {
+        await keepLease("orchestration_budget_exhausted");
+        return finalizeIssueCommentBlock({
+          actor: "issue-orchestrator",
+          phase: "orchestration",
+          summary: `Issue orchestrator exceeded the orchestration step limit (${orchestrationStepLimit}).`,
+          executionSummary: buildOrchestratorExecutionSummary({
+            summary: "orchestration-step-limit-exhausted",
+            blockers: [`step-limit=${orchestrationStepLimit}`]
+          }),
+          event: "orchestration_step_limit_exhausted",
+          lastCompletedPhase: runRecord.lastCompletedPhase ?? "claim",
+          terminationReason: "orchestration_step_limit_exhausted"
+        });
+      }
+
+      const reviewFeedback = buildExecutionReviewFeedback(
+        activePullRequest
+          ? extractReviewFeedback(
+              await deps.github.listPullRequestReviews(repoSlug, activePullRequest.number, options),
+              await deps.github.listPullRequestReviewComments(
+                repoSlug,
+                activePullRequest.number,
+                options
+              )
+            )
+          : { requestedChanges: [], inlineComments: [] },
+        reviewResumeContext
+      );
+
+      await recordRuntimeEvent(runtimePaths, {
+        repoSlug,
+        issueNumber,
+        runId: runRecord.id,
+        actor: "issue-orchestrator",
+        phase: "orchestration",
+        event: "orchestration_started",
+        message: `Issue orchestrator started decision step ${runRecord.orchestrationStepCount}.`,
+        data: {
+          step: runRecord.orchestrationStepCount,
+          stepLimit: orchestrationStepLimit
+        }
+      });
+      await keepLease("orchestration");
+      const orchestration = await deps.codex.orchestrateGitHubIssue(
+        repoRoot,
+        workspace?.worktreePath ?? repoPath,
+        buildOrchestrationContext({
+          issue,
+          runRecord,
+          workspace,
+          shaping: shaping?.payload ?? null,
+          execution: execution?.payload ?? null,
+          critic: critic?.payload ?? null,
+          pullRequest: activePullRequest,
+          reviewFeedback,
+          branchSync:
+            workspace && activePullRequest
+              ? {
+                  status: "review_pending",
+                  baseBranch: workspace.baseBranch,
+                  baseRef: `origin/${workspace.baseBranch}`,
+                  conflictedFiles: []
+                }
+              : null,
+          resumeContext: reviewResumeContext,
+          options
+        })
+      );
+      await keepLease("orchestration_completed");
+
+      const decision = orchestration.payload;
+      await recordRuntimeEvent(runtimePaths, {
+        repoSlug,
+        issueNumber,
+        runId: runRecord.id,
+        actor: "issue-orchestrator",
+        phase: "orchestration",
+        event: "orchestration_completed",
+        message: `Issue orchestrator selected ${buildOrchestratorSummary(decision)}.`,
+        data: {
+          step: runRecord.orchestrationStepCount,
+          action: decision.action,
+          workerKind: decision.worker?.kind ?? null,
+          mergeReadiness: decision.mergeReadiness ?? "none",
+          blockers: decision.blockers ?? []
+        }
+      });
+      await updateRun({
+        summary: decision.summary || runRecord.summary,
+        orchestrationStepCount: runRecord.orchestrationStepCount
+      });
+
+      if (decision.action === "split_issue") {
+        const splitPayload = {
+          summary: decision.summary || shaping?.payload?.summary || "Issue split by orchestrator.",
+          splitIssues:
+            (decision.splitIssues ?? []).length > 0
+              ? decision.splitIssues
+              : (shaping?.payload?.splitIssues ?? [])
+        };
+
+        if (splitPayload.splitIssues.length === 0) {
+          await keepLease("split_issue_missing_payload");
+          return finalizeIssueCommentBlock({
+            actor: "issue-orchestrator",
+            phase: "orchestration",
+            summary:
+              "Issue orchestrator requested issue splitting without any child issue definitions.",
+            executionSummary: buildOrchestratorExecutionSummary({
+              summary: "missing-split-issues",
+              blockers: ["split_issue requires at least one child issue definition"]
+            }),
+            event: "issue_split_missing_payload",
+            lastCompletedPhase: runRecord.lastCompletedPhase ?? "claim"
+          });
+        }
+
+        await keepLease("split_issue_creation");
+        const childIssues = await createSplitIssues(repoSlug, splitPayload, deps.github);
+        await keepLease("split_issue_creation_completed");
+        await keepLease("split_projection");
+        return finalizeSplitRoute(splitPayload, childIssues);
+      }
+
+      if (decision.action === "block_issue" || decision.action === "create_handoff") {
+        if (deps.codex.compatibilityOrchestrator && decision.action === "block_issue") {
+          if (shaping?.payload && !execution?.payload && !critic?.payload) {
+            await keepLease("shaping_blocked");
+            return finalizeIssueCommentBlock({
+              actor: "issue-shaper",
+              eventActor: "worker",
+              phase: "shaping",
+              summary: shaping.payload.summary,
+              executionSummary: buildShaperExecutionSummary(shaping.payload.route, {
+                limits: shaping.payload.summary
+              }),
+              event: "issue_blocked_after_shaping",
+              lastCompletedPhase: "shaping"
+            });
+          }
+
+          if (execution?.payload && !critic?.payload) {
+            await keepLease(
+              execution.payload.status === "no_changes"
+                ? "execution_no_changes"
+                : "execution_blocked"
+            );
+            return finalizeIssueCommentBlock({
+              actor: "issue-cell-executor",
+              eventActor:
+                execution.payload.status === "no_changes" ? "workspace" : "issue-cell-executor",
+              phase: "execution",
+              summary: execution.payload.summary || "No code changes were produced.",
+              blockers: execution.payload.blockers,
+              executionSummary: buildExecutorExecutionSummary(execution.payload, {
+                tools: ["codex exec", "github issue edit", "github issue comment"],
+                limits: execution.payload.summary || execution.payload.status || "none"
+              }),
+              event:
+                execution.payload.status === "no_changes"
+                  ? "execution_no_changes"
+                  : "execution_blocked",
+              eventData: {
+                blockers: execution.payload.blockers
+              },
+              lastCompletedPhase: "execution"
+            });
+          }
+
+          if (critic?.payload) {
+            await keepLease("critic_blocked");
+            return finalizeCriticBlock({
+              summary: critic.payload.summary,
+              event: "critic_blocked",
+              eventData: {
+                pullRequestNumber: activePullRequest?.number ?? null,
+                pullRequestUrl: activePullRequest?.url ?? null
+              },
+              pullRequest: activePullRequest
+            });
+          }
+        }
+
+        await keepLease(
+          decision.action === "create_handoff" ? "orchestration_handoff" : "orchestration_blocked"
+        );
+        return finalizeIssueCommentBlock({
+          actor: "issue-orchestrator",
+          phase: "orchestration",
+          summary: decision.summary,
+          blockers: decision.blockers,
+          executionSummary: buildOrchestratorExecutionSummary(decision, {
+            verification:
+              decision.action === "create_handoff" ? "handoff-requested" : "orchestration-blocked"
+          }),
+          event:
+            decision.action === "create_handoff"
+              ? "issue_handoff_requested"
+              : "issue_blocked_by_orchestrator",
+          lastCompletedPhase: runRecord.lastCompletedPhase ?? "claim",
+          terminationReason:
+            decision.action === "create_handoff" ? "handoff_requested" : runRecord.terminationReason
+        });
+      }
+
+      if (decision.action === "request_merge") {
+        if (!critic?.payload || !activePullRequest) {
+          await keepLease("merge_request_missing_review_state");
+          return finalizeIssueCommentBlock({
+            actor: "issue-orchestrator",
+            phase: "orchestration",
+            summary:
+              "Issue orchestrator requested merge readiness before a pull request and ready critic verdict were available.",
+            executionSummary: buildOrchestratorExecutionSummary({
+              summary: "merge-request-missing-review-state",
+              blockers: ["request_merge requires both a pull request and a critic artifact"]
+            }),
+            event: "merge_request_missing_review_state",
+            lastCompletedPhase: runRecord.lastCompletedPhase ?? "claim"
+          });
+        }
+
+        await keepLease("ready_review");
+        await submitProjectedCriticReview(
+          activePullRequest,
+          critic.payload,
+          buildReadyComment(activePullRequest.url, critic.payload)
+        );
+        await keepLease("merge_enable");
+        await deps.github.editIssue(repoSlug, issueNumber, {
+          addLabels: ["agent:review"],
+          removeLabels: ["agent:claimed", "agent:ready", "agent:blocked"],
+          commandOptions: options.commandOptions
+        });
+        await deps.github.enableAutoMerge(repoSlug, activePullRequest.number, {
+          matchHeadCommit: runRecord.commitSha,
+          commandOptions: options.commandOptions
+        });
+        await keepLease("merge_enabled");
+        await recordRuntimeEvent(runtimePaths, {
+          repoSlug,
+          issueNumber,
+          runId: runRecord.id,
+          actor: "pull-request",
+          phase: "review",
+          event: "auto_merge_enabled",
+          message: `Enabled auto-merge for pull request #${activePullRequest.number}.`,
+          data: {
+            pullRequestNumber: activePullRequest.number,
+            pullRequestUrl: activePullRequest.url,
+            commitSha: runRecord.commitSha
+          }
+        });
+        await updateRun({
+          lastCompletedPhase: "merge_enabled",
+          reviewLoopCount: runRecord.reviewLoopCount,
+          reviewLoopsMax: runRecord.reviewLoopsMax
+        });
+        break;
+      }
+
+      if (decision.action !== "spawn_worker" || !decision.worker) {
+        await keepLease("invalid_orchestration_action");
+        return finalizeIssueCommentBlock({
+          actor: "issue-orchestrator",
+          phase: "orchestration",
+          summary: `Issue orchestrator returned invalid action ${decision.action}.`,
+          executionSummary: buildOrchestratorExecutionSummary({
+            summary: "invalid-orchestration-action",
+            blockers: [`action=${decision.action}`]
+          }),
+          event: "invalid_orchestration_action",
+          lastCompletedPhase: runRecord.lastCompletedPhase ?? "claim"
+        });
+      }
+
+      const workerKind = decision.worker.kind;
+      if (!ORCHESTRATOR_SUPPORTED_WORKER_KINDS.has(workerKind)) {
+        await keepLease("unsupported_worker_kind");
+        return finalizeIssueCommentBlock({
+          actor: "issue-orchestrator",
+          phase: "orchestration",
+          summary: buildUnsupportedWorkerSummary(workerKind),
+          blockers: [workerKind],
+          executionSummary: buildOrchestratorExecutionSummary({
+            summary: buildUnsupportedWorkerSummary(workerKind),
+            blockers: [workerKind]
+          }),
+          event: "unsupported_worker_kind",
+          lastCompletedPhase: runRecord.lastCompletedPhase ?? "claim"
+        });
+      }
+
+      if (workerKind === "issue-shaper") {
+        const reusedShaping = artifactReuse.shaping;
+        if (reusedShaping) {
+          artifactReuse.shaping = false;
+          await recordRuntimeEvent(runtimePaths, {
+            repoSlug,
+            issueNumber,
+            runId: runRecord.id,
+            actor: "issue-shaper",
+            phase: "shaping",
+            event: "shaping_resumed",
+            message: `Reused shaping artifact for route ${shaping?.payload?.route ?? "unknown"}.`,
+            data: {
+              route: shaping?.payload?.route ?? null,
+              artifactPath: shapingArtifactPath
+            }
+          });
+        } else {
+          await recordRuntimeEvent(runtimePaths, {
+            repoSlug,
+            issueNumber,
+            runId: runRecord.id,
+            actor: "issue-shaper",
+            phase: "shaping",
+            event: "shaping_started",
+            message: "Started shaping the issue."
+          });
+          await keepLease("shaping");
+          shaping = await deps.codex.shapeGitHubIssue(repoRoot, repoPath, {
+            issue,
+            recentComments: issue.comments.slice(-10),
+            orchestration: {
+              task: decision.worker.task,
+              acceptanceFocus: decision.worker.acceptanceFocus,
+              summary: decision.summary
+            }
+          });
+          await keepLease("shaping_completed");
+          shapingArtifactPath = await persistArtifact(
+            runtimePaths,
+            runRecord.id,
+            "shaping",
+            shaping.payload
+          );
+          await recordRuntimeEvent(runtimePaths, {
+            repoSlug,
+            issueNumber,
+            runId: runRecord.id,
+            actor: "issue-shaper",
+            phase: "shaping",
+            event: "shaping_completed",
+            message: `Shaping completed with route ${shaping.payload.route}.`,
+            data: {
+              route: shaping.payload.route,
+              artifactPath: shapingArtifactPath
+            }
+          });
+        }
+        await checkpointPhaseArtifact("shaping", shapingArtifactPath, "shaping");
+        continue;
+      }
+
+      const ensureWorkspaceResult = await ensureWorkspace();
+      if (ensureWorkspaceResult) {
+        return ensureWorkspaceResult;
+      }
+
       let branchSync = {
         status: "not_required",
         baseBranch: workspace.baseBranch,
         baseRef: `origin/${workspace.baseBranch}`,
         conflictedFiles: []
       };
-      if (activePullRequest || loopResumeContext || runRecord.reviewLoopCount > 0) {
+      if (
+        reviewResumeContext.needsRework ||
+        runRecord.reviewLoopCount > 0 ||
+        artifactReuse.execution ||
+        artifactReuse.critic
+      ) {
         await keepLease("branch_refresh");
         branchSync = await deps.workspace.refreshIssueBranch(
           workspace.worktreePath,
@@ -2137,261 +2252,257 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         });
       }
 
-      const reviewFeedback = buildExecutionReviewFeedback(
-        activePullRequest
-          ? extractReviewFeedback(
-              await deps.github.listPullRequestReviews(repoSlug, activePullRequest.number, options),
-              await deps.github.listPullRequestReviewComments(
-                repoSlug,
-                activePullRequest.number,
-                options
-              )
-            )
-          : { requestedChanges: [], inlineComments: [] },
-        loopResumeContext
-      );
+      if (workerKind === "issue-cell-executor") {
+        const reusedExecution = artifactReuse.execution;
+        if (reusedExecution) {
+          artifactReuse.execution = false;
+          execution = { payload: resumeContext.execution };
+          await recordRuntimeEvent(runtimePaths, {
+            repoSlug,
+            issueNumber,
+            runId: runRecord.id,
+            actor: "issue-cell-executor",
+            phase: "execution",
+            event: "execution_resumed",
+            message: `Reused execution artifact with status ${execution.payload.status}.`,
+            data: {
+              status: execution.payload.status,
+              artifactPath: executionArtifactPath
+            }
+          });
+        } else {
+          await recordRuntimeEvent(runtimePaths, {
+            repoSlug,
+            issueNumber,
+            runId: runRecord.id,
+            actor: "issue-cell-executor",
+            phase: "execution",
+            event: "execution_started",
+            message: "Started issue execution."
+          });
+          await keepLease("execution");
+          execution = await deps.codex.executeGitHubIssue(repoRoot, workspace.worktreePath, {
+            issue,
+            shaping: shaping?.payload ?? null,
+            reviewFeedback,
+            branchRef: workspace.branchName,
+            branchSync,
+            orchestration: {
+              task: decision.worker.task,
+              acceptanceFocus: decision.worker.acceptanceFocus,
+              summary: decision.summary
+            }
+          });
+          await keepLease("execution_completed");
+          executionArtifactPath = await persistArtifact(
+            runtimePaths,
+            runRecord.id,
+            "execution",
+            execution.payload
+          );
+          await recordRuntimeEvent(runtimePaths, {
+            repoSlug,
+            issueNumber,
+            runId: runRecord.id,
+            actor: "issue-cell-executor",
+            phase: "execution",
+            event: "execution_completed",
+            message: `Execution completed with status ${execution.payload.status}.`,
+            data: {
+              status: execution.payload.status,
+              artifactPath: executionArtifactPath
+            }
+          });
+        }
+        await checkpointPhaseArtifact("execution", executionArtifactPath, "execution", {
+          reviewLoopCount: runRecord.reviewLoopCount,
+          reviewLoopsMax: runRecord.reviewLoopsMax
+        });
 
-      let execution;
-      let executionArtifactPath =
-        runRecord.artifacts.find((artifact) => artifact.kind === "execution")?.path ?? null;
-      if (loopResumeContext?.execution) {
-        execution = { payload: loopResumeContext.execution };
-        await recordRuntimeEvent(runtimePaths, {
-          repoSlug,
-          issueNumber,
-          runId: runRecord.id,
-          actor: "issue-cell-executor",
-          phase: "execution",
-          event: "execution_resumed",
-          message: `Reused execution artifact with status ${execution.payload.status}.`,
-          data: {
-            status: execution.payload.status,
-            artifactPath: executionArtifactPath
+        reviewResumeContext = {
+          run: runRecord,
+          previousExecution: execution.payload,
+          previousCritic: reviewResumeContext.previousCritic,
+          needsRework: false
+        };
+        critic = null;
+
+        if (
+          execution.payload.status === "blocked" ||
+          execution.payload.status === "split_required" ||
+          execution.payload.status === "no_changes"
+        ) {
+          await updateRun({
+            lastCompletedPhase: "execution",
+            reviewLoopCount: runRecord.reviewLoopCount,
+            reviewLoopsMax: runRecord.reviewLoopsMax
+          });
+          continue;
+        }
+
+        let commitResult;
+        if (reusedExecution) {
+          const worktreeStatus = await deps.workspace.getWorkingTreeStatus(workspace.worktreePath);
+          if (worktreeStatus) {
+            await keepLease("commit");
+            commitResult = await deps.workspace.commitAllChanges(
+              workspace.worktreePath,
+              execution.payload.commitMessage || `fix(issue): address #${issueNumber}`
+            );
+            await keepLease("commit_completed");
+          } else {
+            commitResult = {
+              changed: true,
+              commitSha: await deps.workspace.getHeadCommitSha(workspace.worktreePath),
+              resumed: true
+            };
           }
-        });
-      } else {
-        await recordRuntimeEvent(runtimePaths, {
-          repoSlug,
-          issueNumber,
-          runId: runRecord.id,
-          actor: "issue-cell-executor",
-          phase: "execution",
-          event: "execution_started",
-          message: "Started issue execution."
-        });
-        await keepLease("execution");
-        execution = await deps.codex.executeGitHubIssue(repoRoot, workspace.worktreePath, {
-          issue,
-          shaping: shaping.payload,
-          reviewFeedback,
-          branchRef: workspace.branchName,
-          branchSync
-        });
-        await keepLease("execution_completed");
-        executionArtifactPath = await persistArtifact(
-          runtimePaths,
-          runRecord.id,
-          "execution",
-          execution.payload
-        );
-        await recordRuntimeEvent(runtimePaths, {
-          repoSlug,
-          issueNumber,
-          runId: runRecord.id,
-          actor: "issue-cell-executor",
-          phase: "execution",
-          event: "execution_completed",
-          message: `Execution completed with status ${execution.payload.status}.`,
-          data: {
-            status: execution.payload.status,
-            artifactPath: executionArtifactPath
-          }
-        });
-      }
-      await checkpointPhaseArtifact("execution", executionArtifactPath, "execution", {
-        reviewLoopCount: runRecord.reviewLoopCount,
-        reviewLoopsMax: runRecord.reviewLoopsMax
-      });
-
-      if (execution.payload.status === "blocked" || execution.payload.status === "split_required") {
-        await keepLease("execution_blocked");
-        return finalizeIssueCommentBlock({
-          actor: "issue-cell-executor",
-          phase: "execution",
-          summary: execution.payload.summary,
-          blockers: execution.payload.blockers,
-          executionSummary: buildExecutorExecutionSummary(execution.payload, {
-            tools: ["codex exec", "github issue edit", "github issue comment"]
-          }),
-          event: "execution_blocked",
-          eventData: {
-            blockers: execution.payload.blockers
-          },
-          lastCompletedPhase: "execution"
-        });
-      }
-
-      let commitResult;
-      if (loopResumeContext?.execution) {
-        const worktreeStatus = await deps.workspace.getWorkingTreeStatus(workspace.worktreePath);
-        if (worktreeStatus) {
+        } else {
           await keepLease("commit");
           commitResult = await deps.workspace.commitAllChanges(
             workspace.worktreePath,
             execution.payload.commitMessage || `fix(issue): address #${issueNumber}`
           );
           await keepLease("commit_completed");
-        } else {
-          commitResult = {
-            changed: true,
-            commitSha: await deps.workspace.getHeadCommitSha(workspace.worktreePath),
-            resumed: true
-          };
         }
-      } else {
-        await keepLease("commit");
-        commitResult = await deps.workspace.commitAllChanges(
-          workspace.worktreePath,
-          execution.payload.commitMessage || `fix(issue): address #${issueNumber}`
-        );
-        await keepLease("commit_completed");
-      }
 
-      if (
-        (!commitResult.changed && !commitResult.commitSha) ||
-        execution.payload.status === "no_changes"
-      ) {
-        await keepLease("execution_no_changes");
-        return finalizeIssueCommentBlock({
-          actor: "issue-cell-executor",
-          eventActor: "workspace",
-          phase: "execution",
-          summary: execution.payload.summary || "No code changes were produced.",
-          blockers: execution.payload.blockers,
-          executionSummary: buildExecutorExecutionSummary(execution.payload, {
-            tools: ["codex exec", "github issue edit", "github issue comment"],
-            limits: execution.payload.summary || "no_changes"
-          }),
-          event: "execution_no_changes",
-          eventMessage: runRecord.summary,
-          eventData: {
-            blockers: execution.payload.blockers
-          },
-          lastCompletedPhase: "execution"
-        });
-      }
-
-      runRecord.commitSha = commitResult.commitSha;
-      await keepLease("push");
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "workspace",
-        phase: "execution",
-        event: commitResult.resumed ? "commit_reused" : "commit_created",
-        message: `${commitResult.resumed ? "Reused" : "Created"} commit ${commitResult.commitSha}.`,
-        data: {
-          branchRef: workspace.branchName,
-          commitSha: commitResult.commitSha
+        if (!commitResult.changed && !commitResult.commitSha) {
+          await updateRun({
+            lastCompletedPhase: "execution",
+            reviewLoopCount: runRecord.reviewLoopCount,
+            reviewLoopsMax: runRecord.reviewLoopsMax
+          });
+          continue;
         }
-      });
-      await updateRun({
-        commitSha: commitResult.commitSha,
-        lastCompletedPhase: "commit_created",
-        reviewLoopCount: runRecord.reviewLoopCount,
-        reviewLoopsMax: runRecord.reviewLoopsMax
-      });
-      await deps.workspace.pushBranch(workspace.worktreePath, workspace.branchName, {
-        forceWithLease: Boolean(loopResumeContext) || Boolean(activePullRequest)
-      });
-      await keepLease("push_completed");
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "workspace",
-        phase: "execution",
-        event: "branch_pushed",
-        message: `Pushed branch ${workspace.branchName}.`,
-        data: {
-          branchRef: workspace.branchName,
-          forceWithLease: Boolean(loopResumeContext) || Boolean(activePullRequest)
-        }
-      });
-      await updateRun({
-        lastCompletedPhase: "branch_pushed",
-        reviewLoopCount: runRecord.reviewLoopCount,
-        reviewLoopsMax: runRecord.reviewLoopsMax
-      });
 
-      const pullRequestTitle = execution.payload.prTitle || `Fix #${issueNumber}: ${issue.title}`;
-      const pullRequestExecutionSummary = buildExecutorExecutionSummary(execution.payload);
-      const pullRequestBody = annotateProjectionBody(
-        buildPullRequestBody(issue, execution.payload, {
-          summary: execution.payload.verificationSummary
-        }),
-        {
-          actor: "issue-cell-executor",
-          phase: "review",
-          runId: runRecord.id,
+        runRecord.commitSha = commitResult.commitSha;
+        await keepLease("push");
+        await recordRuntimeEvent(runtimePaths, {
+          repoSlug,
           issueNumber,
-          channel: "pull_request_body",
-          executionSummary: pullRequestExecutionSummary
-        }
-      );
+          runId: runRecord.id,
+          actor: "workspace",
+          phase: "execution",
+          event: commitResult.resumed ? "commit_reused" : "commit_created",
+          message: `${commitResult.resumed ? "Reused" : "Created"} commit ${commitResult.commitSha}.`,
+          data: {
+            branchRef: workspace.branchName,
+            commitSha: commitResult.commitSha
+          }
+        });
+        await updateRun({
+          commitSha: commitResult.commitSha,
+          lastCompletedPhase: "commit_created",
+          reviewLoopCount: runRecord.reviewLoopCount,
+          reviewLoopsMax: runRecord.reviewLoopsMax
+        });
+        await deps.workspace.pushBranch(workspace.worktreePath, workspace.branchName, {
+          forceWithLease: reusedExecution || Boolean(activePullRequest)
+        });
+        await keepLease("push_completed");
+        await recordRuntimeEvent(runtimePaths, {
+          repoSlug,
+          issueNumber,
+          runId: runRecord.id,
+          actor: "workspace",
+          phase: "execution",
+          event: "branch_pushed",
+          message: `Pushed branch ${workspace.branchName}.`,
+          data: {
+            branchRef: workspace.branchName,
+            forceWithLease: reusedExecution || Boolean(activePullRequest)
+          }
+        });
+        await updateRun({
+          lastCompletedPhase: "branch_pushed",
+          reviewLoopCount: runRecord.reviewLoopCount,
+          reviewLoopsMax: runRecord.reviewLoopsMax
+        });
 
-      const hadExistingPullRequest = Boolean(activePullRequest);
-      await keepLease("pull_request_prepare");
-      const pullRequest = hadExistingPullRequest
-        ? await deps.github
-            .editPullRequest(repoSlug, activePullRequest.number, {
+        const pullRequestTitle = execution.payload.prTitle || `Fix #${issueNumber}: ${issue.title}`;
+        const pullRequestExecutionSummary = buildExecutorExecutionSummary(execution.payload);
+        const pullRequestBody = annotateProjectionBody(
+          buildPullRequestBody(issue, execution.payload, {
+            summary: execution.payload.verificationSummary
+          }),
+          {
+            actor: "issue-cell-executor",
+            phase: "review",
+            runId: runRecord.id,
+            issueNumber,
+            channel: "pull_request_body",
+            executionSummary: pullRequestExecutionSummary
+          }
+        );
+
+        const hadExistingPullRequest = Boolean(activePullRequest);
+        await keepLease("pull_request_prepare");
+        const pullRequest = hadExistingPullRequest
+          ? await deps.github
+              .editPullRequest(repoSlug, activePullRequest.number, {
+                title: pullRequestTitle,
+                body: pullRequestBody,
+                commandOptions: options.commandOptions
+              })
+              .then(() => activePullRequest)
+          : await deps.github.createPullRequest(repoSlug, {
+              branchName: workspace.branchName,
+              baseBranch: workspace.baseBranch,
               title: pullRequestTitle,
               body: pullRequestBody,
               commandOptions: options.commandOptions
-            })
-            .then(() => activePullRequest)
-        : await deps.github.createPullRequest(repoSlug, {
-            branchName: workspace.branchName,
-            baseBranch: workspace.baseBranch,
-            title: pullRequestTitle,
-            body: pullRequestBody,
-            commandOptions: options.commandOptions
-          });
-      await keepLease("pull_request_prepared");
+            });
+        await keepLease("pull_request_prepared");
 
-      activePullRequest = pullRequest;
-      runRecord.prNumber = pullRequest.number;
-      runRecord.prUrl = pullRequest.url;
-      await updateRun({
-        prNumber: pullRequest.number,
-        prUrl: pullRequest.url,
-        lastCompletedPhase: "pull_request_prepared",
-        reviewLoopCount: runRecord.reviewLoopCount,
-        reviewLoopsMax: runRecord.reviewLoopsMax
-      });
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "pull-request",
-        phase: "review",
-        event: hadExistingPullRequest ? "pull_request_reused" : "pull_request_created",
-        message: `Prepared pull request #${pullRequest.number}.`,
-        data: {
-          pullRequestNumber: pullRequest.number,
-          pullRequestUrl: pullRequest.url,
-          submittedBy: "issue-cell-executor",
-          preview: buildContentPreview(pullRequestBody),
-          executionSummary: buildExecutionSummary(pullRequestExecutionSummary)
-        }
-      });
+        activePullRequest = pullRequest;
+        runRecord.prNumber = pullRequest.number;
+        runRecord.prUrl = pullRequest.url;
+        await updateRun({
+          prNumber: pullRequest.number,
+          prUrl: pullRequest.url,
+          lastCompletedPhase: "pull_request_prepared",
+          reviewLoopCount: runRecord.reviewLoopCount,
+          reviewLoopsMax: runRecord.reviewLoopsMax
+        });
+        await recordRuntimeEvent(runtimePaths, {
+          repoSlug,
+          issueNumber,
+          runId: runRecord.id,
+          actor: "pull-request",
+          phase: "review",
+          event: hadExistingPullRequest ? "pull_request_reused" : "pull_request_created",
+          message: `Prepared pull request #${pullRequest.number}.`,
+          data: {
+            pullRequestNumber: pullRequest.number,
+            pullRequestUrl: pullRequest.url,
+            submittedBy: "issue-cell-executor",
+            preview: buildContentPreview(pullRequestBody),
+            executionSummary: buildExecutionSummary(pullRequestExecutionSummary)
+          }
+        });
+        continue;
+      }
 
-      let critic;
-      let criticArtifactPath =
-        runRecord.artifacts.find((artifact) => artifact.kind === "critic")?.path ?? null;
-      if (loopResumeContext?.critic) {
-        critic = { payload: loopResumeContext.critic };
+      if (!execution?.payload || !activePullRequest) {
+        await keepLease("critic_missing_execution_state");
+        return finalizeIssueCommentBlock({
+          actor: "issue-orchestrator",
+          phase: "orchestration",
+          summary:
+            "Issue orchestrator requested review before execution output and pull request state were available.",
+          executionSummary: buildOrchestratorExecutionSummary({
+            summary: "critic-missing-execution-state",
+            blockers: ["issue-cell-critic requires execution output and an active pull request"]
+          }),
+          event: "critic_missing_execution_state",
+          lastCompletedPhase: runRecord.lastCompletedPhase ?? "claim"
+        });
+      }
+
+      const reusedCritic = artifactReuse.critic;
+      if (reusedCritic) {
+        artifactReuse.critic = false;
+        critic = { payload: resumeContext.critic };
         await recordRuntimeEvent(runtimePaths, {
           repoSlug,
           issueNumber,
@@ -2419,10 +2530,15 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         await keepLease("critic");
         critic = await deps.codex.critiqueGitHubIssue(repoRoot, workspace.worktreePath, {
           issue,
-          shaping: shaping.payload,
+          shaping: shaping?.payload ?? null,
           execution: execution.payload,
           reviewFeedback,
-          pullRequest
+          pullRequest: activePullRequest,
+          orchestration: {
+            task: decision.worker.task,
+            acceptanceFocus: decision.worker.acceptanceFocus,
+            summary: decision.summary
+          }
         });
         await keepLease("critic_completed");
         criticArtifactPath = await persistArtifact(
@@ -2452,10 +2568,17 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
         reviewLoopsMax: runRecord.reviewLoopsMax
       });
 
+      reviewResumeContext = {
+        run: runRecord,
+        previousExecution: execution.payload,
+        previousCritic: critic.payload,
+        needsRework: critic.payload.verdict === "needs_changes"
+      };
+
       if (critic.payload.verdict !== "ready") {
         await keepLease("review_projection");
         await submitProjectedCriticReview(
-          pullRequest,
+          activePullRequest,
           critic.payload,
           buildCriticComment(critic.payload)
         );
@@ -2463,66 +2586,55 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
 
         if (critic.payload.verdict === "needs_changes") {
           runRecord.reviewLoopCount += 1;
-          const shouldContinue = runRecord.reviewLoopCount <= reviewLoopsMax;
-          if (shouldContinue) {
-            await checkpointRun(runtimePaths, repoSlug, runRecord, {
-              status: "claimed",
-              summary: critic.payload.summary,
-              lastCompletedPhase: "review_projected",
-              reviewLoopCount: runRecord.reviewLoopCount,
-              reviewLoopsMax: runRecord.reviewLoopsMax,
-              terminationReason: null
-            });
-            await recordRuntimeEvent(runtimePaths, {
-              repoSlug,
-              issueNumber,
-              runId: runRecord.id,
-              actor: "issue-cell-critic",
-              phase: "review",
-              event: "review_loop_continued",
-              message: `Critic requested changes; continuing review loop ${runRecord.reviewLoopCount}/${reviewLoopsMax}.`,
-              data: {
-                pullRequestNumber: pullRequest.number,
-                pullRequestUrl: pullRequest.url,
+          if (runRecord.reviewLoopCount > reviewLoopsMax) {
+            const exhaustedSummary = buildReviewLoopBudgetExceededSummary(
+              critic.payload,
+              runRecord.reviewLoopCount,
+              reviewLoopsMax
+            );
+            await keepLease("review_loop_budget_exhausted");
+            return finalizeCriticBlock({
+              summary: exhaustedSummary,
+              event: "review_loop_budget_exhausted",
+              eventData: {
+                pullRequestNumber: activePullRequest.number,
+                pullRequestUrl: activePullRequest.url,
+                reviewLoopCount: runRecord.reviewLoopCount,
+                reviewLoopsMax
+              },
+              terminationReason: "review_loop_budget_exhausted",
+              pullRequest: activePullRequest,
+              extraSummary: {
                 reviewLoopCount: runRecord.reviewLoopCount,
                 reviewLoopsMax
               }
             });
-            loopResumeContext = {
-              run: runRecord,
-              artifacts: runRecord.artifacts,
-              shaping: shaping.payload,
-              execution: null,
-              critic: null,
-              previousExecution: execution.payload,
-              previousCritic: critic.payload,
-              needsRework: true
-            };
-            continue;
           }
 
-          const exhaustedSummary = buildReviewLoopBudgetExceededSummary(
-            critic.payload,
-            runRecord.reviewLoopCount,
-            reviewLoopsMax
-          );
-          await keepLease("review_loop_budget_exhausted");
-          return finalizeCriticBlock({
-            summary: exhaustedSummary,
-            event: "review_loop_budget_exhausted",
-            eventData: {
-              pullRequestNumber: pullRequest.number,
-              pullRequestUrl: pullRequest.url,
-              reviewLoopCount: runRecord.reviewLoopCount,
-              reviewLoopsMax
-            },
-            terminationReason: "review_loop_budget_exhausted",
-            pullRequest,
-            extraSummary: {
+          await checkpointRun(runtimePaths, repoSlug, runRecord, {
+            status: "claimed",
+            summary: critic.payload.summary,
+            lastCompletedPhase: "review_projected",
+            reviewLoopCount: runRecord.reviewLoopCount,
+            reviewLoopsMax: runRecord.reviewLoopsMax,
+            terminationReason: null
+          });
+          await recordRuntimeEvent(runtimePaths, {
+            repoSlug,
+            issueNumber,
+            runId: runRecord.id,
+            actor: "issue-cell-critic",
+            phase: "review",
+            event: "review_loop_continued",
+            message: `Critic requested changes; returning control to the issue orchestrator (${runRecord.reviewLoopCount}/${reviewLoopsMax}).`,
+            data: {
+              pullRequestNumber: activePullRequest.number,
+              pullRequestUrl: activePullRequest.url,
               reviewLoopCount: runRecord.reviewLoopCount,
               reviewLoopsMax
             }
           });
+          continue;
         }
 
         await keepLease("critic_blocked");
@@ -2530,51 +2642,18 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
           summary: critic.payload.summary,
           event: "critic_blocked",
           eventData: {
-            pullRequestNumber: pullRequest.number,
-            pullRequestUrl: pullRequest.url
+            pullRequestNumber: activePullRequest.number,
+            pullRequestUrl: activePullRequest.url
           },
-          pullRequest
+          pullRequest: activePullRequest
         });
       }
 
-      loopResumeContext = null;
-      await keepLease("ready_review");
-      await submitProjectedCriticReview(
-        pullRequest,
-        critic.payload,
-        buildReadyComment(pullRequest.url, critic.payload)
-      );
-      await keepLease("merge_enable");
-      await deps.github.editIssue(repoSlug, issueNumber, {
-        addLabels: ["agent:review"],
-        removeLabels: ["agent:claimed", "agent:ready", "agent:blocked"],
-        commandOptions: options.commandOptions
-      });
-      await deps.github.enableAutoMerge(repoSlug, pullRequest.number, {
-        matchHeadCommit: runRecord.commitSha,
-        commandOptions: options.commandOptions
-      });
-      await keepLease("merge_enabled");
-      await recordRuntimeEvent(runtimePaths, {
-        repoSlug,
-        issueNumber,
-        runId: runRecord.id,
-        actor: "pull-request",
-        phase: "review",
-        event: "auto_merge_enabled",
-        message: `Enabled auto-merge for pull request #${pullRequest.number}.`,
-        data: {
-          pullRequestNumber: pullRequest.number,
-          pullRequestUrl: pullRequest.url,
-          commitSha: runRecord.commitSha
-        }
-      });
       await updateRun({
-        lastCompletedPhase: "merge_enabled",
+        lastCompletedPhase: "critic",
         reviewLoopCount: runRecord.reviewLoopCount,
         reviewLoopsMax: runRecord.reviewLoopsMax
       });
-      break;
     }
 
     await keepLease("reconcile");

@@ -5,11 +5,15 @@ const { PassThrough } = require("node:stream");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { executeGitHubIssue, runCodexExec } = require("../lib/issue-driven-os-codex-runner");
+const {
+  executeGitHubIssue,
+  orchestrateGitHubIssue,
+  runCodexExec
+} = require("../lib/issue-driven-os-codex-runner");
 
-function buildAgentDefinition() {
+function buildAgentDefinition(agentName = "issue-cell-executor") {
   return {
-    agentName: "issue-cell-executor",
+    agentName,
     developerInstructions: "Follow the structured output contract.",
     sandboxMode: "workspace-write",
     model: "gpt-5.4"
@@ -26,6 +30,21 @@ function buildExecutionPayload() {
     prTitle: "feat(issue-os): implement change",
     prBody: "Implements the requested change.",
     blockers: []
+  };
+}
+
+function buildOrchestratorPayload() {
+  return {
+    action: "spawn_worker",
+    summary: "Start by shaping the issue.",
+    worker: {
+      kind: "issue-shaper",
+      task: "Shape the issue before execution.",
+      acceptanceFocus: ["Return the next route."]
+    },
+    splitIssues: [],
+    blockers: [],
+    mergeReadiness: "none"
   };
 }
 
@@ -132,4 +151,36 @@ test("runCodexExec keeps stderr diagnostics in compact mode failures", async () 
       return true;
     }
   );
+});
+
+test("orchestrateGitHubIssue returns structured orchestration decisions", async () => {
+  const repoRoot = path.resolve(__dirname, "..", "..");
+  const payload = buildOrchestratorPayload();
+
+  const result = await orchestrateGitHubIssue(
+    repoRoot,
+    repoRoot,
+    { issueNumber: 42, run: { status: "claimed" } },
+    {
+      loadCodexAgentDefinition: async () => buildAgentDefinition("issue-orchestrator"),
+      runCodexExec: async (args) => {
+        const outputPath = args[args.indexOf("--output-last-message") + 1];
+        await fs.writeFile(outputPath, JSON.stringify(payload), "utf8");
+        return {
+          stdout: "",
+          stderr: "",
+          events: [{ type: "thread.started", thread_id: "thread_789" }],
+          eventCount: 1,
+          threadId: "thread_789",
+          sessionPath: "/tmp/thread_789.jsonl",
+          startedAt: "2026-03-30T00:00:00.000Z"
+        };
+      }
+    }
+  );
+
+  assert.equal(result.payload.action, "spawn_worker");
+  assert.equal(result.payload.worker.kind, "issue-shaper");
+  assert.equal(result.trace.mode, "compact");
+  assert.equal(result.trace.threadId, "thread_789");
 });

@@ -5,6 +5,13 @@ const readline = require("node:readline");
 const { spawn } = require("node:child_process");
 
 const { loadCodexAgentDefinition } = require("./issue-driven-os-agent-loader");
+const {
+  buildCriticSchema,
+  buildExecutionSchema,
+  buildIssueNormalizationSchema,
+  buildIssueOrchestratorSchema,
+  buildIssueShapingSchema
+} = require("../../runtime/contracts/issue-runtime-contracts");
 
 async function writeTempJsonFile(prefix, value) {
   const dirPath = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -210,125 +217,6 @@ async function runStructuredCodexTask(repoRoot, agentName, payload, schema, opti
   }
 }
 
-function buildIssueNormalizationSchema() {
-  return {
-    type: "object",
-    additionalProperties: false,
-    required: ["title", "body", "labels", "summary"],
-    properties: {
-      title: { type: "string" },
-      body: { type: "string" },
-      summary: { type: "string" },
-      labels: {
-        type: "array",
-        items: { type: "string" }
-      }
-    }
-  };
-}
-
-function buildIssueShapingSchema() {
-  return {
-    type: "object",
-    additionalProperties: false,
-    required: ["route", "summary", "acceptanceCriteria", "nonGoals", "splitIssues"],
-    properties: {
-      route: {
-        type: "string",
-        enum: ["execute", "split", "clarify", "block"]
-      },
-      summary: { type: "string" },
-      acceptanceCriteria: {
-        type: "array",
-        items: { type: "string" }
-      },
-      nonGoals: {
-        type: "array",
-        items: { type: "string" }
-      },
-      splitIssues: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["title", "body", "labels"],
-          properties: {
-            title: { type: "string" },
-            body: { type: "string" },
-            labels: { type: "array", items: { type: "string" } }
-          }
-        }
-      }
-    }
-  };
-}
-
-function buildExecutionSchema() {
-  return {
-    type: "object",
-    additionalProperties: false,
-    required: [
-      "status",
-      "summary",
-      "changeSummary",
-      "verificationSummary",
-      "commitMessage",
-      "prTitle",
-      "prBody",
-      "blockers"
-    ],
-    properties: {
-      status: {
-        type: "string",
-        enum: ["implemented", "no_changes", "blocked", "split_required"]
-      },
-      summary: { type: "string" },
-      changeSummary: { type: "string" },
-      verificationSummary: { type: "string" },
-      commitMessage: { type: "string" },
-      prTitle: { type: "string" },
-      prBody: { type: "string" },
-      blockers: {
-        type: "array",
-        items: { type: "string" }
-      }
-    }
-  };
-}
-
-function buildCriticSchema() {
-  return {
-    type: "object",
-    additionalProperties: false,
-    required: [
-      "verdict",
-      "summary",
-      "verificationVerdict",
-      "blockingFindings",
-      "nonBlockingFindings"
-    ],
-    properties: {
-      verdict: {
-        type: "string",
-        enum: ["ready", "needs_changes", "blocked"]
-      },
-      verificationVerdict: {
-        type: "string",
-        enum: ["verified-pass", "verified-partial", "verified-fail", "needs-more-evidence"]
-      },
-      summary: { type: "string" },
-      blockingFindings: {
-        type: "array",
-        items: { type: "string" }
-      },
-      nonBlockingFindings: {
-        type: "array",
-        items: { type: "string" }
-      }
-    }
-  };
-}
-
 async function normalizeIssueInput(repoRoot, cwd, rawInput, context = {}, options = {}) {
   return runStructuredCodexTask(
     repoRoot,
@@ -378,11 +266,27 @@ async function critiqueGitHubIssue(repoRoot, cwd, criticContext, options = {}) {
   });
 }
 
+async function orchestrateGitHubIssue(repoRoot, cwd, orchestrationContext, options = {}) {
+  return runStructuredCodexTask(
+    repoRoot,
+    "issue-orchestrator",
+    orchestrationContext,
+    buildIssueOrchestratorSchema(),
+    {
+      ...options,
+      cwd,
+      taskHeader:
+        "Decide the next bounded action for this issue. Choose whether to spawn a worker, split the issue, block it, hand it off, or request merge readiness:"
+    }
+  );
+}
+
 module.exports = {
   critiqueGitHubIssue,
   executeGitHubIssue,
   findCodexSessionPath,
   normalizeIssueInput,
+  orchestrateGitHubIssue,
   runCodexExec,
   shapeGitHubIssue
 };
