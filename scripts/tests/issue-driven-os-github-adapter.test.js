@@ -1,88 +1,88 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { DEFAULT_AGENT_LABELS, buildGhAdapter } = require("../lib/issue-driven-os-github-adapter");
+const { buildGhAdapter, DEFAULT_AGENT_LABELS } = require("../lib/issue-driven-os-github-adapter");
 
-function findFieldValue(args, fieldName) {
-  const entry = args.find(
-    (value) => value === `name=${fieldName}` || value.startsWith(`${fieldName}=`)
-  );
-  return entry ? entry.slice(fieldName.length + 1) : null;
-}
-
-test("ensureLabels skips labels that already exist", async () => {
-  const existingLabels = new Set(["agent:ready", "agent:blocked"]);
-  const createdLabels = [];
-  const inspectedLabels = [];
-  const github = buildGhAdapter({
+test("ensureLabels only creates labels missing from the repository", async () => {
+  const createCalls = [];
+  const adapter = buildGhAdapter({
     capture: async (_command, args) => {
-      const pathArg = args.find((value) => value.startsWith("repos/"));
-
-      if (!pathArg) {
-        throw new Error(`unexpected gh call: ${args.join(" ")}`);
+      if (args[0] === "label" && args[1] === "list") {
+        return {
+          stdout: JSON.stringify([{ name: "agent:ready" }, { name: "agent:claimed" }]),
+          stderr: ""
+        };
       }
 
-      if (args.includes("--method") && args.includes("POST")) {
-        const labelName = findFieldValue(args, "name");
-        createdLabels.push(labelName);
-        return { stdout: JSON.stringify({ name: labelName }) };
+      if (args[0] === "api" && args[1] === "--method" && args[2] === "POST") {
+        createCalls.push(args);
+        return { stdout: "", stderr: "" };
       }
 
-      const labelName = decodeURIComponent(pathArg.split("/").pop());
-      inspectedLabels.push(labelName);
-
-      if (existingLabels.has(labelName)) {
-        return { stdout: JSON.stringify({ name: labelName }) };
-      }
-
-      throw new Error(`gh ${args.join(" ")} exited with code 1: gh: Not Found (HTTP 404)`);
+      throw new Error(`unexpected gh capture args: ${args.join(" ")}`);
     }
   });
 
-  await github.ensureLabels("owner/repo");
+  await adapter.ensureLabels("owner/repo", [
+    DEFAULT_AGENT_LABELS[0],
+    DEFAULT_AGENT_LABELS[1],
+    DEFAULT_AGENT_LABELS[2]
+  ]);
 
-  assert.deepEqual(
-    inspectedLabels,
-    DEFAULT_AGENT_LABELS.map((label) => label.name)
-  );
-  assert.deepEqual(
-    createdLabels,
-    DEFAULT_AGENT_LABELS.map((label) => label.name).filter(
-      (labelName) => !existingLabels.has(labelName)
-    )
-  );
+  assert.equal(createCalls.length, 1);
+  assert.ok(createCalls[0].includes("name=agent:blocked"));
 });
 
-test("ensureLabels treats already-existing create races as idempotent success", async () => {
-  const createdLabels = [];
-  const github = buildGhAdapter({
+test("ensureLabels tolerates concurrent label creation races", async () => {
+  const createCalls = [];
+  const adapter = buildGhAdapter({
     capture: async (_command, args) => {
-      const pathArg = args.find((value) => value.startsWith("repos/"));
-
-      if (!pathArg) {
-        throw new Error(`unexpected gh call: ${args.join(" ")}`);
+      if (args[0] === "label" && args[1] === "list") {
+        return { stdout: JSON.stringify([]), stderr: "" };
       }
 
-      if (!(args.includes("--method") && args.includes("POST"))) {
-        throw new Error(`gh ${args.join(" ")} exited with code 1: gh: Not Found (HTTP 404)`);
+      if (args[0] === "api" && args[1] === "--method" && args[2] === "POST") {
+        createCalls.push(args);
+        const nameArg = args.find((arg) => arg.startsWith("name="));
+        if (nameArg === "name=agent:ready") {
+          throw new Error("gh api exited with code 1: HTTP 422 already_exists");
+        }
+
+        return { stdout: "", stderr: "" };
       }
 
-      const labelName = findFieldValue(args, "name");
-      createdLabels.push(labelName);
-
-      if (labelName === "agent:ready") {
-        throw new Error(
-          `${_command} ${args.join(" ")} exited with code 1: gh: Validation Failed (HTTP 422)\n{"errors":[{"resource":"Label","code":"already_exists","field":"name"}]}`
-        );
-      }
-
-      return { stdout: JSON.stringify({ name: labelName }) };
+      throw new Error(`unexpected gh capture args: ${args.join(" ")}`);
     }
   });
 
-  await assert.doesNotReject(() => github.ensureLabels("owner/repo"));
-  assert.deepEqual(
-    createdLabels,
-    DEFAULT_AGENT_LABELS.map((label) => label.name)
+  await assert.doesNotReject(() =>
+    adapter.ensureLabels("owner/repo", [DEFAULT_AGENT_LABELS[0], DEFAULT_AGENT_LABELS[1]])
   );
+
+  assert.equal(createCalls.length, 2);
+});
+
+test("submitPullRequestReview maps GitHub review events to gh pr review flags", async () => {
+  const runCalls = [];
+  const adapter = buildGhAdapter({
+    run: async (_command, args) => {
+      runCalls.push(args);
+    }
+  });
+
+  await adapter.submitPullRequestReview("owner/repo", 42, {
+    event: "REQUEST_CHANGES",
+    body: "Needs more coverage."
+  });
+
+  assert.equal(runCalls.length, 1);
+  assert.deepEqual(runCalls[0].slice(0, 6), [
+    "pr",
+    "review",
+    "42",
+    "--repo",
+    "owner/repo",
+    "--request-changes"
+  ]);
+  assert.ok(runCalls[0].includes("--body-file"));
 });

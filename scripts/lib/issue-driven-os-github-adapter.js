@@ -9,6 +9,26 @@ const DEFAULT_AGENT_LABELS = [
   { name: "agent:claimed", color: "1d76db", description: "Currently claimed by an active worker" },
   { name: "agent:blocked", color: "d73a4a", description: "Blocked and needs intervention" },
   {
+    name: "agent:priority-critical",
+    color: "b60205",
+    description: "Highest claim priority for the issue-driven OS worker"
+  },
+  {
+    name: "agent:priority-high",
+    color: "d93f0b",
+    description: "High claim priority for the issue-driven OS worker"
+  },
+  {
+    name: "agent:priority-medium",
+    color: "fbca04",
+    description: "Default claim priority for the issue-driven OS worker"
+  },
+  {
+    name: "agent:priority-low",
+    color: "0e8a16",
+    description: "Low claim priority for the issue-driven OS worker"
+  },
+  {
     name: "agent:review",
     color: "fbca04",
     description: "PR opened and waiting for review or merge"
@@ -156,29 +176,30 @@ function buildGhAdapter(options = {}) {
     });
   }
 
-  async function labelExists(repoSlug, labelName, options = {}) {
-    const { owner, repo } = parseRepoSlug(repoSlug);
+  async function listRepositoryLabels(repoSlug, options = {}) {
+    const labels = await readJson(
+      [
+        "label",
+        "list",
+        "--repo",
+        repoSlug,
+        "--limit",
+        String(options.limit ?? 1000),
+        "--json",
+        "name"
+      ],
+      options.commandOptions
+    );
 
-    try {
-      await readJson(
-        ["api", `repos/${owner}/${repo}/labels/${encodeURIComponent(labelName)}`],
-        options.commandOptions
-      );
-      return true;
-    } catch (error) {
-      if (/404/i.test(error.message)) {
-        return false;
-      }
-      throw error;
-    }
+    return new Set((labels ?? []).map((label) => label?.name).filter(Boolean));
   }
 
   async function ensureLabels(repoSlug, labels = DEFAULT_AGENT_LABELS, options = {}) {
     const { owner, repo } = parseRepoSlug(repoSlug);
+    const existingLabels = await listRepositoryLabels(repoSlug, options);
 
-    // Bootstrap label presence idempotently and leave existing metadata untouched.
     for (const label of labels) {
-      if (await labelExists(repoSlug, label.name, options)) {
+      if (existingLabels.has(label.name)) {
         continue;
       }
 
@@ -199,11 +220,12 @@ function buildGhAdapter(options = {}) {
           ],
           options.commandOptions
         );
+        existingLabels.add(label.name);
       } catch (error) {
-        // A concurrent bootstrap can win the race between our existence check and create call.
         if (!/already_exists|already exists|422/i.test(error.message)) {
           throw error;
         }
+        existingLabels.add(label.name);
       }
     }
   }
@@ -268,6 +290,23 @@ function buildGhAdapter(options = {}) {
     });
   }
 
+  async function editPullRequest(repoSlug, pullNumber, options = {}) {
+    const args = ["pr", "edit", String(pullNumber), "--repo", repoSlug];
+
+    if (options.title) {
+      args.push("--title", options.title);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(options, "body")) {
+      return withTempFile("issue-driven-os-pr-edit-", options.body ?? "", async (bodyPath) => {
+        const editArgs = [...args, "--body-file", bodyPath];
+        await run("gh", editArgs, options.commandOptions);
+      });
+    }
+
+    await run("gh", args, options.commandOptions);
+  }
+
   async function commentPullRequest(repoSlug, pullNumber, body, options = {}) {
     await withTempFile("issue-driven-os-pr-comment-", body, async (bodyPath) => {
       await run(
@@ -275,6 +314,26 @@ function buildGhAdapter(options = {}) {
         ["pr", "comment", String(pullNumber), "--repo", repoSlug, "--body-file", bodyPath],
         options.commandOptions
       );
+    });
+  }
+
+  async function submitPullRequestReview(repoSlug, pullNumber, options = {}) {
+    const reviewEvent = String(options.event ?? "COMMENT")
+      .trim()
+      .toUpperCase();
+    const args = ["pr", "review", String(pullNumber), "--repo", repoSlug];
+
+    if (reviewEvent === "APPROVE") {
+      args.push("--approve");
+    } else if (reviewEvent === "REQUEST_CHANGES") {
+      args.push("--request-changes");
+    } else {
+      args.push("--comment");
+    }
+
+    return withTempFile("issue-driven-os-pr-review-", options.body ?? "", async (bodyPath) => {
+      const reviewArgs = [...args, "--body-file", bodyPath];
+      await run("gh", reviewArgs, options.commandOptions);
     });
   }
 
@@ -323,6 +382,7 @@ function buildGhAdapter(options = {}) {
     commentPullRequest,
     createIssue,
     createPullRequest,
+    editPullRequest,
     editIssue,
     enableAutoMerge,
     ensureLabels,
@@ -330,6 +390,7 @@ function buildGhAdapter(options = {}) {
     listIssues,
     listPullRequestReviewComments,
     listPullRequestReviews,
+    submitPullRequestReview,
     viewIssue,
     viewPullRequest
   };

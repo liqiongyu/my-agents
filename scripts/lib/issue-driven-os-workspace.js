@@ -53,6 +53,41 @@ async function removeWorktreeIfPresent(repoPath, worktreePath) {
   }
 }
 
+async function resolveCurrentBranch(worktreePath) {
+  const { stdout } = await runCommandCapture("git", [
+    "-C",
+    worktreePath,
+    "branch",
+    "--show-current"
+  ]);
+  return stdout.trim();
+}
+
+async function gitRefExists(repoPath, ref) {
+  try {
+    await runCommandCapture("git", ["-C", repoPath, "rev-parse", "--verify", "--quiet", ref]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function remoteBranchExists(repoPath, branchName) {
+  try {
+    const { stdout } = await runCommandCapture("git", [
+      "-C",
+      repoPath,
+      "ls-remote",
+      "--heads",
+      "origin",
+      branchName
+    ]);
+    return Boolean(stdout.trim());
+  } catch {
+    return false;
+  }
+}
+
 async function createIssueWorktree(repoPath, runtimePaths, issueNumber, options = {}) {
   await ensureGitRepository(repoPath);
   await fs.mkdir(runtimePaths.worktreesDir, { recursive: true });
@@ -60,6 +95,23 @@ async function createIssueWorktree(repoPath, runtimePaths, issueNumber, options 
   const branchName = options.branchName ?? branchNameForIssue(issueNumber);
   const worktreePath = options.worktreePath ?? worktreePathForIssue(runtimePaths, issueNumber);
   const baseBranch = options.baseBranch ?? (await resolveDefaultBaseBranch(repoPath));
+
+  if (options.reuseExisting !== false && (await fileExists(worktreePath))) {
+    try {
+      const currentBranch = await resolveCurrentBranch(worktreePath);
+      if (currentBranch === branchName) {
+        return {
+          repoPath,
+          worktreePath,
+          branchName,
+          baseBranch,
+          reused: true
+        };
+      }
+    } catch {
+      // Fall through to rebuilding the worktree from a known ref.
+    }
+  }
 
   await removeWorktreeIfPresent(repoPath, worktreePath);
 
@@ -69,25 +121,53 @@ async function createIssueWorktree(repoPath, runtimePaths, issueNumber, options 
     // Fall back to the local branch if fetch is unavailable.
   }
 
-  await runCommand(
-    "git",
-    ["-C", repoPath, "worktree", "add", "-B", branchName, worktreePath, `origin/${baseBranch}`],
-    { stdio: "ignore" }
-  ).catch(async () => {
+  const hasLocalBranch = await gitRefExists(repoPath, `refs/heads/${branchName}`);
+  const hasRemoteBranch = await remoteBranchExists(repoPath, branchName);
+
+  if (hasLocalBranch) {
+    await runCommand("git", ["-C", repoPath, "worktree", "add", worktreePath, branchName], {
+      stdio: "ignore"
+    });
+  } else if (hasRemoteBranch) {
     await runCommand(
       "git",
-      ["-C", repoPath, "worktree", "add", "-B", branchName, worktreePath, baseBranch],
-      {
-        stdio: "ignore"
-      }
+      ["-C", repoPath, "worktree", "add", "-B", branchName, worktreePath, `origin/${branchName}`],
+      { stdio: "ignore" }
     );
-  });
+  } else {
+    await runCommand(
+      "git",
+      ["-C", repoPath, "worktree", "add", "-B", branchName, worktreePath, `origin/${baseBranch}`],
+      { stdio: "ignore" }
+    ).catch(async () => {
+      await runCommand(
+        "git",
+        ["-C", repoPath, "worktree", "add", "-B", branchName, worktreePath, baseBranch],
+        {
+          stdio: "ignore"
+        }
+      );
+    });
+  }
+
+  if (hasRemoteBranch) {
+    try {
+      await runCommand(
+        "git",
+        ["-C", worktreePath, "branch", "--set-upstream-to", `origin/${branchName}`, branchName],
+        { stdio: "ignore" }
+      );
+    } catch {
+      // Resume can still proceed without an upstream if the push uses an explicit ref.
+    }
+  }
 
   return {
     repoPath,
     worktreePath,
     branchName,
-    baseBranch
+    baseBranch,
+    reused: false
   };
 }
 
@@ -112,8 +192,18 @@ async function commitAllChanges(worktreePath, message) {
   };
 }
 
-async function pushBranch(worktreePath, branchName) {
-  await runCommand("git", ["-C", worktreePath, "push", "-u", "origin", branchName], {
+async function getHeadCommitSha(worktreePath) {
+  const { stdout } = await runCommandCapture("git", ["-C", worktreePath, "rev-parse", "HEAD"]);
+  return stdout.trim();
+}
+
+async function pushBranch(worktreePath, branchName, options = {}) {
+  const args = ["-C", worktreePath, "push"];
+  if (options.forceWithLease) {
+    args.push("--force-with-lease");
+  }
+  args.push("-u", "origin", branchName);
+  await runCommand("git", args, {
     stdio: "ignore"
   });
 }
@@ -138,6 +228,7 @@ module.exports = {
   commitAllChanges,
   createIssueWorktree,
   ensureGitRepository,
+  getHeadCommitSha,
   getWorkingTreeStatus,
   pushBranch,
   resolveDefaultBaseBranch,

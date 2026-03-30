@@ -1,6 +1,7 @@
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+const readline = require("node:readline");
 const { spawn } = require("node:child_process");
 
 const { loadCodexAgentDefinition } = require("./issue-driven-os-agent-loader");
@@ -17,6 +18,7 @@ async function writeTempJsonFile(prefix, value) {
 
 function runCodexExec(args, options = {}) {
   return new Promise((resolve, reject) => {
+    const startedAt = new Date().toISOString();
     const child = spawn("codex", args, {
       cwd: options.cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -25,9 +27,38 @@ function runCodexExec(args, options = {}) {
 
     let stdout = "";
     let stderr = "";
+    let threadId = null;
+    const events = [];
+    let eventProcessing = Promise.resolve();
+    const stdoutReader = readline.createInterface({ input: child.stdout });
 
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString("utf8");
+    function enqueueEventWork(work) {
+      eventProcessing = eventProcessing.then(work, work);
+    }
+
+    stdoutReader.on("line", (line) => {
+      stdout += `${line}\n`;
+      enqueueEventWork(async () => {
+        let parsedEvent = null;
+        try {
+          parsedEvent = JSON.parse(line);
+        } catch {
+          parsedEvent = null;
+        }
+
+        if (!parsedEvent) {
+          return;
+        }
+
+        events.push(parsedEvent);
+        if (parsedEvent.type === "thread.started" && parsedEvent.thread_id) {
+          threadId = parsedEvent.thread_id;
+        }
+
+        if (typeof options.onEvent === "function") {
+          await options.onEvent(parsedEvent);
+        }
+      });
     });
 
     child.stderr.on("data", (chunk) => {
@@ -35,15 +66,59 @@ function runCodexExec(args, options = {}) {
     });
 
     child.on("error", reject);
-    child.on("close", (code) => {
+    child.on("close", async (code) => {
+      stdoutReader.close();
+      await eventProcessing;
+      const sessionPath = threadId ? await findCodexSessionPath(threadId, { startedAt }) : null;
+
       if (code === 0) {
-        resolve({ stdout, stderr });
+        resolve({ stdout, stderr, events, threadId, sessionPath, startedAt });
         return;
       }
 
-      reject(new Error(`codex exec exited with code ${code}${stderr ? `: ${stderr.trim()}` : ""}`));
+      const error = new Error(
+        `codex exec exited with code ${code}${stderr ? `: ${stderr.trim()}` : ""}`
+      );
+      error.stdout = stdout;
+      error.stderr = stderr;
+      error.events = events;
+      error.threadId = threadId;
+      error.sessionPath = sessionPath;
+      error.startedAt = startedAt;
+      reject(error);
     });
   });
+}
+
+async function findCodexSessionPath(threadId, options = {}) {
+  const codexHome = options.codexHome ?? path.join(os.homedir(), ".codex");
+  const baseSessionsDir = path.join(codexHome, "sessions");
+  const startedAt = Date.parse(options.startedAt ?? "");
+  const offsets = [0, -1, 1];
+
+  for (const dayOffset of offsets) {
+    const candidateDate = Number.isFinite(startedAt)
+      ? new Date(startedAt + dayOffset * 24 * 60 * 60 * 1000)
+      : new Date();
+    const year = String(candidateDate.getUTCFullYear()).padStart(4, "0");
+    const month = String(candidateDate.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(candidateDate.getUTCDate()).padStart(2, "0");
+    const candidateDir = path.join(baseSessionsDir, year, month, day);
+
+    let entries;
+    try {
+      entries = await fs.readdir(candidateDir);
+    } catch {
+      continue;
+    }
+
+    const match = entries.find((entry) => entry.endsWith(`${threadId}.jsonl`));
+    if (match) {
+      return path.join(candidateDir, match);
+    }
+  }
+
+  return null;
 }
 
 function buildStructuredPrompt(agentDefinition, payload, options = {}) {
@@ -79,6 +154,7 @@ async function runStructuredCodexTask(repoRoot, agentName, payload, schema, opti
       options.cwd,
       "-m",
       agentDefinition.model,
+      "--json",
       "--output-schema",
       schemaTemp.filePath,
       "--output-last-message",
@@ -86,14 +162,25 @@ async function runStructuredCodexTask(repoRoot, agentName, payload, schema, opti
       prompt
     ];
 
-    const result = await runCodexExec(args, { cwd: options.cwd });
+    const result = await runCodexExec(args, {
+      cwd: options.cwd,
+      onEvent: options.onEvent
+    });
     const rawOutput = await fs.readFile(outputTemp.filePath, "utf8");
 
     return {
       agent: agentDefinition,
       payload: JSON.parse(rawOutput),
       stdout: result.stdout,
-      stderr: result.stderr
+      stderr: result.stderr,
+      trace: {
+        startedAt: result.startedAt,
+        threadId: result.threadId,
+        sessionPath: result.sessionPath,
+        prompt,
+        finalMessage: rawOutput,
+        events: result.events
+      }
     };
   } finally {
     await fs.rm(schemaTemp.dirPath, { recursive: true, force: true });
@@ -220,7 +307,7 @@ function buildCriticSchema() {
   };
 }
 
-async function normalizeIssueInput(repoRoot, cwd, rawInput, context = {}) {
+async function normalizeIssueInput(repoRoot, cwd, rawInput, context = {}, options = {}) {
   return runStructuredCodexTask(
     repoRoot,
     "issue-intake-normalizer",
@@ -230,26 +317,29 @@ async function normalizeIssueInput(repoRoot, cwd, rawInput, context = {}) {
     },
     buildIssueNormalizationSchema(),
     {
+      ...options,
       cwd,
       taskHeader: "Normalize the following raw signal into a GitHub issue draft:"
     }
   );
 }
 
-async function shapeGitHubIssue(repoRoot, cwd, issueContext) {
+async function shapeGitHubIssue(repoRoot, cwd, issueContext, options = {}) {
   return runStructuredCodexTask(repoRoot, "issue-shaper", issueContext, buildIssueShapingSchema(), {
+    ...options,
     cwd,
     taskHeader: "Shape the following GitHub issue for execution readiness:"
   });
 }
 
-async function executeGitHubIssue(repoRoot, cwd, executionContext) {
+async function executeGitHubIssue(repoRoot, cwd, executionContext, options = {}) {
   return runStructuredCodexTask(
     repoRoot,
     "issue-cell-executor",
     executionContext,
     buildExecutionSchema(),
     {
+      ...options,
       cwd,
       taskHeader:
         "Implement the issue in the current repository, update tests as needed, and return structured execution output:"
@@ -257,8 +347,9 @@ async function executeGitHubIssue(repoRoot, cwd, executionContext) {
   );
 }
 
-async function critiqueGitHubIssue(repoRoot, cwd, criticContext) {
+async function critiqueGitHubIssue(repoRoot, cwd, criticContext, options = {}) {
   return runStructuredCodexTask(repoRoot, "issue-cell-critic", criticContext, buildCriticSchema(), {
+    ...options,
     cwd,
     taskHeader:
       "Review the current repository state and execution result, then return a structured critic verdict:"
@@ -268,6 +359,7 @@ async function critiqueGitHubIssue(repoRoot, cwd, criticContext) {
 module.exports = {
   critiqueGitHubIssue,
   executeGitHubIssue,
+  findCodexSessionPath,
   normalizeIssueInput,
   shapeGitHubIssue
 };
