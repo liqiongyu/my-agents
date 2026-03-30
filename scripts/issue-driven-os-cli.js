@@ -238,6 +238,65 @@ function formatInspection(payload) {
   return `${lines.join("\n")}\n`;
 }
 
+function formatDependencyRef(dependency = {}) {
+  if (dependency.repoSlug && dependency.issueNumber) {
+    return `${dependency.repoSlug}#${dependency.issueNumber}`;
+  }
+
+  return dependency.raw ?? "unknown dependency";
+}
+
+function formatDaemonPassSummary(result = {}) {
+  const lines = [
+    `Daemon pass checked ${result.checked ?? 0} issues.`,
+    `Candidates consumed: ${result.consumed ?? 0}`,
+    `Ready candidates: ${(result.ready ?? []).length}`,
+    `Blocked by dependency: ${(result.blocked ?? []).length}`,
+    `Result count: ${(result.results ?? []).length}`
+  ];
+
+  if ((result.ready ?? []).length > 0) {
+    lines.push("", "Ready queue");
+    for (const entry of result.ready ?? []) {
+      lines.push(
+        [
+          `- issue #${entry.issueNumber}`,
+          entry.priorityRank !== undefined ? `priority ${entry.priorityRank}` : null,
+          (entry.dependencies ?? []).length > 0
+            ? `deps ${entry.dependencies.map((dependency) => formatDependencyRef(dependency)).join(", ")}`
+            : null
+        ]
+          .filter(Boolean)
+          .join(" | ")
+      );
+    }
+  }
+
+  if ((result.blocked ?? []).length > 0) {
+    lines.push("", "Blocked queue");
+    for (const entry of result.blocked ?? []) {
+      const waitingOn = (entry.unresolvedDependencies ?? []).map((dependency) =>
+        formatDependencyRef(dependency)
+      );
+      lines.push(
+        [
+          `- issue #${entry.issueNumber}`,
+          waitingOn.length > 0
+            ? `waiting on ${waitingOn.join(", ")}`
+            : "waiting on unknown dependency",
+          (entry.warnings ?? []).length > 0
+            ? `warnings: ${(entry.warnings ?? []).join("; ")}`
+            : null
+        ]
+          .filter(Boolean)
+          .join(" | ")
+      );
+    }
+  }
+
+  return lines.join("\n");
+}
+
 function formatRuntimeEventLine(event) {
   return [
     `[${event.timestamp}]`,
@@ -444,13 +503,7 @@ async function runGitHubDaemonMode(repoRoot, args) {
     return;
   }
 
-  console.log(
-    [
-      `Daemon pass checked ${result.checked} issues.`,
-      `Candidates consumed: ${result.consumed}`,
-      `Result count: ${result.results.length}`
-    ].join("\n")
-  );
+  console.log(formatDaemonPassSummary(result));
 }
 
 async function runGitHubReconcile(repoRoot, args) {
@@ -614,6 +667,7 @@ if (require.main === module) {
 module.exports = {
   ISSUE_DRIVEN_OS_USAGE,
   followRuntimeEvents,
+  formatDaemonPassSummary,
   formatInspection,
   formatRuntimeEventLine,
   main

@@ -143,6 +143,23 @@ npx my-agents issue-driven-os github daemon owner/repo \
 
 The inspect command supports both human-readable output and `--json`.
 
+The daemon scheduler uses explicit issue-body dependency markers instead of raw
+issue list order alone:
+
+- `Depends-On: #123`
+- `Depends-On: owner/repo#456`
+- `Blocked-By:` followed by `- #123` style bullet items
+
+Only issues whose dependencies are already closed or labeled `agent:done` are
+claimed. Among dependency-ready issues, the daemon sorts deterministically by:
+
+1. `agent:priority-*` label rank
+2. oldest `createdAt`
+3. issue number
+
+The daemon `--once` text output and the `--json` payload both surface
+dependency-blocked issues so operators can see why a candidate stayed queued.
+
 This real mode uses:
 
 - GitHub via `gh`
