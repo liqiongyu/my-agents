@@ -53,6 +53,8 @@ const PRIORITY_LABEL_RANKS = new Map([
   ["priority:p3", 3],
   ["p3", 3]
 ]);
+const GITHUB_VERIFICATION_STATUS_CONTEXT = "issue-driven-os/verification";
+const GITHUB_STATUS_DESCRIPTION_MAX_LENGTH = 140;
 
 function labelSet(issue) {
   return new Set(issue?.labels ?? []);
@@ -535,7 +537,7 @@ function buildCriticExecutionSummary(critic = {}, overrides = {}) {
   return {
     agents: "issue-cell-critic",
     skills: ["review", "acceptance-verification"],
-    tools: ["codex exec", "github pull request review"],
+    tools: ["codex exec", "github commit status", "github pull request review"],
     verification: critic.verificationVerdict || critic.summary || "none",
     limits:
       Array.isArray(critic.blockingFindings) && critic.blockingFindings.length > 0
@@ -823,6 +825,83 @@ function buildReadyComment(prUrl, critic) {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function truncateGitHubStatusDescription(value) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return "Verification result recorded by issue-driven OS.";
+  }
+
+  if (normalized.length <= GITHUB_STATUS_DESCRIPTION_MAX_LENGTH) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, GITHUB_STATUS_DESCRIPTION_MAX_LENGTH - 3)}...`;
+}
+
+function buildVerificationStatusProjection(runRecord, pullRequest, critic) {
+  const verdict = normalizeStateName(critic?.verdict);
+  let state = "pending";
+
+  if (verdict === "ready") {
+    state = "success";
+  } else if (verdict === "needs_changes" || verdict === "blocked") {
+    state = "failure";
+  }
+
+  return {
+    commitSha: runRecord?.commitSha ?? null,
+    context: GITHUB_VERIFICATION_STATUS_CONTEXT,
+    state,
+    description: truncateGitHubStatusDescription(
+      [critic?.verificationVerdict, critic?.summary].filter(Boolean).join(": ")
+    ),
+    targetUrl: pullRequest?.url ?? null
+  };
+}
+
+async function projectVerificationStatus(
+  runtimePaths,
+  deps,
+  repoSlug,
+  issueNumber,
+  runRecord,
+  pullRequest,
+  critic,
+  options = {}
+) {
+  const projection = buildVerificationStatusProjection(runRecord, pullRequest, critic);
+  if (!projection.commitSha || typeof deps.github.createCommitStatus !== "function") {
+    return null;
+  }
+
+  await deps.github.createCommitStatus(repoSlug, projection.commitSha, {
+    ...projection,
+    commandOptions: options.commandOptions
+  });
+  await recordRuntimeEvent(runtimePaths, {
+    repoSlug,
+    issueNumber,
+    runId: runRecord?.id ?? null,
+    actor: "issue-cell-critic",
+    phase: "review",
+    event: "verification_status_projected",
+    message: `Projected ${projection.state} verification status to commit ${projection.commitSha}.`,
+    data: {
+      pullRequestNumber: pullRequest?.number ?? null,
+      pullRequestUrl: pullRequest?.url ?? null,
+      commitSha: projection.commitSha,
+      context: projection.context,
+      state: projection.state,
+      description: projection.description,
+      targetUrl: projection.targetUrl,
+      verdict: critic?.verdict ?? null,
+      verificationVerdict: critic?.verificationVerdict ?? null
+    }
+  });
+
+  return projection;
 }
 
 function getReviewProjectionMode(options = {}) {
@@ -2137,6 +2216,16 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
       if (critic.payload.verdict !== "ready") {
         const finishedAt = new Date().toISOString();
         await keepLease("review_projection");
+        await projectVerificationStatus(
+          runtimePaths,
+          deps,
+          repoSlug,
+          issueNumber,
+          runRecord,
+          pullRequest,
+          critic.payload,
+          options
+        );
         await submitPullRequestReview(
           runtimePaths,
           deps,
@@ -2273,6 +2362,16 @@ async function runGitHubIssueWorker(repoRoot, repoSlug, repoPath, issueNumber, o
 
       loopResumeContext = null;
       await keepLease("ready_review");
+      await projectVerificationStatus(
+        runtimePaths,
+        deps,
+        repoSlug,
+        issueNumber,
+        runRecord,
+        pullRequest,
+        critic.payload,
+        options
+      );
       await submitPullRequestReview(
         runtimePaths,
         deps,

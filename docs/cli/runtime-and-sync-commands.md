@@ -2,6 +2,11 @@
 
 This reference covers the commands that install runtime artifacts, synchronize project state, regenerate contributor instructions, and manage local-only reference repositories.
 
+For GitHub-backed issue runs, the runtime also projects a GitHub-visible commit
+status with context `issue-driven-os/verification` onto the pull request head
+commit. That status is derived from runtime truth and complements, rather than
+replaces, the persisted run and critic artifacts.
+
 ## Inspect GitHub Runtime State
 
 Use `issue-driven-os github inspect` when you need operator diagnostics for one GitHub-backed runtime root without opening `state.json`, `leases/*.json`, `runs/*.json`, or `artifacts/<runId>/` by hand:

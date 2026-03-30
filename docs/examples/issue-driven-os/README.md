@@ -113,6 +113,17 @@ branches, and real pull requests:
 - `github reconcile`
   - sync issue state after merge or projection drift
 
+After the critic finishes on a pull-request-backed run, the worker also writes a
+derived GitHub commit status to the PR head commit using the context
+`issue-driven-os/verification`.
+
+That status is projection-only:
+
+- `ready` projects as a passing status
+- `needs_changes` and blocked review outcomes project as failing status
+- the runtime `Run Record` and critic artifact remain the source of truth
+- the GitHub status is a visibility surface for merge readiness, not a competing state store
+
 Examples:
 
 ```bash
