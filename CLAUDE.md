@@ -67,24 +67,6 @@ When the proposed path is not the shortest, lowest-cost, or most reversible opti
 Pause only when unresolved uncertainty would materially change the outcome; otherwise, record reasonable assumptions and keep moving.
 Prefer the lightest workflow and tool that can solve the problem well, and avoid adding complexity just to follow an established path.
 
-## Repository Direction
-
-For the Issue-Driven Agent OS work in this repository, the target runtime is
-**Codex-native and agentic**.
-
-- Prefer Codex host primitives such as `spawn_agent`, `send_input`,
-  `wait_agent`, `resume_agent`, and `close_agent` as the primary orchestration
-  mechanism.
-- Keep repository-owned code thin and substrate-only: CLI bootstrap,
-  projections, artifact persistence, safety gates, local ergonomics, and other
-  deterministic helpers.
-- Do not introduce or expand JavaScript-owned business workflow orchestration
-  when a Codex-native agent lifecycle can own the loop.
-- Package intelligence in canonical `agents/` and `skills/` first; use code
-  mainly for contracts, adapters, durable state, and audit surfaces.
-- Treat backend portability as a later adapter concern. Do not dilute a
-  Codex-native design just to preserve hypothetical cross-backend symmetry.
-
 ## Observable Completion
 
 After completing work, include an `Execution Summary` using this canonical format by default:

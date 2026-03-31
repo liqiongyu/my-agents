@@ -7,6 +7,18 @@ const AGENTS_CATALOG_PATH = path.join("docs", "catalog", "agents.md");
 const PACKS_CATALOG_PATH = path.join("docs", "catalog", "packs.md");
 const MACHINE_CATALOG_PATH = path.join("dist", "catalog.json");
 
+function hasSuppressedCatalogTag(metadata) {
+  return (metadata.tags ?? []).includes("issue-agent-os");
+}
+
+function isCatalogVisible(dirName, metadata) {
+  if (dirName.startsWith("issue-")) {
+    return false;
+  }
+
+  return !hasSuppressedCatalogTag(metadata);
+}
+
 async function detectPlatforms(agentDir) {
   const platforms = [];
   if (await fileExists(path.join(agentDir, "claude-code.md"))) {
@@ -139,6 +151,7 @@ async function collectSkillItems(repoRoot) {
     const skillJsonPath = path.join(repoRoot, "skills", dirName, "skill.json");
     if (!(await fileExists(skillJsonPath))) continue;
     const skill = await readJson(skillJsonPath);
+    if (!isCatalogVisible(dirName, skill)) continue;
     skillItems.push(toSkillCatalogItem(skill, dirName));
   }
 
@@ -153,6 +166,7 @@ async function collectAgentItems(repoRoot) {
     const agentJsonPath = path.join(repoRoot, "agents", dirName, "agent.json");
     if (!(await fileExists(agentJsonPath))) continue;
     const agent = await readJson(agentJsonPath);
+    if (!isCatalogVisible(dirName, agent)) continue;
     const platforms = await detectPlatforms(path.join(repoRoot, "agents", dirName));
     agentItems.push(toAgentCatalogItem(agent, dirName, platforms));
   }

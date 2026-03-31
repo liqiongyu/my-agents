@@ -1,9 +1,0 @@
-id: change_g1_small_bug_01
-version: 0.1
-issue_id: issue_g1_small_bug_01
-run_id: run_g1_small_bug_01
-state: merge_ready
-branch_ref: fix/checkout-coupon-banner-reset
-pr_ref: github:pull/501
-created_at: 2026-03-29T08:40:00Z
-updated_at: 2026-03-29T09:02:00Z

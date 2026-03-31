@@ -228,24 +228,6 @@
       ]
     },
     {
-      "name": "issue-controller",
-      "path": "skills/issue-controller",
-      "displayName": "Issue Controller",
-      "description": "Issue Agent OS controller loop. Pulls from a GitHub issue queue, fans out triage to parallel triager agents, dispatches workers (coder, reviewer, splitter, planner, debugger) based on verdicts, drives review loops, merges PRs, and repeats until the queue is empty.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "workflow"
-      ],
-      "tags": [
-        "controller",
-        "orchestration",
-        "issue",
-        "queue",
-        "issue-agent-os"
-      ]
-    },
-    {
       "name": "project-documentation",
       "path": "skills/project-documentation",
       "displayName": "Docs Governance",
@@ -379,30 +361,6 @@
   ],
   "agents": [
     {
-      "name": "coder",
-      "path": "agents/coder",
-      "displayName": "Coder",
-      "description": "Issue Agent OS coding worker. Implements features, fixes, refactors, and docs changes in an isolated worktree based on a triager-written brief.",
-      "version": "0.1.1",
-      "maturity": "experimental",
-      "categories": [
-        "coding"
-      ],
-      "tags": [
-        "implementation",
-        "coding",
-        "worker",
-        "issue-agent-os"
-      ],
-      "archetype": "implementer",
-      "skills": [],
-      "agents": [],
-      "platforms": [
-        "claude-code",
-        "codex"
-      ]
-    },
-    {
       "name": "debugger",
       "path": "agents/debugger",
       "displayName": "Debugger",
@@ -514,37 +472,6 @@
       ]
     },
     {
-      "name": "issue-solver",
-      "path": "agents/issue-solver",
-      "displayName": "Issue Solver",
-      "description": "Solves a single GitHub issue end-to-end by orchestrating specialist agents through triage, implementation, review, and merge.",
-      "version": "0.2.1",
-      "maturity": "experimental",
-      "categories": [
-        "workflow",
-        "coding"
-      ],
-      "tags": [
-        "issue",
-        "orchestration",
-        "github",
-        "codex"
-      ],
-      "archetype": "custom",
-      "skills": [],
-      "agents": [
-        "triager",
-        "planner",
-        "coder",
-        "reviewer",
-        "debugger",
-        "splitter"
-      ],
-      "platforms": [
-        "codex"
-      ]
-    },
-    {
       "name": "planner",
       "path": "agents/planner",
       "displayName": "Planner",
@@ -631,55 +558,6 @@
         "claude-code",
         "codex"
       ]
-    },
-    {
-      "name": "splitter",
-      "path": "agents/splitter",
-      "displayName": "Splitter",
-      "description": "Issue Agent OS decomposition worker. Breaks large or vague issues into 2-5 concrete, right-sized sub-issues with dependency links.",
-      "version": "0.1.1",
-      "maturity": "experimental",
-      "categories": [
-        "workflow"
-      ],
-      "tags": [
-        "decomposition",
-        "issue",
-        "splitting",
-        "issue-agent-os"
-      ],
-      "archetype": "custom",
-      "skills": [],
-      "agents": [],
-      "platforms": [
-        "claude-code",
-        "codex"
-      ]
-    },
-    {
-      "name": "triager",
-      "path": "agents/triager",
-      "displayName": "Triager",
-      "description": "Issue triage agent that reads an issue, assesses actionability, decides routing (execute/split/plan/investigate/defer/reject/escalate), and writes an execution brief for workers.",
-      "version": "0.1.1",
-      "maturity": "experimental",
-      "categories": [
-        "workflow"
-      ],
-      "tags": [
-        "triage",
-        "issue",
-        "routing",
-        "brief",
-        "issue-agent-os"
-      ],
-      "archetype": "custom",
-      "skills": [],
-      "agents": [],
-      "platforms": [
-        "claude-code",
-        "codex"
-      ]
     }
   ],
   "packs": [
@@ -716,5 +594,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-31T02:28:56.490Z"
+  "generatedAt": "2026-03-31T02:54:16.159Z"
 }

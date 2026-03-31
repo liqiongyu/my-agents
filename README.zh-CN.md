@@ -5,9 +5,9 @@
 [![Validate](https://github.com/liqiongyu/my-agents/actions/workflows/validate.yml/badge.svg)](https://github.com/liqiongyu/my-agents/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-这是一个用于编写、校验和发布可复用 skills、agents 和 installable packs 的 monorepo，面向 Claude Code、Codex 以及类似的 AI 编程代理工作流。内置 **Issue Agent OS** —— 一个轻量控制器，将 GitHub Issues 转化为全自动的 分诊 → 执行 → 审查 → 合并 流水线，完全由子代理驱动。
+这是一个用于编写、校验和发布可复用 skills、agents 和 installable packs 的 monorepo，面向 Claude Code、Codex 以及类似的 AI 编程代理工作流。
 
-仓库把 `skills/`、`agents/` 和 `packs/` 作为唯一的源码入口，再基于这些源文件生成目录索引、执行结构校验，并把内容投影到不同运行时需要的安装位置。`runtime/` 下的轻量服务负责 Issue Agent OS 的队列与租约管理。
+仓库把 `skills/`、`agents/` 和 `packs/` 作为唯一的源码入口，再基于这些源文件生成目录索引、执行结构校验，并把内容投影到不同运行时需要的安装位置。
 
 > [!NOTE]
 > 日常维护请直接修改 `skills/`、`agents/`、`packs/` 和 `instructions/root/` 下的源码。生成索引、根目录说明文件和项目级运行时副本都应视为派生产物。
@@ -37,49 +37,7 @@ npm test
 - [docs/catalog/packs.md](docs/catalog/packs.md) 是自动生成的 pack 索引，适合人工浏览。
 - `dist/catalog.json` 是供脚本和工具消费的机器可读索引。
 
-如果想快速理解当前仓库的主线方向，可以先看 `issue-controller`（自动化 issue 队列循环）以及 agents 索引中的工作代理（`triager`、`coder`、`reviewer`、`splitter`、`debugger`）。包创作工作流方面，可以参考 skills 索引中的 `skill-lifecycle-manager` 和 `agent-lifecycle-manager`。
-
-## Issue Agent OS
-
-Issue Agent OS 以 GitHub Issues 作为优先级队列，通过一个轻量控制器 skill 编排子代理完成全流程。控制器本身不读取 issue 内容，所有判断都由它派发的子代理完成。
-
-```
-GitHub Issues（优先级队列）
-        │
-        ▼
-   Controller        ← skills/issue-controller
-  （轻量调度器）
-        │
-   ┌────┼────┐
-   ▼    ▼    ▼
- Triager Triager ...  ← agents/triager（并行扇出）
-   │    │    │
-   ▼    ▼    ▼
- Coder Splitter Debugger ...  ← agents/coder, splitter, debugger, planner
-   │         │
-   ▼         ▼
- Reviewer  子 issue → 重新入队
-   │
-   ▼
- 合并 PR
-```
-
-**核心组件：**
-
-| 组件       | 位置                       | 职责                                             |
-| ---------- | -------------------------- | ------------------------------------------------ |
-| Controller | `skills/issue-controller/` | 轻量调度循环 —— 拉取队列、扇出分诊、派发工作代理 |
-| Triager    | `agents/triager/`          | 读取 issue，评估可操作性，返回路由裁决           |
-| Coder      | `agents/coder/`            | 在隔离 worktree 中根据分诊简报实现变更           |
-| Reviewer   | `agents/reviewer/`         | 按严重性分级的结构化代码审查                     |
-| Splitter   | `agents/splitter/`         | 将大型或模糊 issue 拆分为 2–5 个具体子 issue     |
-| Debugger   | `agents/debugger/`         | 假设驱动的 bug 诊断与修复                        |
-| Planner    | `agents/planner/`          | 架构与实现规划                                   |
-| 队列服务   | `runtime/services/`        | 优先级排序、依赖解析、就绪 issue 筛选            |
-| 租约服务   | `runtime/services/`        | 支持并发工作代理的分布式租约管理                 |
-| 状态存储   | `scripts/lib/`             | 租约、运行记录、产物与事件日志持久化             |
-
-完整设计文档见 [docs/architecture/issue-agent-os-architecture.md](docs/architecture/issue-agent-os-architecture.md)。
+如果想快速理解包创作工作流，可以先看 skills 索引中的 `skill-lifecycle-manager`、`agent-lifecycle-manager`，以及 `docs/catalog/` 下的生成目录。
 
 ## 元数据约定
 
@@ -93,7 +51,6 @@ GitHub Issues（优先级队列）
 - [docs/architecture/tooling-layout.md](docs/architecture/tooling-layout.md) 说明了随着命令面增长，工具脚本和文档应如何组织。
 - [docs/architecture/official-agent-best-practices.md](docs/architecture/official-agent-best-practices.md) 把 OpenAI、Anthropic、MCP 与 Agent Skills 的官方最佳实践压缩成仓库默认设计规则。
 - [research/OpenAI_Anthropic_Codex_Claude_Code_Best_Practices_20260329.md](research/OpenAI_Anthropic_Codex_Claude_Code_Best_Practices_20260329.md) 保存这些规则背后的长版研究与来源依据。
-- [docs/architecture/issue-agent-os-architecture.md](docs/architecture/issue-agent-os-architecture.md) 记录了 Issue Agent OS 的设计：轻量控制器、GitHub-issues-as-queue、子代理派发与租约管理。
 - [instructions/root/shared.md](instructions/root/shared.md) 是 Codex 与 Claude Code 共享规则的唯一来源。
 - [AGENTS.md](AGENTS.md)、[CLAUDE.md](CLAUDE.md) 与 [CONTRIBUTING.md](CONTRIBUTING.md) 负责对贡献者说明工作流、发布卫生和本地约定。
 
@@ -112,7 +69,6 @@ GitHub Issues（优先级队列）
 | `instructions/root/`       | 用来生成根目录 `AGENTS.md` 与 `CLAUDE.md` 的标准源文件                                 |
 | `scripts/`                 | 脚手架、安装、目录构建与校验脚本                                                       |
 | `schemas/`                 | Skill、Agent、Catalog 元数据对应的 JSON Schema                                         |
-| `runtime/`                 | Issue Agent OS 的轻量运行时服务（队列、租约）                                          |
 | `research/`                | 调研笔记、资料整理和较长的背景文档                                                     |
 | `workspaces/<skill-name>/` | Skill 开发时的评估沙箱与临时工作区                                                     |
 | `.my-agents/`              | 本地忽略的状态目录，例如 project sync state 与可选的 `reference-repos.json` 清单       |
@@ -168,27 +124,7 @@ npx my-agents references sync
 
 项目清单现在可以同时包含本地包名和外部官方 GitHub 资产。`add <url>` 会把 URL 解析成结构化 manifest entry，并锁定到不可变的 commit SHA，这样 `project sync` 仍然可以稳定复现。
 
-### Issue Agent OS
-
-Issue Agent OS 由 `issue-controller` skill 驱动，不是一个 CLI 子命令。通过交互方式调用：
-
-```bash
-# Claude Code —— 调用 controller skill
-/issue-controller owner/repo
-
-# Codex —— controller skill 从 prompt 激活
-codex --prompt "Process the issue queue for owner/repo"
-```
-
-独立的队列检查 CLI 可用于查询：
-
-```bash
-node scripts/lib/issue-driven-os-queue.js next --repo owner/repo --limit 6
-```
-
-完整架构见 [docs/architecture/issue-agent-os-architecture.md](docs/architecture/issue-agent-os-architecture.md)，控制器 skill 参考见 [skills/issue-controller/SKILL.md](skills/issue-controller/SKILL.md)。
-
-### Lint 与格式化
+### 代码检查与格式化
 
 ```bash
 npm run lint

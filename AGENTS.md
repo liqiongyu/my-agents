@@ -67,24 +67,6 @@ When the proposed path is not the shortest, lowest-cost, or most reversible opti
 Pause only when unresolved uncertainty would materially change the outcome; otherwise, record reasonable assumptions and keep moving.
 Prefer the lightest workflow and tool that can solve the problem well, and avoid adding complexity just to follow an established path.
 
-## Repository Direction
-
-For the Issue-Driven Agent OS work in this repository, the target runtime is
-**Codex-native and agentic**.
-
-- Prefer Codex host primitives such as `spawn_agent`, `send_input`,
-  `wait_agent`, `resume_agent`, and `close_agent` as the primary orchestration
-  mechanism.
-- Keep repository-owned code thin and substrate-only: CLI bootstrap,
-  projections, artifact persistence, safety gates, local ergonomics, and other
-  deterministic helpers.
-- Do not introduce or expand JavaScript-owned business workflow orchestration
-  when a Codex-native agent lifecycle can own the loop.
-- Package intelligence in canonical `agents/` and `skills/` first; use code
-  mainly for contracts, adapters, durable state, and audit surfaces.
-- Treat backend portability as a later adapter concern. Do not dilute a
-  Codex-native design just to preserve hypothetical cross-backend symmetry.
-
 ## Observable Completion
 
 After completing work, include an `Execution Summary` using this canonical format by default:
@@ -102,7 +84,6 @@ After completing work, include an `Execution Summary` using this canonical forma
 - Keep repository-wide instructions in the root `AGENTS.md`. If a subtree ever needs narrower guidance, add another scoped `AGENTS.md` inside that subtree instead of bloating the root file.
 - Treat the root `AGENTS.md` as generated output from `instructions/root/shared.md` and `instructions/root/codex.md`; do not hand-edit it.
 - Codex project-scope runtime installs live under `.agents/skills/` for skills and `.codex/agents/` for agents. Update canonical packages and reinstall rather than editing projected runtime copies.
-- For issue/runtime architecture in this repo, treat Codex-native agent lifecycle primitives as first-class building blocks. Prefer `spawn_agent`, `send_input`, `wait_agent`, `resume_agent`, and `close_agent` over custom JavaScript orchestration unless a thin deterministic adapter is genuinely unavoidable.
 
 <text>
 **减少标题与列表：** 更多使用自然的段落结构，避免过度换行，需要时再使用标题或列表。
