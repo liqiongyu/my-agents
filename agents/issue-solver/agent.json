@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "name": "issue-solver",
   "displayName": "Issue Solver",
-  "description": "Single-issue Codex-native orchestrator that drives one GitHub issue for the current project's GitHub remote from intake through triage, execution, review, and terminal resolution.",
-  "version": "0.1.0",
+  "description": "Solves a single GitHub issue end-to-end by orchestrating specialist agents through triage, implementation, review, and merge.",
+  "version": "0.2.0",
   "maturity": "experimental",
   "categories": ["workflow", "coding"],
-  "tags": ["issue", "orchestration", "github", "codex", "issue-agent-os"],
+  "tags": ["issue", "orchestration", "github", "codex"],
   "authors": [
     {
       "name": "Qiongyu Li"

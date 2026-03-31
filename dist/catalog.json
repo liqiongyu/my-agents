@@ -517,8 +517,8 @@
       "name": "issue-solver",
       "path": "agents/issue-solver",
       "displayName": "Issue Solver",
-      "description": "Single-issue Codex-native orchestrator that drives one GitHub issue for the current project's GitHub remote from intake through triage, execution, review, and terminal resolution.",
-      "version": "0.1.0",
+      "description": "Solves a single GitHub issue end-to-end by orchestrating specialist agents through triage, implementation, review, and merge.",
+      "version": "0.2.0",
       "maturity": "experimental",
       "categories": [
         "workflow",
@@ -528,8 +528,7 @@
         "issue",
         "orchestration",
         "github",
-        "codex",
-        "issue-agent-os"
+        "codex"
       ],
       "archetype": "custom",
       "skills": [],
@@ -717,5 +716,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-30T15:50:39.454Z"
+  "generatedAt": "2026-03-31T01:58:31.387Z"
 }
