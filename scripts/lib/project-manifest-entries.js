@@ -1,5 +1,3 @@
-const LOCAL_ENTRY_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const GITHUB_REPO_RE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const GIT_COMMIT_SHA_RE = /^[0-9a-f]{40}$/;
 
 function isObject(value) {
@@ -16,14 +14,6 @@ function isExternalProjectManifestEntry(value) {
 
 function getExternalProjectManifestEntryId(entry) {
   return `official:${entry.provider}:${entry.repo}@${entry.resolvedCommit}:${entry.path}`;
-}
-
-function getProjectManifestEntryName(entry) {
-  return isLocalProjectManifestEntry(entry) ? entry : (entry?.name ?? null);
-}
-
-function getProjectManifestEntryPlatform(entry) {
-  return isExternalProjectManifestEntry(entry) ? entry.platform : null;
 }
 
 function getProjectManifestRuntimeCollisionKey(kind, platform, name) {
@@ -77,14 +67,10 @@ function getExternalProjectManifestEntries(entries) {
 }
 
 module.exports = {
-  LOCAL_ENTRY_NAME_RE,
-  GITHUB_REPO_RE,
   GIT_COMMIT_SHA_RE,
   isLocalProjectManifestEntry,
   isExternalProjectManifestEntry,
   getExternalProjectManifestEntryId,
-  getProjectManifestEntryName,
-  getProjectManifestEntryPlatform,
   getProjectManifestRuntimeCollisionKey,
   getProjectManifestManagedEntryKey,
   parseProjectManifestManagedEntryKey,

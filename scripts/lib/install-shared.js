@@ -4,12 +4,6 @@ const ALL_PLATFORMS = ["claude", "codex"];
 const DEFAULT_PROJECT_MANIFEST = "my-agents.project.json";
 const PROJECT_SYNC_STATE_PATH = path.join(".my-agents", "project-sync-state.json");
 
-function formatAjvErrors(errors) {
-  return (errors ?? [])
-    .map((error) => `- ${error.instancePath || "/"} ${error.message}`)
-    .join("\n");
-}
-
 function unique(values) {
   return [...new Set(values ?? [])];
 }
@@ -64,7 +58,6 @@ module.exports = {
   ALL_PLATFORMS,
   DEFAULT_PROJECT_MANIFEST,
   PROJECT_SYNC_STATE_PATH,
-  formatAjvErrors,
   unique,
   uniqueSorted,
   difference,

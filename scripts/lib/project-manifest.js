@@ -4,7 +4,8 @@ const Ajv = require("ajv/dist/2020");
 const addFormats = require("ajv-formats");
 
 const { fileExists, readJson } = require("./fs-utils");
-const { DEFAULT_PROJECT_MANIFEST, formatAjvErrors, unique } = require("./install-shared");
+const { DEFAULT_PROJECT_MANIFEST, unique } = require("./install-shared");
+const { formatAjvErrors } = require("./validate-utils");
 const {
   getExternalProjectManifestEntryId,
   getExternalProjectManifestEntries,

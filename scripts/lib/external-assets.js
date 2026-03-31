@@ -4,10 +4,7 @@ const path = require("node:path");
 
 const { cloneGitRepository, resolveGitRemoteRef } = require("./git-utils");
 const { fileExists } = require("./fs-utils");
-const {
-  getExternalProjectManifestEntryId,
-  getProjectManifestManagedEntryKey
-} = require("./project-manifest-entries");
+const { getProjectManifestManagedEntryKey } = require("./project-manifest-entries");
 
 async function withExternalRepositoryCheckout(repo, resolvedCommit, fn) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "my-agents-external-"));
@@ -134,18 +131,12 @@ async function resolveExternalAssetCandidates(parsedGitHubUrl) {
   return matches[0];
 }
 
-function getExternalAssetId(entry) {
-  return getExternalProjectManifestEntryId(entry);
-}
-
 function getExternalAssetManagedKey(kind, entry) {
   return getProjectManifestManagedEntryKey(kind === "skills" ? "skill" : "agent", entry);
 }
 
 module.exports = {
-  getExternalAssetId,
   getExternalAssetManagedKey,
-  inspectExternalAssetCandidate,
   resolveExternalAssetCandidates,
   withExternalRepositoryCheckout
 };
