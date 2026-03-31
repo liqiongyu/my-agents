@@ -5,6 +5,18 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-31
+
+### Changed
+
+- Replaced descriptive workflow with gate-based contract — each phase has a required output that must exist before advancing.
+- Added required evidence fields in output report (`pickup_comment_url`, `triage_verdict`, `branch_name`, `pr_url`, `review_verdict`, `merge_result`).
+- Hardened identity rule: issue URLs must match current project repo or the run stops.
+- Added PR discovery fallback when coder doesn't return PR number.
+- Added draft-to-ready step before merge (coder creates draft PRs).
+- Defined post-limit terminal state: `blocked` after 2 review rounds exhausted.
+- Strengthened "never do specialist work yourself" as a hard rule, not guidance.
+
 ## [0.2.0] - 2026-03-31
 
 ### Changed

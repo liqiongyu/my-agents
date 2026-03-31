@@ -3,7 +3,7 @@
   "name": "issue-solver",
   "displayName": "Issue Solver",
   "description": "Solves a single GitHub issue end-to-end by orchestrating specialist agents through triage, implementation, review, and merge.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "maturity": "experimental",
   "categories": ["workflow", "coding"],
   "tags": ["issue", "orchestration", "github", "codex"],
