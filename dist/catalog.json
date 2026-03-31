@@ -2,6 +2,26 @@
   "schemaVersion": 1,
   "skills": [
     {
+      "name": "agent-architect",
+      "path": "skills/agent-architect",
+      "displayName": "Agent Architect",
+      "description": "Analyze a coding project and design a tailored AI development environment: recommend agents, skills, instruction files, MCP servers, and workflow composition across Claude Code and Codex. Also audit an existing AI setup for gaps, overlap, or bloat. Use when setting up, overhauling, or auditing a project's AI tooling as a whole, not for individual agent edits or skill management.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "design",
+        "productivity"
+      ],
+      "tags": [
+        "agent-architect",
+        "ai-environment",
+        "project-analysis",
+        "agent-design",
+        "dual-platform"
+      ]
+    },
+    {
       "name": "agent-lifecycle-manager",
       "path": "skills/agent-lifecycle-manager",
       "displayName": "Agent Lifecycle Manager",
@@ -594,5 +614,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-03-31T04:39:51.180Z"
+  "generatedAt": "2026-03-31T05:58:54.702Z"
 }

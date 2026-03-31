@@ -1,0 +1,177 @@
+{
+  "version": "0.1.0",
+  "skill": "agent-architect",
+  "type": "trigger-posture",
+  "description": "Posture-aware trigger suite for agent-architect. The skill is manual-first: it should trigger on explicit project-level AI environment setup requests and decline individual agent edits, skill management, or general architecture work.",
+  "assertions": [
+    "routing_verdict_correct",
+    "invocation_posture_explicit",
+    "negative_boundary_respected",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "routing_verdict_correct": "The response makes the right top-level call: route into agent-architect for project-level AI environment requests, and decline or redirect individual agent/skill work or non-AI architecture tasks.",
+    "invocation_posture_explicit": "For routed requests, the response explicitly or implicitly operates in the skill's manual-first posture.",
+    "negative_boundary_respected": "For requests that should not route to this skill, the response explains the boundary and points to the correct alternative.",
+    "next_step_explicit": "The response closes with a concrete next step."
+  },
+  "cases": [
+    {
+      "id": "tp-should-1",
+      "name": "Explicit project AI setup request",
+      "expected_trigger": "should-trigger",
+      "prompt": "Set up the AI development environment for this repo — what agents, skills, and MCP servers do we need?",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is an explicit project-level AI environment request. Should route to agent-architect."
+        },
+        "next_step_explicit": {
+          "check": "Should start with Scan mode to analyze the project."
+        }
+      }
+    },
+    {
+      "id": "tp-should-2",
+      "name": "Agent architecture audit request",
+      "expected_trigger": "should-trigger",
+      "prompt": "Audit our current agent setup — are there gaps, overlap, or agents we should remove?",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is a project-level agent architecture audit. Should route to agent-architect Audit mode."
+        },
+        "next_step_explicit": {
+          "check": "Should route to Audit mode and start with inventory."
+        }
+      }
+    },
+    {
+      "id": "tp-should-3",
+      "name": "New project AI environment design",
+      "expected_trigger": "should-trigger",
+      "prompt": "We're starting a new Django + React project. Design the complete agent and skill setup for both Claude Code and Codex.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "Explicit project-level design request spanning agents, skills, and dual platform. Should route to agent-architect."
+        },
+        "next_step_explicit": {
+          "check": "Should start with Scan or Design given the project info is already provided."
+        }
+      }
+    },
+    {
+      "id": "tp-should-4",
+      "name": "CLAUDE.md overhaul with broader architecture context",
+      "expected_trigger": "should-trigger",
+      "prompt": "Redesign our CLAUDE.md and agent architecture — the current setup is messy and needs a complete rethink.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "The request is about overhauling the project's AI configuration as a whole, not just editing one file. Should route to agent-architect."
+        },
+        "next_step_explicit": {
+          "check": "Should start with Scan or Audit to understand current state before redesigning."
+        }
+      }
+    },
+    {
+      "id": "tp-not-1",
+      "name": "Individual agent creation request",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "Create a new reviewer agent with claude-code.md and codex.toml files.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is individual agent creation, not project-level architecture. Should NOT route to agent-architect."
+        },
+        "negative_boundary_respected": {
+          "check": "Should redirect to agent-lifecycle-manager for individual agent work."
+        }
+      }
+    },
+    {
+      "id": "tp-not-2",
+      "name": "Skill management request",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "Update our review skill and optimize its trigger description.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is skill lifecycle work, not agent architecture. Should NOT route to agent-architect."
+        },
+        "negative_boundary_respected": {
+          "check": "Should redirect to skill-lifecycle-manager."
+        }
+      }
+    },
+    {
+      "id": "tp-not-3",
+      "name": "General software architecture question",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "Should we use a microservices or monolithic architecture for our new payment system?",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is software architecture, not AI development environment design. Should NOT route to agent-architect."
+        },
+        "negative_boundary_respected": {
+          "check": "Should redirect to future-aware-architecture or handle directly."
+        }
+      }
+    },
+    {
+      "id": "tp-not-4",
+      "name": "Simple CLAUDE.md edit without architecture context",
+      "expected_trigger": "should-not-trigger",
+      "prompt": "Add our test commands to CLAUDE.md.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "This is a simple file edit, not a project-level AI environment design. Should NOT route to agent-architect."
+        },
+        "negative_boundary_respected": {
+          "check": "Should just edit the file directly without invoking the full architect workflow."
+        }
+      }
+    },
+    {
+      "id": "tp-near-1",
+      "name": "MCP server recommendation without broader architecture context",
+      "expected_trigger": "near-miss",
+      "prompt": "What MCP servers should I add for this PostgreSQL + Redis project?",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "Borderline case. Could be handled by agent-architect (MCP is part of its scope) or directly. Routing to agent-architect is acceptable if it scopes down to MCP-only advice."
+        },
+        "next_step_explicit": {
+          "check": "Should either give MCP advice directly or scope down the agent-architect workflow to MCP recommendations only."
+        }
+      }
+    },
+    {
+      "id": "tp-near-2",
+      "name": "Agent validation request that could be individual or library-wide",
+      "expected_trigger": "near-miss",
+      "prompt": "Are our agents set up correctly? Validate them.",
+      "assertions": {
+        "routing_verdict_correct": {
+          "check": "Borderline. Could be agent-architect Audit (library-wide) or agent-lifecycle-manager Validate (individual). Both are defensible; the response should pick one and justify."
+        },
+        "next_step_explicit": {
+          "check": "Should clarify scope or pick the most reasonable interpretation."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "Agent-architect is manual-first. The trigger boundary should be tight: project-level AI environment work routes in, individual agent/skill work routes out. Near-miss cases allow flexibility but should show clear reasoning."
+  },
+  "runner_instructions": {
+    "setup": "Ensure the skill is discoverable. These are classification-only prompts — no file edits needed.",
+    "execution": "Run each prompt with the skill available. The response should classify routing correctly.",
+    "evaluation": "Score routing verdict, boundary clarity, and next-step guidance.",
+    "environment": "Read-only is sufficient."
+  }
+}

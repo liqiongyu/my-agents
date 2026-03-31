@@ -1,0 +1,192 @@
+{
+  "version": "0.1.0",
+  "skill": "agent-architect",
+  "description": "Evaluation suite for the agent-architect skill. Tests whether the skill can scan a codebase correctly, design phase-appropriate agent architectures, generate dual-platform files, apply the creation gate to every candidate, delegate individual agent work to agent-lifecycle-manager, and audit existing setups for gaps and overlap.",
+  "assertions": [
+    "mode_routing_correct",
+    "project_profile_accurate",
+    "creation_gate_applied",
+    "architecture_phase_appropriate",
+    "dual_platform_output",
+    "delegation_correct",
+    "interactive_pause_respected",
+    "ecosystem_first_for_skills",
+    "instruction_sizing_correct",
+    "next_step_explicit"
+  ],
+  "assertion_definitions": {
+    "mode_routing_correct": "The response chooses the correct mode(s) for the request: Scan, Design, Generate, or Audit, and does not force all modes when only one is needed.",
+    "project_profile_accurate": "The Scan output correctly identifies tech stack, project type, project phase, and existing AI configuration from the codebase signals available.",
+    "creation_gate_applied": "Every recommended agent is evaluated against the creation gate (context isolation value, behavioral contract, no existing overlap, recurring use, concise instructions). Candidates that fail the gate are dropped.",
+    "architecture_phase_appropriate": "The recommended number and type of agents match the project phase: early projects get 1-2, active projects 3-5, mature projects 3-7. The roles match the project type.",
+    "dual_platform_output": "Generated files include both Claude Code (claude-code.md) and Codex (codex.toml) surfaces with aligned semantics, unless the user explicitly requested single-platform.",
+    "delegation_correct": "The response designs the agent set but delegates individual agent creation, validation, and evaluation to agent-lifecycle-manager rather than re-implementing that lifecycle inline.",
+    "interactive_pause_respected": "The response pauses after Scan (for profile confirmation) and after Design (for plan approval) before generating files.",
+    "ecosystem_first_for_skills": "Skill recommendations search existing ecosystem offerings before proposing custom skills.",
+    "instruction_sizing_correct": "CLAUDE.md recommendations stay under 200 lines, agent instructions stay under 8 lines, and AGENTS.md stays under 32 KiB.",
+    "next_step_explicit": "The response closes with a concrete next step, especially when evaluation, trigger optimization, or installation remains."
+  },
+  "cases": [
+    {
+      "id": "eval-1",
+      "name": "Scan and design for a Next.js + FastAPI fullstack project",
+      "description": "Tests the full Scan -> Design flow on a recognizable fullstack project. The response should produce an accurate project profile, pause for confirmation, then recommend a phase-appropriate agent set.",
+      "prompt": "Analyze this project and recommend what agents, skills, and MCP servers we need. It's a Next.js frontend with a FastAPI backend, active development phase with CI and growing test coverage. We use PostgreSQL and have no existing AI configuration.",
+      "mode": "standard",
+      "expected_stages": ["Scan", "Design"],
+      "assertions": {
+        "mode_routing_correct": {
+          "check": "The route should be Scan then Design. Generate should not start without explicit approval."
+        },
+        "project_profile_accurate": {
+          "check": "Identifies fullstack (Next.js + FastAPI), active phase, PostgreSQL, no existing AI config."
+        },
+        "creation_gate_applied": {
+          "check": "Each recommended agent has a stated justification against the creation gate criteria."
+        },
+        "architecture_phase_appropriate": {
+          "check": "Active fullstack project should get 3-5 agents covering frontend review, backend review, and security at minimum."
+        },
+        "ecosystem_first_for_skills": {
+          "check": "Checks for existing skills before proposing custom ones."
+        },
+        "interactive_pause_respected": {
+          "check": "Pauses after Scan for profile confirmation before producing the design."
+        },
+        "next_step_explicit": {
+          "check": "Ends with next step of design approval then Generate, or direct Generate if approval is given inline."
+        }
+      }
+    },
+    {
+      "id": "eval-2",
+      "name": "Audit an existing over-provisioned agent setup",
+      "description": "Tests the Audit mode on a project with too many agents. The response should identify overlap, bloat, and recommend consolidation.",
+      "prompt": "Audit our current agent setup. We have 11 agents installed but several seem to overlap and our CLAUDE.md is 450 lines long. Are there gaps or redundancies? What should we consolidate?",
+      "mode": "standard",
+      "expected_stages": ["Audit"],
+      "assertions": {
+        "mode_routing_correct": {
+          "check": "The route should be Audit only, not Scan -> Design -> Generate."
+        },
+        "creation_gate_applied": {
+          "check": "Applies the creation gate in reverse: agents that fail it should be flagged for removal or consolidation."
+        },
+        "instruction_sizing_correct": {
+          "check": "Flags the 450-line CLAUDE.md as over the 200-line target and recommends what to move into skills or references."
+        },
+        "next_step_explicit": {
+          "check": "Ends with prioritized remediation steps: which agents to consolidate, what to move out of CLAUDE.md."
+        }
+      }
+    },
+    {
+      "id": "eval-3",
+      "name": "Generate files after approved design",
+      "description": "Tests the Generate mode with an already-approved design. Should produce dual-platform agent files and instruction files without re-scanning.",
+      "prompt": "We approved the design: 4 agents (reviewer, security-reviewer, api-reviewer, explorer). Generate the agent files for both Claude Code and Codex, plus draft a CLAUDE.md for this Python Django project.",
+      "mode": "standard",
+      "expected_stages": ["Generate"],
+      "assertions": {
+        "mode_routing_correct": {
+          "check": "Jumps to Generate without re-running Scan or Design since the design is already approved."
+        },
+        "dual_platform_output": {
+          "check": "Produces agent.json, claude-code.md, and codex.toml for each of the 4 agents."
+        },
+        "instruction_sizing_correct": {
+          "check": "Claude Code agent instructions are 5-8 lines. CLAUDE.md draft is under 200 lines."
+        },
+        "delegation_correct": {
+          "check": "Mentions that individual agents should go through agent-lifecycle-manager for validation and evaluation."
+        },
+        "next_step_explicit": {
+          "check": "Ends with next steps: validate via agent-lifecycle-manager, then install."
+        }
+      }
+    },
+    {
+      "id": "eval-4",
+      "name": "Scan an early-stage project and recommend minimal agents",
+      "description": "Tests phase-appropriate sizing. An early project should get 1-2 agents, not a full suite.",
+      "prompt": "I just started a new Rust CLI tool project. No tests yet, no CI. What AI development environment should I set up?",
+      "mode": "standard",
+      "expected_stages": ["Scan", "Design"],
+      "assertions": {
+        "project_profile_accurate": {
+          "check": "Identifies Rust, CLI/library type, early phase, no existing AI config."
+        },
+        "architecture_phase_appropriate": {
+          "check": "Recommends 1-2 agents maximum. Does not over-provision with reviewers and security specialists for an early solo project."
+        },
+        "creation_gate_applied": {
+          "check": "Most agent candidates should be deferred because the project is too early to justify them."
+        },
+        "next_step_explicit": {
+          "check": "Suggests revisiting the architecture as the project matures."
+        }
+      }
+    },
+    {
+      "id": "eval-5",
+      "name": "Design for a monorepo with distinct domains",
+      "description": "Tests monorepo-aware architecture with hierarchical instruction routing.",
+      "prompt": "We have an Nx monorepo with 3 apps (React frontend, Node.js API, Python ML pipeline) and 5 shared libraries. Mature project with full CI, high test coverage, and release workflow. Design the agent architecture.",
+      "mode": "standard",
+      "expected_stages": ["Scan", "Design"],
+      "assertions": {
+        "project_profile_accurate": {
+          "check": "Identifies monorepo (Nx), fullstack + ML, mature phase."
+        },
+        "architecture_phase_appropriate": {
+          "check": "Recommends 5-7 agents with domain-specific roles. Includes recommendation for hierarchical CLAUDE.md/AGENTS.md routing."
+        },
+        "instruction_sizing_correct": {
+          "check": "Recommends root-level CLAUDE.md for navigation plus per-domain instruction files."
+        },
+        "interactive_pause_respected": {
+          "check": "Pauses after profile and after design before generating any files."
+        },
+        "next_step_explicit": {
+          "check": "Clear next step after design approval."
+        }
+      }
+    },
+    {
+      "id": "eval-6",
+      "name": "Single-platform generation when requested",
+      "description": "Tests that the skill respects user preference for single-platform output instead of forcing dual-platform.",
+      "prompt": "We only use Claude Code. Generate agents for our React project — skip Codex entirely.",
+      "mode": "standard",
+      "expected_stages": ["Generate"],
+      "assertions": {
+        "dual_platform_output": {
+          "check": "Generates ONLY Claude Code files (agent.json + claude-code.md). Does NOT generate codex.toml since the user explicitly requested Claude Code only."
+        },
+        "mode_routing_correct": {
+          "check": "Routes to Generate without forcing a full Scan if the project context is clear enough."
+        },
+        "next_step_explicit": {
+          "check": "Ends with validation and installation steps for Claude Code only."
+        }
+      }
+    }
+  ],
+  "scoring": {
+    "per_assertion": {
+      "pass": 1,
+      "partial": 0.5,
+      "fail": 0
+    },
+    "case_max_strategy": "count-applicable-assertions",
+    "total_max_strategy": "sum-applicable-assertions",
+    "pass_threshold": 0.75,
+    "notes": "A case passes if it scores >= 75% of the possible points for the assertions that apply to that case. The suite passes if every case passes individually."
+  },
+  "runner_instructions": {
+    "setup": "Install the skill on the target surface or ensure the canonical package is discoverable. For cases that test Scan behavior, run against a real or representative project directory.",
+    "execution": "Run each prompt in a session where the skill is available. For Generate cases, capture the generated filesystem artifacts as part of the evidence.",
+    "evaluation": "Score each assertion as pass, partial, or fail. Pay special attention to creation gate application and phase-appropriate sizing.",
+    "environment": "Filesystem write access required for Generate cases. Read access sufficient for Scan and Audit cases."
+  }
+}
