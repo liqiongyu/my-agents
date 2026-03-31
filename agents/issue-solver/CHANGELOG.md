@@ -5,6 +5,12 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-03-31
+
+### Added
+
+- Added `codex-cn.toml` as a Chinese Codex-authored definition for `issue-solver` while keeping the existing `codex.toml` contract unchanged.
+
 ## [0.2.1] - 2026-03-31
 
 ### Changed
