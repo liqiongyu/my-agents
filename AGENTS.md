@@ -8,32 +8,10 @@
 
 The root `AGENTS.md` and `CLAUDE.md` files are generated outputs. Edit `instructions/root/shared.md` plus the relevant platform fragment (`instructions/root/codex.md` or `instructions/root/claude.md`) instead of hand-editing the generated files. Run `npm run sync-instructions` after changing those source files. The repo's versioned `pre-commit` hook auto-syncs and stages the generated files, and `npm test` plus CI fail if they drift.
 
-## Project Structure & Module Organization
+## Reference
 
-This repository is a monorepo for reusable skills, agents, and installable packs. Edit canonical sources in `skills/<name>/`, `agents/<name>/`, and `packs/<name>/`, not projected runtime copies in `.agents/`, `.claude/`, or `.codex/`.
-
-- Skill packages should contain `skill.json`, `SKILL.md`, and `CHANGELOG.md`; `references/`, `scripts/`, `assets/`, and `projection.json` are optional.
-- Agent packages should contain `agent.json`, at least one platform definition file such as `claude-code.md` or `codex.toml`, and `CHANGELOG.md`.
-- Pack packages should contain `pack.json`, `README.md`, and `CHANGELOG.md`.
-- Shared schemas live in `schemas/`; authoring tools live in `scripts/`; generated catalogs live in `docs/catalog/` and `dist/catalog.json`; longer research notes live in `research/`.
-- Treat installable skills and agents as self-contained packages. A skill or agent may reference another package conceptually, but it must not depend on another skill or agent package's private script paths. If no formal shared-runtime distribution mechanism exists, prefer local duplication over cross-package runtime dependencies.
-- Local-only external reference repositories should live under `workspaces/references/`. If `.my-agents/reference-repos.json` exists, treat it as the discovery index for those references, but do not commit the manifest or the cloned repositories.
-
-## Build, Test, And Development Commands
-
-Use Node.js 18+ and install `uv` when running Python-backed skill checks.
-
-- `npm install` installs repo dependencies and configures the repo's versioned Git hooks for this clone.
-- `npm run lint` lints the repository's JavaScript tooling with ESLint.
-- `npm run lint:fix` applies safe ESLint auto-fixes.
-- `npm run format` formats supported source files with Prettier.
-- `npm run format:check` verifies formatting without modifying files.
-- `npm run sync-instructions` regenerates root `AGENTS.md` and `CLAUDE.md`.
-- `npm run sync-instructions -- --check` verifies the generated root instruction files are current.
-- `npm run new -- my-skill`, `npm run new -- --agent my-agent`, and `npm run new -- --pack my-pack` scaffold canonical packages.
-- `npm run build` regenerates `dist/catalog.json`, `docs/catalog/skills.md`, `docs/catalog/agents.md`, and `docs/catalog/packs.md`.
-- `npm test` runs repository validation, including packaged Python unit tests that are wired into the shared validation path through `uv`.
-- `npx my-agents install <skill|agent|pack> <name>`, `npx my-agents uninstall <skill|agent|pack> <name>`, `npx my-agents project sync`, and `npx my-agents references <command>` are the canonical runtime commands. Repo-local `npm run install-*`, `npm run uninstall-*`, `npm run sync-project`, and `npm run sync-references` aliases remain available for compatibility. Runtime commands support `--platform claude|codex|all`, `--scope user|project`, and `--manifest <path>` where relevant.
+- `instructions/root/reference/structure.md` — project layout, package conventions, directory roles. Consult when creating or reorganizing packages.
+- `instructions/root/reference/commands.md` — build, test, lint, install, and scaffolding commands. Consult when you need to run or document a command.
 
 ## Coding Style & Naming Conventions
 
@@ -58,14 +36,6 @@ Use Conventional Commits such as `feat(skills): add skill lifecycle manager work
 - `dist/catalog.json` contains a volatile `generatedAt` timestamp; freshness checks compare the durable catalog fields, not that timestamp.
 - Schema `$id` values under `schemas/` point at GitHub raw URLs; update them if the repo is renamed or transferred.
 - Keep root guidance concise and push package-specific operating details into the relevant `SKILL.md`, `claude-code.md`, `codex.toml`, pack `README.md`, or changelog.
-
-## Problem Framing And Execution
-
-Start from the user's real goal rather than mechanically following the surface request.
-First determine the right workflow for the task, such as direction exploration, requirements clarification, review, research, planning, or direct execution.
-When the proposed path is not the shortest, lowest-cost, or most reversible option, say so and recommend a better alternative with reasons.
-Pause only when unresolved uncertainty would materially change the outcome; otherwise, record reasonable assumptions and keep moving.
-Prefer the lightest workflow and tool that can solve the problem well, and avoid adding complexity just to follow an established path.
 
 ## Observable Completion
 
