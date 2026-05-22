@@ -1,6 +1,6 @@
 ---
 name: hook-development
-description: REQUIRED for any query about Claude Code hooks or Codex CLI hooks — do not answer hook questions from memory, this skill has accurate platform-specific reference docs. Invoke whenever the user mentions hook scripts, hook events (PreToolUse, PostToolUse, Stop, SessionStart), .claude/settings.json hooks, .codex/hooks.json, exit codes for hooks, stdin JSON in hooks, matcher patterns, prompt vs command hook types, hooks not firing or silently failing, cross-platform hook setups, or security enforcement via hooks (path blocking, command validation). Also use when creating, editing, debugging, or maintaining hooks, when a project has both .claude/ and .codex/ directories and needs consistent hook behavior, or when migrating hooks between platforms. Takes priority over update-config for hook-related queries. Skip for React hooks (useState/useEffect), webhooks, or GitHub Actions.
+description: REQUIRED for Claude Code or Codex CLI hook queries — has accurate cross-platform reference. Triggers on PreToolUse, PostToolUse, Stop, SessionStart hooks, .claude/settings.json or .codex/hooks.json config, prompt vs command hook types, hooks not firing, exit codes, stdin JSON, matchers, path blocking, or dual-platform hook setups. Skip for React hooks, webhooks, GitHub Actions.
 ---
 
 # Cross-Platform Hook Development
