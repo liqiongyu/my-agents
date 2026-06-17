@@ -176,27 +176,6 @@
       ]
     },
     {
-      "name": "dependency-audit",
-      "path": "skills/dependency-audit",
-      "displayName": "Dependency Audit",
-      "description": "Structured workflow for auditing project dependencies: security vulnerabilities, license compliance, outdated packages, and upgrade planning with risk-assessed migration paths.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "security",
-        "devops",
-        "workflow"
-      ],
-      "tags": [
-        "dependencies",
-        "npm-audit",
-        "cve",
-        "license",
-        "upgrade",
-        "supply-chain"
-      ]
-    },
-    {
       "name": "editorial-review",
       "path": "skills/editorial-review",
       "displayName": "Editorial Review",
@@ -310,6 +289,30 @@
         "execution-plan",
         "rollout-planning",
         "technical-roadmap"
+      ]
+    },
+    {
+      "name": "meta-loop",
+      "path": "skills/meta-loop",
+      "displayName": "Meta-Loop",
+      "description": "Judge whether any produce → check → fix → re-check loop (verification, review, maker/checker, evaluator-optimizer, agent self-review) is well-designed against a 10-dimension rubric, or design a new one in 9 steps. Grounded in TDD, Reflexion, LLM-as-judge, process-supervision, and agentic-workflow research.",
+      "version": "0.1.0",
+      "maturity": "experimental",
+      "categories": [
+        "workflow",
+        "review",
+        "ai"
+      ],
+      "tags": [
+        "loop",
+        "verification",
+        "review",
+        "maker-checker",
+        "evaluator-optimizer",
+        "llm-as-judge",
+        "self-review",
+        "meta-methodology",
+        "rubric"
       ]
     },
     {
@@ -464,27 +467,6 @@
         "ecosystem-research",
         "skill-creation"
       ]
-    },
-    {
-      "name": "testing-workflow",
-      "path": "skills/testing-workflow",
-      "displayName": "Testing Workflow",
-      "description": "Structured workflow for test strategy design, coverage analysis, test generation planning, and quality verification across unit, integration, and end-to-end testing layers.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "testing",
-        "coding",
-        "workflow"
-      ],
-      "tags": [
-        "test-strategy",
-        "coverage",
-        "unit-test",
-        "integration-test",
-        "e2e",
-        "tdd"
-      ]
     }
   ],
   "agents": [
@@ -509,33 +491,6 @@
       "skills": [
         "clarify"
       ],
-      "agents": [
-        "explorer"
-      ],
-      "platforms": [
-        "claude-code",
-        "codex"
-      ]
-    },
-    {
-      "name": "doc-writer",
-      "path": "agents/doc-writer",
-      "displayName": "Doc Writer",
-      "description": "Technical documentation agent that reads code and generates or updates API docs, architecture guides, and developer documentation.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "documentation",
-        "coding"
-      ],
-      "tags": [
-        "docs",
-        "api-docs",
-        "architecture",
-        "developer-guide"
-      ],
-      "archetype": "implementer",
-      "skills": [],
       "agents": [
         "explorer"
       ],
@@ -713,132 +668,9 @@
         "claude-code",
         "codex"
       ]
-    },
-    {
-      "name": "security-scanner",
-      "path": "agents/security-scanner",
-      "displayName": "Security Scanner",
-      "description": "Read-only security scanning agent that audits code and dependencies for vulnerabilities, secrets, and OWASP risks with severity-graded findings.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "security",
-        "coding"
-      ],
-      "tags": [
-        "security",
-        "vulnerability",
-        "owasp",
-        "secrets",
-        "audit"
-      ],
-      "archetype": "reviewer",
-      "skills": [],
-      "agents": [
-        "explorer"
-      ],
-      "platforms": [
-        "claude-code",
-        "codex"
-      ]
-    },
-    {
-      "name": "test-writer",
-      "path": "agents/test-writer",
-      "displayName": "Test Writer",
-      "description": "Test generation agent that reads code and requirements, then writes unit, integration, and regression tests without modifying business logic.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "categories": [
-        "testing",
-        "coding"
-      ],
-      "tags": [
-        "unit-test",
-        "integration-test",
-        "coverage",
-        "tdd"
-      ],
-      "archetype": "implementer",
-      "skills": [
-        "clarify"
-      ],
-      "agents": [
-        "explorer"
-      ],
-      "platforms": [
-        "claude-code",
-        "codex"
-      ]
     }
   ],
   "packs": [
-    {
-      "name": "developer-core",
-      "path": "packs/developer-core",
-      "displayName": "Developer Core Pack",
-      "description": "Core development cycle toolkit: explore, plan, implement, test, review, and debug.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "packType": "role-pack",
-      "persona": "developer",
-      "categories": [
-        "coding",
-        "testing",
-        "review"
-      ],
-      "tags": [
-        "developer",
-        "core",
-        "dev-cycle"
-      ],
-      "skills": [
-        "clarify",
-        "implementation-planning",
-        "review",
-        "testing-workflow"
-      ],
-      "agents": [
-        "explorer",
-        "implementer",
-        "reviewer",
-        "debugger",
-        "test-writer"
-      ]
-    },
-    {
-      "name": "issue-ops",
-      "path": "packs/issue-ops",
-      "displayName": "Issue Ops Pack",
-      "description": "Issue Agent OS pipeline: triage, decompose, implement, and review GitHub issues end-to-end.",
-      "version": "0.1.0",
-      "maturity": "experimental",
-      "packType": "agent-team",
-      "categories": [
-        "workflow",
-        "coding"
-      ],
-      "tags": [
-        "issue",
-        "github",
-        "automation",
-        "issue-agent-os"
-      ],
-      "skills": [
-        "issue-controller",
-        "clarify",
-        "review"
-      ],
-      "agents": [
-        "triager",
-        "splitter",
-        "coder",
-        "reviewer",
-        "debugger",
-        "explorer"
-      ],
-      "leadAgent": "triager"
-    },
     {
       "name": "product-manager",
       "path": "packs/product-manager",
@@ -872,5 +704,5 @@
       ]
     }
   ],
-  "generatedAt": "2026-05-24T09:33:29.956Z"
+  "generatedAt": "2026-06-17T15:50:26.413Z"
 }
